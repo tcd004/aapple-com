@@ -28,6 +28,12 @@
 </div>
 ```
 
+## Analytics (required on every piece)
+Add this just before `</body>` on every page:
+```html
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+```
+
 ## Idea Bank
 - Particle systems, physics sims, gravity wells
 - Recursive geometry, fractals, L-systems
