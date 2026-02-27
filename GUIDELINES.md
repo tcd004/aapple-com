@@ -1,5 +1,19 @@
 # aapple.com — Daily Art Guidelines
 
+## Ethics
+- **Originality first** — this is YOUR creativity, not borrowed from others
+- Homages to famous works are fine, direct rips are not
+- When inspired by something, make it unmistakably your own interpretation
+- No copying code/art from other people's creative coding projects
+
+## Media
+- **Public domain media is encouraged!** Use images, audio, video from:
+  - Wikimedia Commons, Library of Congress, NASA, Unsplash, Pexels
+  - Public domain music/sounds (Musopen, Freesound.org CC0)
+  - Classic art (Met Open Access, Rijksmuseum API, Smithsonian Open Access)
+- Always use CDN/hotlink-friendly sources or inline small assets as base64
+- No copyrighted media
+
 ## Creative Direction
 - Occasionally (randomly) use an apple theme — wink at the typo traffic
 - Embrace weird, surreal, even spooky pieces
