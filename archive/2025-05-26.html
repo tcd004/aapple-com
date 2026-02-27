@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>aapple.com</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #111; overflow: hidden; }
+canvas { display: block; }
+.footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; padding: 16px; z-index: 10; }
+.footer a { color: rgba(255,255,255,0.3); text-decoration: none; font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 1px; transition: color 0.3s; }
+.footer a:hover { color: rgba(255,255,255,0.7); }
+.credit { color: rgba(255,255,255,0.15); font-family: 'Courier New', monospace; font-size: 10px; margin-top: 6px; letter-spacing: 0.5px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+resize();
+window.addEventListener('resize', resize);
+
+// Recursive subdivision — click to shatter any rectangle
+let rects = [{ x: 0, y: 0, w: W, h: H, hue: Math.random() * 360, depth: 0 }];
+let maxDepth = 8;
+
+function drawRect(r) {
+  let sat = 50 + r.depth * 5;
+  let light = 15 + r.depth * 4;
+  ctx.fillStyle = `hsl(${r.hue}, ${sat}%, ${light}%)`;
+  ctx.fillRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
+
+  // border glow
+  ctx.strokeStyle = `hsla(${r.hue}, 80%, ${30 + r.depth * 5}%, 0.6)`;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+}
+
+function splitRect(r) {
+  if (r.depth >= maxDepth) return [r];
+  let horizontal = r.w < r.h || (r.w === r.h && Math.random() > 0.5);
+  let ratio = 0.3 + Math.random() * 0.4;
+  let hueShift = (Math.random() - 0.5) * 40;
+
+  if (horizontal) {
+    let splitY = r.y + r.h * ratio;
+    return [
+      { x: r.x, y: r.y, w: r.w, h: r.h * ratio, hue: (r.hue + hueShift + 360) % 360, depth: r.depth + 1 },
+      { x: r.x, y: splitY, w: r.w, h: r.h * (1 - ratio), hue: (r.hue - hueShift + 360) % 360, depth: r.depth + 1 }
+    ];
+  } else {
+    let splitX = r.x + r.w * ratio;
+    return [
+      { x: r.x, y: r.y, w: r.w * ratio, h: r.h, hue: (r.hue + hueShift + 360) % 360, depth: r.depth + 1 },
+      { x: splitX, y: r.y, w: r.w * (1 - ratio), h: r.h, hue: (r.hue - hueShift + 360) % 360, depth: r.depth + 1 }
+    ];
+  }
+}
+
+function render() {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H);
+  for (let r of rects) drawRect(r);
+}
+
+canvas.addEventListener('click', e => {
+  let mx = e.clientX, my = e.clientY;
+  // Find deepest rect under click
+  let best = null;
+  for (let r of rects) {
+    if (mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h) {
+      if (!best || r.depth >= best.depth) best = r;
+    }
+  }
+  if (best) {
+    let idx = rects.indexOf(best);
+    let newRects = splitRect(best);
+    rects.splice(idx, 1, ...newRects);
+    render();
+  }
+});
+
+// Double-click to reset
+canvas.addEventListener('dblclick', () => {
+  rects = [{ x: 0, y: 0, w: W, h: H, hue: Math.random() * 360, depth: 0 }];
+  render();
+});
+
+render();
+</script>
+</body>
+</html>

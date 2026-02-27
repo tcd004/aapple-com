@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>aapple.com</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #000; overflow: hidden; cursor: crosshair; }
+canvas { display: block; }
+.footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; padding: 16px; z-index: 10; }
+.footer a { color: rgba(255,255,255,0.3); text-decoration: none; font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 1px; transition: color 0.3s; }
+.footer a:hover { color: rgba(255,255,255,0.7); }
+.credit { color: rgba(255,255,255,0.15); font-family: 'Courier New', monospace; font-size: 10px; margin-top: 6px; letter-spacing: 0.5px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+let particles = [];
+let mouse = { x: -1000, y: -1000 };
+let hueShift = 0;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+class Particle {
+  constructor(x, y) {
+    this.x = x || Math.random() * W;
+    this.y = y || Math.random() * H;
+    this.originX = this.x;
+    this.originY = this.y;
+    this.vx = 0;
+    this.vy = 0;
+    this.radius = Math.random() * 2 + 0.5;
+    this.hue = Math.random() * 60 + 10;
+    this.life = 1;
+    this.wanderAngle = Math.random() * Math.PI * 2;
+  }
+
+  update() {
+    let dx = mouse.x - this.x;
+    let dy = mouse.y - this.y;
+    let dist = Math.sqrt(dx * dx + dy * dy);
+    let force = Math.max(0, 200 - dist) / 200;
+
+    if (dist < 200) {
+      // repel from mouse
+      this.vx -= (dx / dist) * force * 3;
+      this.vy -= (dy / dist) * force * 3;
+      this.hue = (this.hue + force * 5) % 360;
+    }
+
+    // gentle wander
+    this.wanderAngle += (Math.random() - 0.5) * 0.3;
+    this.vx += Math.cos(this.wanderAngle) * 0.02;
+    this.vy += Math.sin(this.wanderAngle) * 0.02;
+
+    // return to origin
+    this.vx += (this.originX - this.x) * 0.003;
+    this.vy += (this.originY - this.y) * 0.003;
+
+    // damping
+    this.vx *= 0.96;
+    this.vy *= 0.96;
+
+    this.x += this.vx;
+    this.y += this.vy;
+  }
+
+  draw() {
+    let speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+    let alpha = Math.min(0.9, 0.2 + speed * 0.15);
+    let h = (this.hue + hueShift) % 360;
+    let r = this.radius + speed * 0.5;
+
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${h}, 80%, 60%, ${alpha})`;
+    ctx.fill();
+
+    if (speed > 2) {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, r * 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${h}, 90%, 70%, ${alpha * 0.15})`;
+      ctx.fill();
+    }
+  }
+}
+
+// Create particles in a grid with organic spacing
+for (let x = 0; x < W; x += 12) {
+  for (let y = 0; y < H; y += 12) {
+    particles.push(new Particle(
+      x + (Math.random() - 0.5) * 6,
+      y + (Math.random() - 0.5) * 6
+    ));
+  }
+}
+
+// Draw connections between nearby fast particles
+function drawConnections() {
+  for (let i = 0; i < particles.length; i++) {
+    let p = particles[i];
+    let speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+    if (speed < 1.5) continue;
+
+    for (let j = i + 1; j < particles.length; j++) {
+      let q = particles[j];
+      let qSpeed = Math.sqrt(q.vx * q.vx + q.vy * q.vy);
+      if (qSpeed < 1.5) continue;
+
+      let dx = p.x - q.x;
+      let dy = p.y - q.y;
+      let dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < 40) {
+        let alpha = (1 - dist / 40) * 0.2;
+        let h = (p.hue + hueShift) % 360;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(q.x, q.y);
+        ctx.strokeStyle = `hsla(${h}, 70%, 60%, ${alpha})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+    }
+  }
+}
+
+document.addEventListener('mousemove', e => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+});
+
+document.addEventListener('touchmove', e => {
+  e.preventDefault();
+  mouse.x = e.touches[0].clientX;
+  mouse.y = e.touches[0].clientY;
+}, { passive: false });
+
+document.addEventListener('mouseleave', () => {
+  mouse.x = -1000;
+  mouse.y = -1000;
+});
+
+function animate() {
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+  ctx.fillRect(0, 0, W, H);
+
+  hueShift += 0.1;
+
+  for (let p of particles) {
+    p.update();
+    p.draw();
+  }
+
+  drawConnections();
+  requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+</body>
+</html>
