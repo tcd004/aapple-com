@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>aapple.com — The Typewriter That Sings</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0a0a;
+  overflow: hidden;
+  font-family: 'Courier New', monospace;
+  cursor: text;
+}
+canvas { display: block; position: fixed; top: 0; left: 0; z-index: 0; }
+#text-layer {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 60px;
+  z-index: 1;
+  padding: 60px 40px;
+  pointer-events: none;
+  overflow: hidden;
+}
+#typed {
+  color: rgba(255,255,255,0.85);
+  font-size: 28px;
+  line-height: 1.6;
+  letter-spacing: 2px;
+  word-break: break-word;
+  text-shadow: 0 0 20px currentColor;
+}
+#cursor {
+  display: inline-block;
+  width: 2px;
+  height: 32px;
+  background: rgba(255,255,255,0.7);
+  vertical-align: text-bottom;
+  animation: blink 1s step-end infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+#prompt {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  color: rgba(255,255,255,0.25);
+  font-size: 14px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  transition: opacity 1.5s;
+  text-align: center;
+  line-height: 2;
+}
+.footer {
+  position: fixed;
+  bottom: 12px;
+  left: 0; right: 0;
+  text-align: center;
+  z-index: 10;
+}
+.footer a {
+  color: rgba(255,255,255,0.2);
+  text-decoration: none;
+  font-size: 11px;
+  letter-spacing: 1px;
+  font-family: 'Courier New', monospace;
+}
+.footer a:hover { color: rgba(255,255,255,0.5); }
+.credit {
+  color: rgba(255,255,255,0.08);
+  font-size: 9px;
+  margin-top: 4px;
+  font-family: 'Courier New', monospace;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="prompt">start typing<br><span style="font-size:11px;color:rgba(255,255,255,0.15)">every letter has a voice</span></div>
+<div id="text-layer"><div id="typed"></div><span id="cursor"></span></div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize() { W = canvas.width = innerWidth; H = canvas.height = innerHeight; }
+resize();
+addEventListener('resize', resize);
+
+// Audio
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+// Pentatonic scale across 3 octaves for pleasant sounds
+const notes = [];
+const pentatonic = [0, 2, 4, 7, 9]; // C D E G A
+for (let oct = 3; oct <= 5; oct++) {
+  for (const semi of pentatonic) {
+    notes.push(440 * Math.pow(2, (semi - 9 + (oct - 4) * 12) / 12));
+  }
+}
+
+function playNote(char) {
+  const idx = char.charCodeAt(0) % notes.length;
+  const freq = notes[idx];
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+
+  // Different waveshapes based on character
+  const waves = ['sine', 'triangle', 'sine', 'triangle'];
+  osc.type = waves[char.charCodeAt(0) % waves.length];
+  osc.frequency.value = freq;
+
+  filter.type = 'lowpass';
+  filter.frequency.value = 2000 + (char.charCodeAt(0) % 26) * 100;
+  filter.Q.value = 2;
+
+  gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
+
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.8);
+
+  return { freq, idx };
+}
+
+// Space makes a soft percussion
+function playSpace() {
+  const noise = audioCtx.createBufferSource();
+  const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.1, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
+  noise.buffer = buf;
+  const gain = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'highpass';
+  filter.frequency.value = 6000;
+  gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+  noise.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+  noise.start();
+}
+
+// Visuals — ripples
+const ripples = [];
+
+function spawnRipple(x, y, hue) {
+  ripples.push({ x, y, r: 0, maxR: 80 + Math.random() * 120, hue, alpha: 0.6, speed: 1.5 + Math.random() });
+}
+
+// Floating letters
+const floaters = [];
+
+function spawnFloater(char, hue) {
+  floaters.push({
+    char,
+    x: 40 + Math.random() * (W - 80),
+    y: H * 0.3 + Math.random() * (H * 0.4),
+    hue,
+    alpha: 0.5,
+    vy: -0.3 - Math.random() * 0.5,
+    size: 20 + Math.random() * 30,
+    rotation: (Math.random() - 0.5) * 0.5,
+    rotSpeed: (Math.random() - 0.5) * 0.02
+  });
+}
+
+const typed = document.getElementById('typed');
+const prompt = document.getElementById('prompt');
+let started = false;
+let hueOffset = Math.random() * 360;
+
+addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+
+  if (!started) {
+    started = true;
+    prompt.style.opacity = '0';
+  }
+
+  if (e.key === 'Backspace') {
+    const t = typed.textContent;
+    if (t.length) typed.textContent = t.slice(0, -1);
+    return;
+  }
+
+  if (e.key.length !== 1) return;
+
+  const char = e.key;
+  const hue = (char.charCodeAt(0) * 27 + hueOffset) % 360;
+
+  if (char === ' ') {
+    playSpace();
+    typed.textContent += ' ';
+  } else {
+    const { freq } = playNote(char);
+    typed.innerHTML += `<span style="color:hsl(${hue},70%,70%)">${char === '<' ? '&lt;' : char === '>' ? '&gt;' : char === '&' ? '&amp;' : char}</span>`;
+
+    // Visuals
+    const rx = Math.random() * W;
+    const ry = Math.random() * H;
+    spawnRipple(rx, ry, hue);
+    if (Math.random() > 0.5) spawnFloater(char, hue);
+  }
+
+  // Trim visible text if too long
+  while (typed.childNodes.length > 300) typed.removeChild(typed.firstChild);
+});
+
+// Touch support
+let touchPrompt = false;
+addEventListener('touchstart', () => {
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (!touchPrompt) {
+    touchPrompt = true;
+    prompt.innerHTML = 'tap anywhere<br><span style="font-size:11px;color:rgba(255,255,255,0.15)">the screen plays back</span>';
+  }
+});
+
+addEventListener('touchend', (e) => {
+  if (!started) { started = true; prompt.style.opacity = '0'; }
+  const touch = e.changedTouches[0];
+  const chars = 'abcdefghijklmnopqrstuvwxyz';
+  const char = chars[Math.floor(Math.random() * chars.length)];
+  const hue = (char.charCodeAt(0) * 27 + hueOffset) % 360;
+  playNote(char);
+  spawnRipple(touch.clientX, touch.clientY, hue);
+  spawnFloater(char, hue);
+});
+
+// Render loop
+function draw() {
+  ctx.fillStyle = 'rgba(10,10,10,0.15)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Ripples
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    const r = ripples[i];
+    r.r += r.speed;
+    r.alpha *= 0.97;
+    if (r.alpha < 0.01 || r.r > r.maxR) { ripples.splice(i, 1); continue; }
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+    ctx.strokeStyle = `hsla(${r.hue},60%,60%,${r.alpha})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  // Floaters
+  for (let i = floaters.length - 1; i >= 0; i--) {
+    const f = floaters[i];
+    f.y += f.vy;
+    f.alpha *= 0.995;
+    f.rotation += f.rotSpeed;
+    if (f.alpha < 0.01) { floaters.splice(i, 1); continue; }
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.rotate(f.rotation);
+    ctx.font = `${f.size}px 'Courier New', monospace`;
+    ctx.fillStyle = `hsla(${f.hue},50%,60%,${f.alpha})`;
+    ctx.textAlign = 'center';
+    ctx.fillText(f.char, 0, 0);
+    ctx.restore();
+  }
+
+  // Cap arrays
+  if (ripples.length > 80) ripples.splice(0, ripples.length - 80);
+  if (floaters.length > 60) floaters.splice(0, floaters.length - 60);
+
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
