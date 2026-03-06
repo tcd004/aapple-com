@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>aapple.com — Radio Static</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #1a1410;
+  color: #d4c5a0;
+  font-family: 'Courier New', monospace;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: default;
+}
+
+.start-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  cursor: pointer;
+}
+.start-overlay span {
+  color: #665533;
+  font-size: 14px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+.radio {
+  width: min(90vw, 500px);
+  background: linear-gradient(145deg, #2a2218, #1e1a12);
+  border-radius: 16px;
+  padding: 30px;
+  box-shadow:
+    0 0 60px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.05),
+    0 0 120px rgba(80,50,10,0.15);
+  border: 1px solid #3a3020;
+  position: relative;
+}
+
+.speaker-grille {
+  width: 100%;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.speaker-grille::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 3px,
+    #2a2218 3px,
+    #2a2218 5px
+  );
+  border-radius: 8px;
+  border: 1px solid #3a3020;
+}
+
+.visualizer {
+  width: 90%;
+  height: 80px;
+  position: relative;
+  z-index: 1;
+}
+
+.display {
+  background: #0c1a08;
+  border-radius: 6px;
+  padding: 12px 20px;
+  margin-bottom: 24px;
+  border: 1px solid #1a2a10;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
+  position: relative;
+  overflow: hidden;
+}
+.display::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(0,0,0,0.15) 2px,
+    rgba(0,0,0,0.15) 4px
+  );
+  pointer-events: none;
+}
+
+.freq-display {
+  font-size: 32px;
+  color: #33cc33;
+  text-shadow: 0 0 10px #33cc33, 0 0 30px rgba(51,204,51,0.3);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.freq-label {
+  font-size: 10px;
+  color: #227722;
+  text-align: center;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.dial-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 0 10px;
+}
+.dial-track {
+  flex: 1;
+  height: 40px;
+  position: relative;
+  cursor: grab;
+  touch-action: none;
+}
+.dial-track:active { cursor: grabbing; }
+
+.dial-marks {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+}
+.dial-scale {
+  width: 100%;
+  height: 20px;
+  position: relative;
+}
+
+.dial-thumb {
+  width: 18px;
+  height: 36px;
+  background: linear-gradient(180deg, #c4a060, #8a6a30);
+  border-radius: 3px;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.2);
+  cursor: grab;
+  z-index: 2;
+}
+.dial-thumb::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: rgba(0,0,0,0.3);
+  transform: translateX(-50%);
+}
+
+.band-label {
+  font-size: 9px;
+  color: #665533;
+  letter-spacing: 2px;
+  white-space: nowrap;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 10px;
+}
+
+.knob {
+  width: 44px;
+  height: 44px;
+  background: radial-gradient(circle at 35% 35%, #4a3a20, #2a2010);
+  border-radius: 50%;
+  border: 2px solid #5a4a30;
+  position: relative;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+.knob::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  width: 2px;
+  height: 10px;
+  background: #c4a060;
+  transform: translateX(-50%);
+  border-radius: 1px;
+}
+.knob-label {
+  font-size: 8px;
+  color: #554430;
+  text-align: center;
+  margin-top: 6px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #331100;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+  transition: all 0.3s;
+}
+.indicator.on {
+  background: #ff6600;
+  box-shadow: 0 0 8px #ff6600, 0 0 20px rgba(255,102,0,0.3);
+}
+
+.station-name {
+  font-size: 11px;
+  color: #446622;
+  text-align: center;
+  letter-spacing: 2px;
+  height: 16px;
+  margin-top: 4px;
+  text-shadow: 0 0 6px rgba(68,102,34,0.5);
+}
+
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.03;
+  z-index: 50;
+}
+
+.footer {
+  position: fixed;
+  bottom: 20px;
+  text-align: center;
+  width: 100%;
+  z-index: 10;
+}
+.footer a {
+  color: #443322;
+  text-decoration: none;
+  font-size: 11px;
+  letter-spacing: 2px;
+}
+.footer a:hover { color: #886644; }
+.credit {
+  color: rgba(255,255,255,0.08);
+  font-size: 9px;
+  margin-top: 6px;
+  letter-spacing: 0.5px;
+}
+</style>
+</head>
+<body>
+
+<div class="start-overlay" id="startOverlay">
+  <span>click to tune in</span>
+</div>
+
+<canvas class="noise-overlay" id="noiseCanvas"></canvas>
+
+<div class="radio">
+  <div class="speaker-grille">
+    <canvas class="visualizer" id="visualizer"></canvas>
+  </div>
+
+  <div class="display">
+    <div class="freq-display" id="freqDisplay">88.0</div>
+    <div class="station-name" id="stationName">&nbsp;</div>
+    <div class="freq-label">MHz — FM</div>
+  </div>
+
+  <div class="dial-container">
+    <span class="band-label">88</span>
+    <div class="dial-track" id="dialTrack">
+      <div class="dial-thumb" id="dialThumb" style="left: 0%"></div>
+    </div>
+    <span class="band-label">108</span>
+  </div>
+
+  <div class="controls">
+    <div>
+      <div class="knob" id="volumeKnob" title="Volume"></div>
+      <div class="knob-label">Vol</div>
+    </div>
+    <div class="indicator" id="powerLight"></div>
+    <div>
+      <div class="knob" id="toneKnob" title="Tone"></div>
+      <div class="knob-label">Tone</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+
+<script>
+(() => {
+  const startOverlay = document.getElementById('startOverlay');
+  const freqDisplay = document.getElementById('freqDisplay');
+  const stationName = document.getElementById('stationName');
+  const dialTrack = document.getElementById('dialTrack');
+  const dialThumb = document.getElementById('dialThumb');
+  const powerLight = document.getElementById('powerLight');
+  const visCanvas = document.getElementById('visualizer');
+  const noiseCanvas = document.getElementById('noiseCanvas');
+  const visCtx = visCanvas.getContext('2d');
+  const noiseCtx = noiseCanvas.getContext('2d');
+
+  let audioCtx, masterGain, toneFilter;
+  let staticSource, staticGain;
+  let stationOsc, stationGain, stationMod, stationModGain;
+  let droneOsc1, droneOsc2, droneGain;
+  let analyser, dataArray;
+  let freq = 88.0;
+  let dragging = false;
+  let volume = 0.5;
+  let started = false;
+
+  // Ghost stations — each with a frequency, name, and sound character
+  const stations = [
+    { freq: 91.3, name: 'The Hum', type: 'drone', baseFreq: 60 },
+    { freq: 94.7, name: 'Phantom Waltz', type: 'melody', baseFreq: 220 },
+    { freq: 97.1, name: 'Numbers Station', type: 'beep', baseFreq: 800 },
+    { freq: 100.5, name: 'Deep Space', type: 'drone', baseFreq: 40 },
+    { freq: 103.9, name: 'The Lullaby', type: 'melody', baseFreq: 330 },
+    { freq: 106.3, name: 'Signal Lost', type: 'beep', baseFreq: 1200 },
+  ];
+
+  function initAudio() {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = volume * 0.4;
+
+    toneFilter = audioCtx.createBiquadFilter();
+    toneFilter.type = 'lowpass';
+    toneFilter.frequency.value = 3000;
+    toneFilter.connect(masterGain);
+    masterGain.connect(audioCtx.destination);
+
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    masterGain.connect(analyser);
+
+    // Static noise
+    const bufferSize = audioCtx.sampleRate * 2;
+    const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * 0.7;
+    }
+    staticSource = audioCtx.createBufferSource();
+    staticSource.buffer = noiseBuffer;
+    staticSource.loop = true;
+    staticGain = audioCtx.createGain();
+    staticGain.gain.value = 0.8;
+    staticSource.connect(staticGain);
+
+    const staticFilter = audioCtx.createBiquadFilter();
+    staticFilter.type = 'bandpass';
+    staticFilter.frequency.value = 2000;
+    staticFilter.Q.value = 0.5;
+    staticGain.connect(staticFilter);
+    staticFilter.connect(toneFilter);
+    staticSource.start();
+
+    // Station oscillator
+    stationOsc = audioCtx.createOscillator();
+    stationOsc.type = 'sine';
+    stationOsc.frequency.value = 220;
+    stationGain = audioCtx.createGain();
+    stationGain.gain.value = 0;
+    stationMod = audioCtx.createOscillator();
+    stationMod.type = 'sine';
+    stationMod.frequency.value = 3;
+    stationModGain = audioCtx.createGain();
+    stationModGain.gain.value = 0;
+    stationMod.connect(stationModGain);
+    stationModGain.connect(stationOsc.frequency);
+    stationOsc.connect(stationGain);
+    stationGain.connect(toneFilter);
+    stationOsc.start();
+    stationMod.start();
+
+    // Deep drone layer
+    droneOsc1 = audioCtx.createOscillator();
+    droneOsc1.type = 'sawtooth';
+    droneOsc1.frequency.value = 55;
+    droneOsc2 = audioCtx.createOscillator();
+    droneOsc2.type = 'sine';
+    droneOsc2.frequency.value = 55.3;
+    droneGain = audioCtx.createGain();
+    droneGain.gain.value = 0;
+    const droneFilter = audioCtx.createBiquadFilter();
+    droneFilter.type = 'lowpass';
+    droneFilter.frequency.value = 200;
+    droneOsc1.connect(droneGain);
+    droneOsc2.connect(droneGain);
+    droneGain.connect(droneFilter);
+    droneFilter.connect(toneFilter);
+    droneOsc1.start();
+    droneOsc2.start();
+
+    powerLight.classList.add('on');
+  }
+
+  function updateSound() {
+    if (!audioCtx) return;
+    const t = audioCtx.currentTime;
+
+    let closestStation = null;
+    let closestDist = Infinity;
+    for (const s of stations) {
+      const d = Math.abs(freq - s.freq);
+      if (d < closestDist) { closestDist = d; closestStation = s; }
+    }
+
+    // Tuning window: within 0.4 MHz = locked, fade in/out over 0.4-1.5
+    const lockRange = 0.4;
+    const fadeRange = 1.5;
+    let stationStrength = 0;
+    if (closestDist < lockRange) {
+      stationStrength = 1;
+    } else if (closestDist < fadeRange) {
+      stationStrength = 1 - (closestDist - lockRange) / (fadeRange - lockRange);
+    }
+
+    // Static inversely proportional to station strength
+    staticGain.gain.setTargetAtTime(0.8 * (1 - stationStrength * 0.85), t, 0.1);
+
+    if (closestStation && stationStrength > 0) {
+      stationName.textContent = stationStrength > 0.6 ? closestStation.name : '';
+
+      if (closestStation.type === 'drone') {
+        stationOsc.type = 'sawtooth';
+        stationOsc.frequency.setTargetAtTime(closestStation.baseFreq, t, 0.2);
+        stationModGain.gain.setTargetAtTime(closestStation.baseFreq * 0.02, t, 0.1);
+        stationMod.frequency.setTargetAtTime(0.3, t, 0.1);
+        droneOsc1.frequency.setTargetAtTime(closestStation.baseFreq, t, 0.3);
+        droneOsc2.frequency.setTargetAtTime(closestStation.baseFreq * 1.005, t, 0.3);
+        droneGain.gain.setTargetAtTime(stationStrength * 0.15, t, 0.1);
+      } else if (closestStation.type === 'melody') {
+        stationOsc.type = 'sine';
+        const noteTime = (t * 2) % 8;
+        const notes = [0, 3, 7, 12, 7, 3, 0, -5];
+        const noteIdx = Math.floor(noteTime) % notes.length;
+        const noteFreq = closestStation.baseFreq * Math.pow(2, notes[noteIdx] / 12);
+        stationOsc.frequency.setTargetAtTime(noteFreq, t, 0.05);
+        stationModGain.gain.setTargetAtTime(noteFreq * 0.01, t, 0.1);
+        stationMod.frequency.setTargetAtTime(5, t, 0.1);
+        droneGain.gain.setTargetAtTime(stationStrength * 0.06, t, 0.1);
+        droneOsc1.frequency.setTargetAtTime(closestStation.baseFreq * 0.5, t, 0.3);
+        droneOsc2.frequency.setTargetAtTime(closestStation.baseFreq * 0.501, t, 0.3);
+      } else if (closestStation.type === 'beep') {
+        stationOsc.type = 'square';
+        const beepTime = (t * 4) % 4;
+        const beepOn = beepTime % 1 < 0.3;
+        stationOsc.frequency.setTargetAtTime(
+          beepOn ? closestStation.baseFreq : closestStation.baseFreq * 0.75,
+          t, 0.01
+        );
+        stationModGain.gain.setTargetAtTime(0, t, 0.05);
+        droneGain.gain.setTargetAtTime(0, t, 0.1);
+      }
+
+      stationGain.gain.setTargetAtTime(stationStrength * 0.2, t, 0.08);
+    } else {
+      stationGain.gain.setTargetAtTime(0, t, 0.1);
+      droneGain.gain.setTargetAtTime(0, t, 0.1);
+      stationName.textContent = '';
+    }
+
+    masterGain.gain.setTargetAtTime(volume * 0.4, t, 0.05);
+  }
+
+  function setFreq(f) {
+    freq = Math.round(Math.max(88, Math.min(108, f)) * 10) / 10;
+    freqDisplay.textContent = freq.toFixed(1);
+    const pct = ((freq - 88) / 20) * 100;
+    dialThumb.style.left = pct + '%';
+    updateSound();
+  }
+
+  function getFreqFromEvent(e) {
+    const rect = dialTrack.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    return 88 + pct * 20;
+  }
+
+  dialTrack.addEventListener('mousedown', e => { dragging = true; setFreq(getFreqFromEvent(e)); });
+  dialTrack.addEventListener('touchstart', e => { dragging = true; setFreq(getFreqFromEvent(e)); e.preventDefault(); }, { passive: false });
+  window.addEventListener('mousemove', e => { if (dragging) setFreq(getFreqFromEvent(e)); });
+  window.addEventListener('touchmove', e => { if (dragging) setFreq(getFreqFromEvent(e)); }, { passive: true });
+  window.addEventListener('mouseup', () => { dragging = false; });
+  window.addEventListener('touchend', () => { dragging = false; });
+
+  // Volume knob — click to cycle
+  let volStep = 0;
+  document.getElementById('volumeKnob').addEventListener('click', () => {
+    volStep = (volStep + 1) % 5;
+    volume = [0, 0.25, 0.5, 0.75, 1.0][volStep];
+    const knob = document.getElementById('volumeKnob');
+    knob.style.transform = `rotate(${volStep * 60 - 120}deg)`;
+    updateSound();
+  });
+
+  // Tone knob
+  let toneStep = 2;
+  document.getElementById('toneKnob').addEventListener('click', () => {
+    toneStep = (toneStep + 1) % 5;
+    const freqs = [800, 1500, 3000, 5000, 8000];
+    if (toneFilter) toneFilter.frequency.setTargetAtTime(freqs[toneStep], audioCtx.currentTime, 0.1);
+    const knob = document.getElementById('toneKnob');
+    knob.style.transform = `rotate(${toneStep * 60 - 120}deg)`;
+  });
+
+  // Visualizer
+  function drawVisualizer() {
+    requestAnimationFrame(drawVisualizer);
+    visCanvas.width = visCanvas.offsetWidth * 2;
+    visCanvas.height = visCanvas.offsetHeight * 2;
+    const w = visCanvas.width, h = visCanvas.height;
+    visCtx.clearRect(0, 0, w, h);
+
+    if (!analyser) {
+      // Idle state — flat line
+      visCtx.strokeStyle = '#33cc33';
+      visCtx.lineWidth = 2;
+      visCtx.beginPath();
+      visCtx.moveTo(0, h / 2);
+      visCtx.lineTo(w, h / 2);
+      visCtx.stroke();
+      return;
+    }
+
+    analyser.getByteTimeDomainData(dataArray);
+    visCtx.strokeStyle = '#33cc33';
+    visCtx.shadowColor = '#33cc33';
+    visCtx.shadowBlur = 6;
+    visCtx.lineWidth = 2;
+    visCtx.beginPath();
+    const sliceWidth = w / dataArray.length;
+    let x = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const v = dataArray[i] / 128.0;
+      const y = (v * h) / 2;
+      if (i === 0) visCtx.moveTo(x, y);
+      else visCtx.lineTo(x, y);
+      x += sliceWidth;
+    }
+    visCtx.stroke();
+    visCtx.shadowBlur = 0;
+  }
+  drawVisualizer();
+
+  // Film grain noise overlay
+  noiseCanvas.width = 256;
+  noiseCanvas.height = 256;
+  function drawNoise() {
+    requestAnimationFrame(drawNoise);
+    const imageData = noiseCtx.createImageData(256, 256);
+    const d = imageData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const v = Math.random() * 255;
+      d[i] = d[i + 1] = d[i + 2] = v;
+      d[i + 3] = 255;
+    }
+    noiseCtx.putImageData(imageData, 0, 0);
+  }
+  noiseCanvas.style.width = '100vw';
+  noiseCanvas.style.height = '100vh';
+  drawNoise();
+
+  // Melody update loop
+  function melodyTick() {
+    if (audioCtx) updateSound();
+    setTimeout(melodyTick, 250);
+  }
+  melodyTick();
+
+  // Start
+  startOverlay.addEventListener('click', () => {
+    if (!started) {
+      started = true;
+      initAudio();
+      updateSound();
+      startOverlay.style.transition = 'opacity 1s';
+      startOverlay.style.opacity = '0';
+      setTimeout(() => startOverlay.style.display = 'none', 1000);
+    }
+  });
+
+  setFreq(88.0);
+})();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>

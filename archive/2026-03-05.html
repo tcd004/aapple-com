@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>aapple.com — Bathyal</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #000;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  font-family: 'Courier New', monospace;
+  cursor: none;
+}
+canvas { display: block; }
+#depth-gauge {
+  position: fixed;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255,255,255,0.2);
+  font-size: 10px;
+  letter-spacing: 2px;
+  writing-mode: vertical-rl;
+  pointer-events: none;
+  transition: color 2s;
+}
+#depth-num {
+  position: fixed;
+  right: 20px;
+  bottom: 80px;
+  color: rgba(100,200,255,0.3);
+  font-size: 12px;
+  letter-spacing: 1px;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+#hint {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(255,255,255,0.35);
+  font-size: 12px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  pointer-events: none;
+  transition: opacity 3s;
+  text-align: center;
+  line-height: 2;
+}
+#zone-name {
+  position: fixed;
+  left: 20px;
+  top: 20px;
+  color: rgba(255,255,255,0);
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  pointer-events: none;
+  transition: color 1.5s, opacity 1.5s;
+}
+.footer {
+  position: fixed;
+  bottom: 12px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  z-index: 100;
+  pointer-events: auto;
+}
+.footer a {
+  color: rgba(255,255,255,0.15);
+  text-decoration: none;
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-family: 'Courier New', monospace;
+}
+.footer a:hover { color: rgba(255,255,255,0.4); }
+.footer .credit {
+  color: rgba(255,255,255,0.07);
+  font-size: 9px;
+  margin-top: 4px;
+}
+#cursor {
+  position: fixed;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 50;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(180,220,255,0.08) 0%, transparent 70%);
+  mix-blend-mode: screen;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="cursor"></div>
+<div id="depth-gauge">DEPTH</div>
+<div id="depth-num">0 m</div>
+<div id="hint">scroll to descend<br>click to illuminate</div>
+<div id="zone-name"></div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const cursorEl = document.getElementById('cursor');
+const depthNum = document.getElementById('depth-num');
+const hint = document.getElementById('hint');
+const zoneNameEl = document.getElementById('zone-name');
+
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+let depth = 0; // 0 to 11000 meters
+let mouseX = W / 2, mouseY = H / 2;
+let audioStarted = false;
+let audioCtx, masterGain;
+let flashIntensity = 0;
+let hintVisible = true;
+
+// Zones
+const zones = [
+  { name: 'Sunlight Zone', maxDepth: 200, bgTop: [0,30,60], bgBot: [0,15,40] },
+  { name: 'Twilight Zone', maxDepth: 1000, bgTop: [0,15,40], bgBot: [0,5,20] },
+  { name: 'Midnight Zone', maxDepth: 4000, bgTop: [0,5,20], bgBot: [0,1,5] },
+  { name: 'Abyssal Zone', maxDepth: 6000, bgTop: [0,1,5], bgBot: [0,0,2] },
+  { name: 'Hadal Zone', maxDepth: 11000, bgTop: [0,0,2], bgBot: [0,0,0] }
+];
+
+let lastZone = '';
+
+function getZone(d) {
+  for (let z of zones) if (d < z.maxDepth) return z;
+  return zones[zones.length - 1];
+}
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+function lerpColor(c1, c2, t) {
+  return [lerp(c1[0],c2[0],t), lerp(c1[1],c2[1],t), lerp(c1[2],c2[2],t)];
+}
+
+// Particles (marine snow, debris)
+class Particle {
+  constructor() { this.reset(); }
+  reset() {
+    this.x = Math.random() * W;
+    this.y = Math.random() * H;
+    this.size = Math.random() * 2 + 0.5;
+    this.speed = Math.random() * 0.3 + 0.1;
+    this.drift = (Math.random() - 0.5) * 0.2;
+    this.alpha = Math.random() * 0.3 + 0.05;
+  }
+  update() {
+    this.y -= this.speed * (1 + depth * 0.0001);
+    this.x += this.drift + Math.sin(Date.now() * 0.001 + this.y * 0.01) * 0.15;
+    if (this.y < -10) { this.y = H + 10; this.x = Math.random() * W; }
+    if (this.x < -10) this.x = W + 10;
+    if (this.x > W + 10) this.x = -10;
+  }
+  draw() {
+    let a = this.alpha * Math.max(0.1, 1 - depth / 8000);
+    ctx.fillStyle = `rgba(200,220,240,${a})`;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// Bioluminescent creatures
+class Creature {
+  constructor() { this.reset(true); }
+  reset(init) {
+    this.type = Math.floor(Math.random() * 5); // 0=jellyfish, 1=anglerfish, 2=orb, 3=chain, 4=squid
+    this.x = init ? Math.random() * W : (Math.random() < 0.5 ? -80 : W + 80);
+    this.y = Math.random() * H;
+    this.baseX = this.x;
+    this.size = Math.random() * 15 + 8;
+    this.speed = (Math.random() * 0.4 + 0.15) * (this.x < W/2 ? 1 : -1);
+    this.phase = Math.random() * Math.PI * 2;
+    this.minDepth = Math.random() * 8000 + 500;
+    this.pulseRate = Math.random() * 2 + 1;
+    this.hue = this.type === 1 ? 30 : // anglerfish: warm
+               this.type === 4 ? 280 : // squid: purple
+               Math.random() * 60 + 170; // blue-green
+    this.alive = true;
+    this.scared = false;
+    this.scareTimer = 0;
+  }
+  update(t) {
+    if (depth < this.minDepth - 200) { this.alive = false; return; }
+    if (depth < this.minDepth) return;
+
+    let dx = mouseX - this.x;
+    let dy = mouseY - this.y;
+    let dist = Math.sqrt(dx*dx + dy*dy);
+
+    if (flashIntensity > 0.5 && dist < 200) {
+      this.scared = true;
+      this.scareTimer = 60;
+    }
+    if (this.scareTimer > 0) {
+      this.scareTimer--;
+      if (this.scareTimer <= 0) this.scared = false;
+    }
+
+    if (this.scared) {
+      this.x -= (dx / dist) * 3;
+      this.y -= (dy / dist) * 3;
+    } else {
+      this.x += this.speed;
+      this.y += Math.sin(t * 0.001 * this.pulseRate + this.phase) * 0.5;
+    }
+
+    if (this.x < -120 || this.x > W + 120) this.alive = false;
+  }
+  draw(t) {
+    if (depth < this.minDepth) return;
+    let depthFade = Math.min(1, (depth - this.minDepth) / 300);
+    let pulse = (Math.sin(t * 0.003 * this.pulseRate + this.phase) + 1) / 2;
+    let glow = 0.3 + pulse * 0.7;
+    let alpha = glow * depthFade;
+    let nearCursor = Math.max(0, 1 - Math.sqrt((mouseX-this.x)**2 + (mouseY-this.y)**2) / 250);
+    alpha = Math.min(1, alpha + nearCursor * 0.3);
+
+    ctx.save();
+    ctx.translate(this.x, this.y);
+
+    let s = this.size;
+    let h = this.hue;
+    let shadowBlur = 20 + pulse * 15;
+
+    ctx.shadowColor = `hsla(${h},80%,60%,${alpha * 0.6})`;
+    ctx.shadowBlur = shadowBlur;
+
+    if (this.type === 0) { // jellyfish
+      ctx.strokeStyle = `hsla(${h},70%,65%,${alpha * 0.7})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, s, s * 0.6, 0, Math.PI, 0);
+      ctx.stroke();
+      // tentacles
+      for (let i = -3; i <= 3; i++) {
+        ctx.beginPath();
+        ctx.strokeStyle = `hsla(${h},60%,55%,${alpha * 0.4})`;
+        ctx.lineWidth = 0.8;
+        let tx = i * (s / 4);
+        ctx.moveTo(tx, 0);
+        for (let j = 1; j <= 4; j++) {
+          ctx.lineTo(tx + Math.sin(t * 0.002 + i + j) * 5, j * (s * 0.3));
+        }
+        ctx.stroke();
+      }
+    } else if (this.type === 1) { // anglerfish - just the lure
+      ctx.fillStyle = `hsla(${h},90%,70%,${alpha})`;
+      ctx.beginPath();
+      ctx.arc(0, -s * 0.8, s * 0.2 + pulse * 3, 0, Math.PI * 2);
+      ctx.fill();
+      // stalk
+      ctx.strokeStyle = `hsla(${h},40%,40%,${alpha * 0.4})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 0.8);
+      ctx.quadraticCurveTo(5, -s * 0.3, 0, 0);
+      ctx.stroke();
+      // body silhouette
+      ctx.fillStyle = `rgba(0,0,0,${alpha * 0.6})`;
+      ctx.beginPath();
+      ctx.ellipse(0, s * 0.2, s * 0.8, s * 0.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // eye
+      ctx.fillStyle = `hsla(${h},80%,50%,${alpha * 0.5})`;
+      ctx.beginPath();
+      ctx.arc(-s * 0.3, 0, 2, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.type === 2) { // orb
+      let grad = ctx.createRadialGradient(0, 0, 0, 0, 0, s);
+      grad.addColorStop(0, `hsla(${h},80%,70%,${alpha})`);
+      grad.addColorStop(0.5, `hsla(${h},70%,50%,${alpha * 0.3})`);
+      grad.addColorStop(1, `hsla(${h},60%,30%,0)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, s, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.type === 3) { // chain siphonophore
+      for (let i = 0; i < 8; i++) {
+        let ox = Math.sin(t * 0.002 + i * 0.8) * 4;
+        let oy = i * (s * 0.4);
+        ctx.fillStyle = `hsla(${h + i * 10},70%,60%,${alpha * (1 - i * 0.1)})`;
+        ctx.shadowBlur = 10 + pulse * 8;
+        ctx.beginPath();
+        ctx.ellipse(ox, oy, s * 0.25, s * 0.15, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else { // squid
+      ctx.strokeStyle = `hsla(${h},70%,60%,${alpha * 0.8})`;
+      ctx.lineWidth = 1.5;
+      // mantle
+      ctx.beginPath();
+      ctx.ellipse(0, 0, s * 0.4, s, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      // arms
+      for (let i = 0; i < 5; i++) {
+        let angle = (i / 5) * Math.PI - Math.PI / 2;
+        ctx.beginPath();
+        ctx.strokeStyle = `hsla(${h},60%,55%,${alpha * 0.5})`;
+        ctx.lineWidth = 0.8;
+        let sx = Math.cos(angle) * s * 0.3;
+        let sy = s;
+        ctx.moveTo(sx, sy);
+        ctx.quadraticCurveTo(
+          sx + Math.sin(t * 0.003 + i) * 8,
+          sy + s * 0.5,
+          sx + Math.sin(t * 0.002 + i) * 12,
+          sy + s * 0.9
+        );
+        ctx.stroke();
+      }
+      // eyes
+      ctx.fillStyle = `hsla(${h},80%,80%,${alpha})`;
+      ctx.beginPath();
+      ctx.arc(-s * 0.2, -s * 0.1, 2, 0, Math.PI * 2);
+      ctx.arc(s * 0.2, -s * 0.1, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+}
+
+// Init particles
+const particles = [];
+for (let i = 0; i < 80; i++) particles.push(new Particle());
+
+// Creatures pool
+let creatures = [];
+function spawnCreature() {
+  if (creatures.length < 12 && depth > 400) {
+    creatures.push(new Creature());
+  }
+}
+
+// Scroll / touch handling
+let targetDepth = 0;
+window.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  targetDepth = Math.max(0, Math.min(11000, targetDepth + e.deltaY * 2));
+  if (hintVisible) { hint.style.opacity = '0'; hintVisible = false; }
+}, { passive: false });
+
+let touchStartY = 0;
+window.addEventListener('touchstart', (e) => {
+  touchStartY = e.touches[0].clientY;
+  if (hintVisible) { hint.style.opacity = '0'; hintVisible = false; }
+  initAudio();
+});
+window.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  let dy = touchStartY - e.touches[0].clientY;
+  targetDepth = Math.max(0, Math.min(11000, targetDepth + dy * 3));
+  touchStartY = e.touches[0].clientY;
+  mouseX = e.touches[0].clientX;
+  mouseY = e.touches[0].clientY;
+}, { passive: false });
+
+window.addEventListener('mousemove', (e) => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+  cursorEl.style.left = e.clientX + 'px';
+  cursorEl.style.top = e.clientY + 'px';
+});
+
+window.addEventListener('click', () => {
+  flashIntensity = 1;
+  initAudio();
+  if (audioCtx && audioCtx.state === 'running') {
+    // Flash ping sound
+    let osc = audioCtx.createOscillator();
+    let g = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 1200 - depth * 0.05;
+    g.gain.setValueAtTime(0.08, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
+    osc.connect(g).connect(masterGain);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 1.5);
+  }
+});
+
+// Audio
+function initAudio() {
+  if (audioStarted) return;
+  audioStarted = true;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.3;
+  masterGain.connect(audioCtx.destination);
+
+  // Deep ambient drone
+  function makeDrone(freq, detune) {
+    let osc = audioCtx.createOscillator();
+    let g = audioCtx.createGain();
+    let filt = audioCtx.createBiquadFilter();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    osc.detune.value = detune;
+    filt.type = 'lowpass';
+    filt.frequency.value = 200;
+    g.gain.value = 0;
+    osc.connect(filt).connect(g).connect(masterGain);
+    osc.start();
+    return { osc, gain: g, filter: filt };
+  }
+
+  window._drones = [
+    makeDrone(55, 0),
+    makeDrone(55.5, 5),
+    makeDrone(82, -3),
+    makeDrone(110, 7)
+  ];
+
+  // Bubble sounds
+  function bubbleLoop() {
+    if (depth < 100) { setTimeout(bubbleLoop, 2000); return; }
+    let osc = audioCtx.createOscillator();
+    let g = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 600 + Math.random() * 800;
+    osc.frequency.exponentialRampToValueAtTime(
+      osc.frequency.value * 1.5,
+      audioCtx.currentTime + 0.15
+    );
+    g.gain.setValueAtTime(0.015 * Math.min(1, depth / 2000), audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+    osc.connect(g).connect(masterGain);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.25);
+    setTimeout(bubbleLoop, 1000 + Math.random() * 4000);
+  }
+  bubbleLoop();
+
+  // Whale-like sounds at medium depth
+  function whaleLoop() {
+    if (depth < 500 || depth > 3000) { setTimeout(whaleLoop, 5000); return; }
+    let osc = audioCtx.createOscillator();
+    let g = audioCtx.createGain();
+    osc.type = 'sine';
+    let baseFreq = 80 + Math.random() * 120;
+    osc.frequency.setValueAtTime(baseFreq, audioCtx.currentTime);
+    osc.frequency.linearRampToValueAtTime(baseFreq * 0.7, audioCtx.currentTime + 2);
+    osc.frequency.linearRampToValueAtTime(baseFreq * 1.1, audioCtx.currentTime + 3);
+    g.gain.setValueAtTime(0, audioCtx.currentTime);
+    g.gain.linearRampToValueAtTime(0.04, audioCtx.currentTime + 0.5);
+    g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 3.5);
+    osc.connect(g).connect(masterGain);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 4);
+    setTimeout(whaleLoop, 6000 + Math.random() * 12000);
+  }
+  whaleLoop();
+}
+
+// Pressure cracks at extreme depth
+function pressureCrack() {
+  if (!audioCtx || depth < 7000) return;
+  let bufferSize = audioCtx.sampleRate * 0.1;
+  let buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  let data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.1));
+  }
+  let src = audioCtx.createBufferSource();
+  let g = audioCtx.createGain();
+  src.buffer = buffer;
+  g.gain.value = 0.06 * (depth / 11000);
+  src.connect(g).connect(masterGain);
+  src.start();
+}
+
+let spawnTimer = 0;
+let crackTimer = 0;
+
+function draw(t) {
+  // Smooth depth
+  depth += (targetDepth - depth) * 0.03;
+
+  let zone = getZone(depth);
+  let zoneProgress = 0;
+  let prevMax = 0;
+  for (let z of zones) {
+    if (z === zone) {
+      zoneProgress = (depth - prevMax) / (z.maxDepth - prevMax);
+      break;
+    }
+    prevMax = z.maxDepth;
+  }
+
+  // Background gradient
+  let topColor = lerpColor(zone.bgTop, zone.bgBot, zoneProgress * 0.5);
+  let botColor = lerpColor(zone.bgTop, zone.bgBot, 0.5 + zoneProgress * 0.5);
+  let grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, `rgb(${topColor.map(Math.round).join(',')})`);
+  grad.addColorStop(1, `rgb(${botColor.map(Math.round).join(',')})`);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Flash effect
+  if (flashIntensity > 0) {
+    let flashAlpha = flashIntensity * 0.15 * Math.max(0.1, 1 - depth / 5000);
+    let flashGrad = ctx.createRadialGradient(mouseX, mouseY, 0, mouseX, mouseY, 300);
+    flashGrad.addColorStop(0, `rgba(180,220,255,${flashAlpha})`);
+    flashGrad.addColorStop(1, 'rgba(180,220,255,0)');
+    ctx.fillStyle = flashGrad;
+    ctx.fillRect(0, 0, W, H);
+    flashIntensity *= 0.95;
+    if (flashIntensity < 0.01) flashIntensity = 0;
+  }
+
+  // Cursor light (gets dimmer with depth)
+  let lightRadius = 120 - depth * 0.008;
+  if (lightRadius > 20) {
+    let lightAlpha = 0.04 * (lightRadius / 120);
+    let lg = ctx.createRadialGradient(mouseX, mouseY, 0, mouseX, mouseY, lightRadius);
+    lg.addColorStop(0, `rgba(150,200,255,${lightAlpha})`);
+    lg.addColorStop(1, 'rgba(150,200,255,0)');
+    ctx.fillStyle = lg;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // Particles
+  for (let p of particles) {
+    p.update();
+    p.draw();
+  }
+
+  // Creatures
+  spawnTimer++;
+  if (spawnTimer > 120) {
+    spawnCreature();
+    spawnTimer = 0;
+  }
+  creatures = creatures.filter(c => c.alive);
+  for (let c of creatures) {
+    c.update(t);
+    c.draw(t);
+  }
+
+  // Pressure cracks
+  crackTimer++;
+  if (crackTimer > 200 && depth > 7000 && Math.random() < 0.02) {
+    pressureCrack();
+    crackTimer = 0;
+    // Visual crack
+    ctx.strokeStyle = `rgba(255,255,255,${0.05 * (depth / 11000)})`;
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    let cx = Math.random() * W, cy = Math.random() * H;
+    ctx.moveTo(cx, cy);
+    for (let i = 0; i < 5; i++) {
+      cx += (Math.random() - 0.5) * 80;
+      cy += (Math.random() - 0.5) * 80;
+      ctx.lineTo(cx, cy);
+    }
+    ctx.stroke();
+  }
+
+  // Update audio drones
+  if (window._drones) {
+    let droneVol = Math.min(1, depth / 1500) * 0.06;
+    let filterFreq = 80 + (depth / 11000) * 300;
+    for (let d of window._drones) {
+      d.gain.gain.linearRampToValueAtTime(droneVol, audioCtx.currentTime + 0.1);
+      d.filter.frequency.linearRampToValueAtTime(filterFreq, audioCtx.currentTime + 0.1);
+    }
+  }
+
+  // UI updates
+  depthNum.textContent = Math.round(depth).toLocaleString() + ' m';
+
+  if (zone.name !== lastZone) {
+    lastZone = zone.name;
+    zoneNameEl.textContent = zone.name;
+    zoneNameEl.style.color = `rgba(255,255,255,0.25)`;
+    setTimeout(() => { zoneNameEl.style.color = 'rgba(255,255,255,0)'; }, 3000);
+  }
+
+  // Cursor glow dims with depth
+  let cursorOpacity = Math.max(0, 1 - depth / 4000);
+  cursorEl.style.background = `radial-gradient(circle, rgba(180,220,255,${0.08 * cursorOpacity}) 0%, transparent 70%)`;
+
+  requestAnimationFrame(draw);
+}
+
+requestAnimationFrame(draw);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
