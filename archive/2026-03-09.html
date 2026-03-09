@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mycelium — aapple.com</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #050508; overflow: hidden; cursor: crosshair; }
+canvas { display: block; }
+.hint {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255,255,255,0.25);
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  pointer-events: none;
+  transition: opacity 2s;
+}
+.footer {
+  position: fixed;
+  bottom: 12px;
+  width: 100%;
+  text-align: center;
+  z-index: 10;
+  font-family: 'Courier New', monospace;
+}
+.footer a {
+  color: rgba(255,255,255,0.15);
+  text-decoration: none;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+.footer a:hover { color: rgba(255,255,255,0.4); }
+.credit {
+  color: rgba(255,255,255,0.08);
+  font-size: 9px;
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hint" id="hint">click to inoculate</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+const hyphae = [];
+const MAX_HYPHAE = 2000;
+const SPATIAL_GRID = {};
+const CELL_SIZE = 8;
+
+function gridKey(x, y) {
+  return ((x / CELL_SIZE) | 0) + ',' + ((y / CELL_SIZE) | 0);
+}
+
+function isOccupied(x, y) {
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      const k = ((x / CELL_SIZE | 0) + dx) + ',' + ((y / CELL_SIZE | 0) + dy);
+      if (SPATIAL_GRID[k]) return true;
+    }
+  }
+  return false;
+}
+
+function occupy(x, y) {
+  SPATIAL_GRID[gridKey(x, y)] = true;
+}
+
+// Color palettes — bioluminescent
+const palettes = [
+  [180, 255, 200], // ghost green
+  [100, 200, 255], // ice blue
+  [220, 180, 255], // lavender
+  [255, 200, 100], // amber
+  [255, 120, 180], // pink
+];
+
+class Hypha {
+  constructor(x, y, angle, gen, palette, energy) {
+    this.x = x;
+    this.y = y;
+    this.angle = angle;
+    this.gen = gen;
+    this.palette = palette;
+    this.energy = energy || 80 + Math.random() * 120;
+    this.speed = 0.8 + Math.random() * 0.6;
+    this.thickness = Math.max(0.3, 2.5 - gen * 0.3);
+    this.alive = true;
+    this.age = 0;
+    this.branchProb = 0.008;
+    this.wanderAmp = 0.15;
+  }
+
+  update() {
+    if (!this.alive) return;
+    this.age++;
+    this.energy -= 0.5;
+
+    if (this.energy <= 0 || this.x < -10 || this.x > W + 10 || this.y < -10 || this.y > H + 10) {
+      this.alive = false;
+      return;
+    }
+
+    // Wander
+    this.angle += (Math.random() - 0.5) * this.wanderAmp;
+
+    // Slight upward bias (like real mycelium seeking)
+    this.angle += Math.sin(this.angle) * 0.01;
+
+    const nx = this.x + Math.cos(this.angle) * this.speed;
+    const ny = this.y + Math.sin(this.angle) * this.speed;
+
+    if (isOccupied(nx, ny)) {
+      // Try to turn
+      this.angle += (Math.random() - 0.5) * 1.5;
+      this.energy -= 3;
+      return;
+    }
+
+    // Draw segment
+    const p = this.palette;
+    const alpha = Math.min(0.7, (this.energy / 200) * 0.8);
+    const glow = this.age < 10 ? 0.9 : alpha;
+
+    ctx.beginPath();
+    ctx.moveTo(this.x, this.y);
+    ctx.lineTo(nx, ny);
+    ctx.strokeStyle = `rgba(${p[0]},${p[1]},${p[2]},${glow})`;
+    ctx.lineWidth = this.thickness;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // Subtle glow
+    if (Math.random() < 0.15) {
+      ctx.beginPath();
+      ctx.arc(nx, ny, this.thickness + 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${p[0]},${p[1]},${p[2]},${alpha * 0.15})`;
+      ctx.fill();
+    }
+
+    occupy(nx, ny);
+    this.x = nx;
+    this.y = ny;
+
+    // Branch
+    if (this.gen < 6 && Math.random() < this.branchProb && hyphae.length < MAX_HYPHAE) {
+      const branchAngle = this.angle + (Math.random() < 0.5 ? 1 : -1) * (0.4 + Math.random() * 0.8);
+      hyphae.push(new Hypha(this.x, this.y, branchAngle, this.gen + 1, this.palette, this.energy * 0.6));
+    }
+
+    // Rare spore node
+    if (this.gen < 3 && Math.random() < 0.002) {
+      const r = 2 + Math.random() * 3;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${p[0]},${p[1]},${p[2]},${0.5 + Math.random() * 0.3})`;
+      ctx.fill();
+      // Glow halo
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, r + 4, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${p[0]},${p[1]},${p[2]},0.08)`;
+      ctx.fill();
+    }
+  }
+}
+
+function inoculate(x, y) {
+  const palette = palettes[Math.floor(Math.random() * palettes.length)];
+  const count = 5 + Math.floor(Math.random() * 8);
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 / count) * i + (Math.random() - 0.5) * 0.5;
+    hyphae.push(new Hypha(x, y, angle, 0, palette, 100 + Math.random() * 150));
+  }
+  // Inoculation point glow
+  ctx.beginPath();
+  ctx.arc(x, y, 4, 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(${palette[0]},${palette[1]},${palette[2]},0.6)`;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x, y, 12, 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(${palette[0]},${palette[1]},${palette[2]},0.08)`;
+  ctx.fill();
+}
+
+// Interaction
+let hintEl = document.getElementById('hint');
+let clicked = false;
+
+function handleClick(e) {
+  const x = e.clientX || (e.touches && e.touches[0].clientX);
+  const y = e.clientY || (e.touches && e.touches[0].clientY);
+  if (x == null) return;
+  inoculate(x, y);
+  if (!clicked) {
+    clicked = true;
+    hintEl.style.opacity = '0';
+  }
+}
+canvas.addEventListener('click', handleClick);
+canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleClick(e); }, { passive: false });
+
+// Slow ambient fade for persistence
+function dimBackground() {
+  ctx.fillStyle = 'rgba(5,5,8,0.003)';
+  ctx.fillRect(0, 0, W, H);
+}
+
+// Auto-seed after 4 seconds if no interaction
+let autoSeeded = false;
+setTimeout(() => {
+  if (!clicked && hyphae.length === 0) {
+    autoSeeded = true;
+    inoculate(W * 0.5, H * 0.5);
+    setTimeout(() => inoculate(W * 0.3, H * 0.6), 1500);
+    setTimeout(() => inoculate(W * 0.7, H * 0.4), 3000);
+  }
+}, 4000);
+
+// Sound — subtle ambient drone on first click
+let audioStarted = false;
+function startAudio() {
+  if (audioStarted) return;
+  audioStarted = true;
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    // Soft drone
+    function makeDrone(freq, gain) {
+      const osc = ac.createOscillator();
+      const g = ac.createGain();
+      const f = ac.createBiquadFilter();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      g.gain.value = 0;
+      g.gain.linearRampToValueAtTime(gain, ac.currentTime + 4);
+      f.type = 'lowpass';
+      f.frequency.value = 300;
+      osc.connect(f);
+      f.connect(g);
+      g.connect(ac.destination);
+      osc.start();
+      return { osc, gain: g };
+    }
+    makeDrone(55, 0.04);
+    makeDrone(82.5, 0.02);
+    makeDrone(110, 0.015);
+
+    // Occasional crystalline pings on branch events
+    window._acPing = function() {
+      if (Math.random() > 0.02) return;
+      const osc = ac.createOscillator();
+      const g = ac.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 400 + Math.random() * 1200;
+      g.gain.value = 0.02 + Math.random() * 0.02;
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 1.5);
+      osc.connect(g);
+      g.connect(ac.destination);
+      osc.start();
+      osc.stop(ac.currentTime + 1.5);
+    };
+  } catch(e) {}
+}
+canvas.addEventListener('click', startAudio, { once: true });
+canvas.addEventListener('touchstart', startAudio, { once: true });
+
+// Main loop
+let frame = 0;
+function animate() {
+  frame++;
+  // Very slow dim every 60 frames
+  if (frame % 60 === 0) dimBackground();
+
+  let activeCount = 0;
+  for (let i = 0; i < hyphae.length; i++) {
+    if (hyphae[i].alive) {
+      hyphae[i].update();
+      activeCount++;
+      if (window._acPing) window._acPing();
+    }
+  }
+
+  // Cleanup dead hyphae periodically
+  if (frame % 300 === 0 && hyphae.length > 500) {
+    let i = hyphae.length;
+    while (i--) {
+      if (!hyphae[i].alive) hyphae.splice(i, 1);
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+animate();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
