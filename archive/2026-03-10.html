@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>aapple.com — Rain on Glass</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a12; }
+  canvas { display: block; position: absolute; top: 0; left: 0; }
+  #city { z-index: 1; filter: blur(6px) brightness(0.7); }
+  #rain { z-index: 2; }
+  #prompt { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    color: rgba(180,200,220,0.5); font: 13px/1 'Georgia', serif; letter-spacing: 0.5px;
+    z-index: 10; pointer-events: none; transition: opacity 2s; }
+  .footer { position: fixed; bottom: 12px; width: 100%; text-align: center;
+    font: 11px/1.4 'Georgia', serif; color: rgba(180,200,220,0.35); z-index: 10; }
+  .footer a { color: rgba(180,200,220,0.5); text-decoration: none; }
+  .footer a:hover { color: rgba(180,200,220,0.8); }
+  .footer .credit { font-size: 10px; margin-top: 3px; }
+</style>
+</head>
+<body>
+<canvas id="city"></canvas>
+<canvas id="rain"></canvas>
+<div id="prompt">tap the glass</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+
+<script>
+(function() {
+  const cityCanvas = document.getElementById('city');
+  const rainCanvas = document.getElementById('rain');
+  const cityCtx = cityCanvas.getContext('2d');
+  const ctx = rainCanvas.getContext('2d');
+  const prompt = document.getElementById('prompt');
+  let W, H, dpr;
+  let drops = [];
+  let trails = [];
+  let audioStarted = false;
+  let audioCtx, noiseNode, gainNode, thunderGain;
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    cityCanvas.width = rainCanvas.width = W * dpr;
+    cityCanvas.height = rainCanvas.height = H * dpr;
+    cityCanvas.style.width = rainCanvas.style.width = W + 'px';
+    cityCanvas.style.height = rainCanvas.style.height = H + 'px';
+    cityCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawCity();
+  }
+
+  // Procedural city skyline
+  function drawCity() {
+    const c = cityCtx;
+    // Sky gradient — dark rainy night
+    const sky = c.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#0b0b18');
+    sky.addColorStop(0.4, '#141428');
+    sky.addColorStop(0.7, '#1a1a30');
+    sky.addColorStop(1, '#0f0f1e');
+    c.fillStyle = sky;
+    c.fillRect(0, 0, W, H);
+
+    // Buildings
+    const buildingColors = ['#12121f', '#0e0e1a', '#161628', '#101020', '#0c0c16'];
+    const windowColors = ['#ffdd66', '#ffeebb', '#aaccff', '#ffcc44', '#88aadd', '#ff9944'];
+    let x = -20;
+    while (x < W + 20) {
+      const bw = 30 + Math.random() * 80;
+      const bh = H * (0.2 + Math.random() * 0.55);
+      const by = H - bh;
+
+      c.fillStyle = buildingColors[Math.floor(Math.random() * buildingColors.length)];
+      c.fillRect(x, by, bw, bh);
+
+      // Darker edge
+      c.fillStyle = 'rgba(0,0,0,0.3)';
+      c.fillRect(x + bw - 3, by, 3, bh);
+
+      // Windows
+      const winW = 4 + Math.random() * 4;
+      const winH = 5 + Math.random() * 5;
+      const gapX = winW + 4 + Math.random() * 6;
+      const gapY = winH + 6 + Math.random() * 8;
+      for (let wy = by + 10; wy < H - 20; wy += gapY) {
+        for (let wx = x + 6; wx < x + bw - 8; wx += gapX) {
+          if (Math.random() < 0.6) {
+            const wc = windowColors[Math.floor(Math.random() * windowColors.length)];
+            const brightness = 0.2 + Math.random() * 0.8;
+            c.globalAlpha = brightness * 0.7;
+            c.fillStyle = wc;
+            c.fillRect(wx, wy, winW, winH);
+            // Glow
+            c.globalAlpha = brightness * 0.15;
+            c.fillRect(wx - 2, wy - 2, winW + 4, winH + 4);
+          }
+        }
+      }
+      c.globalAlpha = 1;
+      x += bw + Math.random() * 5;
+    }
+
+    // Ground reflection
+    const refl = c.createLinearGradient(0, H - 40, 0, H);
+    refl.addColorStop(0, 'rgba(20,20,40,0)');
+    refl.addColorStop(1, 'rgba(30,30,60,0.5)');
+    c.fillStyle = refl;
+    c.fillRect(0, H - 40, W, 40);
+  }
+
+  // Raindrop class
+  class Drop {
+    constructor(x, y, isClick) {
+      this.x = x || Math.random() * W;
+      this.y = y || -10 - Math.random() * 100;
+      this.radius = 1.5 + Math.random() * 2.5;
+      this.vy = 0.3 + Math.random() * 0.5;
+      this.vx = 0;
+      this.stuck = false;
+      this.stuckTimer = 0;
+      this.stuckDuration = 60 + Math.random() * 200;
+      this.trail = [];
+      this.opacity = 0.3 + Math.random() * 0.4;
+      this.mass = this.radius * this.radius;
+      this.isClick = isClick || false;
+    }
+
+    update() {
+      if (this.stuck) {
+        this.stuckTimer++;
+        this.mass += 0.01; // accumulate water
+        if (this.stuckTimer > this.stuckDuration || this.mass > 20) {
+          this.stuck = false;
+          this.vy = 0.5 + this.mass * 0.05;
+          this.radius = Math.sqrt(this.mass);
+        }
+        return;
+      }
+
+      // Gravity
+      this.vy += 0.02 + this.mass * 0.002;
+      // Slight wind
+      this.vx += (Math.random() - 0.5) * 0.03;
+      this.vx *= 0.99;
+
+      // Surface tension — random sticking
+      if (Math.random() < 0.003 && this.vy < 2 && !this.isClick) {
+        this.stuck = true;
+        this.stuckTimer = 0;
+        this.vy = 0;
+        this.vx = 0;
+        return;
+      }
+
+      this.x += this.vx;
+      this.y += this.vy;
+
+      // Leave trail
+      if (this.vy > 0.5) {
+        this.trail.push({ x: this.x, y: this.y, r: this.radius * 0.3, life: 1 });
+        if (this.trail.length > 60) this.trail.shift();
+      }
+    }
+
+    draw(c) {
+      // Trail
+      for (let i = 0; i < this.trail.length; i++) {
+        const t = this.trail[i];
+        t.life -= 0.008;
+        if (t.life <= 0) { this.trail.splice(i, 1); i--; continue; }
+        c.beginPath();
+        c.arc(t.x, t.y, t.r, 0, Math.PI * 2);
+        c.fillStyle = `rgba(170,190,210,${t.life * 0.15})`;
+        c.fill();
+      }
+
+      // Drop body — refraction effect
+      c.beginPath();
+      c.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      const grad = c.createRadialGradient(
+        this.x - this.radius * 0.3, this.y - this.radius * 0.3, 0,
+        this.x, this.y, this.radius
+      );
+      grad.addColorStop(0, `rgba(200,220,240,${this.opacity * 0.6})`);
+      grad.addColorStop(0.5, `rgba(140,160,190,${this.opacity * 0.3})`);
+      grad.addColorStop(1, `rgba(100,120,150,${this.opacity * 0.15})`);
+      c.fillStyle = grad;
+      c.fill();
+
+      // Highlight
+      c.beginPath();
+      c.arc(this.x - this.radius * 0.25, this.y - this.radius * 0.25, this.radius * 0.3, 0, Math.PI * 2);
+      c.fillStyle = `rgba(255,255,255,${this.opacity * 0.5})`;
+      c.fill();
+    }
+  }
+
+  // Spawn drops
+  function spawnDrops(count) {
+    for (let i = 0; i < count; i++) {
+      if (drops.length < 400) {
+        drops.push(new Drop());
+      }
+    }
+  }
+
+  // Merge nearby drops
+  function mergeDrops() {
+    for (let i = 0; i < drops.length; i++) {
+      for (let j = i + 1; j < drops.length; j++) {
+        const dx = drops[i].x - drops[j].x;
+        const dy = drops[i].y - drops[j].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const minDist = drops[i].radius + drops[j].radius;
+        if (dist < minDist * 0.8) {
+          // Merge j into i
+          drops[i].mass += drops[j].mass;
+          drops[i].radius = Math.min(Math.sqrt(drops[i].mass), 8);
+          drops[i].vy = Math.max(drops[i].vy, drops[j].vy);
+          drops.splice(j, 1);
+          j--;
+        }
+      }
+    }
+  }
+
+  // Condensation on glass
+  let condensation = [];
+  function initCondensation() {
+    condensation = [];
+    for (let i = 0; i < 200; i++) {
+      condensation.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: 0.5 + Math.random() * 1.5,
+        o: 0.05 + Math.random() * 0.1
+      });
+    }
+  }
+
+  function drawCondensation(c) {
+    for (const d of condensation) {
+      c.beginPath();
+      c.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+      c.fillStyle = `rgba(160,180,200,${d.o})`;
+      c.fill();
+    }
+  }
+
+  // Audio
+  function initAudio() {
+    if (audioStarted) return;
+    audioStarted = true;
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      // Rain noise
+      const bufSize = audioCtx.sampleRate * 2;
+      const buf = audioCtx.createBuffer(2, bufSize, audioCtx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const data = buf.getChannelData(ch);
+        for (let i = 0; i < bufSize; i++) {
+          // Brown noise (more natural rain sound)
+          data[i] = i === 0 ? Math.random() * 2 - 1 :
+            data[i-1] + (Math.random() * 2 - 1) * 0.05;
+          data[i] = Math.max(-1, Math.min(1, data[i]));
+        }
+      }
+
+      noiseNode = audioCtx.createBufferSource();
+      noiseNode.buffer = buf;
+      noiseNode.loop = true;
+
+      // Filter for rain character
+      const lp = audioCtx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 800;
+      lp.Q.value = 0.5;
+
+      const hp = audioCtx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 100;
+
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = 0;
+      gainNode.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 3);
+
+      noiseNode.connect(hp).connect(lp).connect(gainNode).connect(audioCtx.destination);
+      noiseNode.start();
+
+      // Thunder gain (for later)
+      thunderGain = audioCtx.createGain();
+      thunderGain.gain.value = 0;
+      thunderGain.connect(audioCtx.destination);
+
+      // Schedule random thunder
+      scheduleThunder();
+    } catch(e) {}
+  }
+
+  function scheduleThunder() {
+    const delay = 15000 + Math.random() * 45000;
+    setTimeout(() => {
+      if (!audioCtx) return;
+      try {
+        // Thunder rumble
+        const osc = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const tGain = audioCtx.createGain();
+        const tFilter = audioCtx.createBiquadFilter();
+
+        osc.type = 'sawtooth';
+        osc.frequency.value = 30 + Math.random() * 20;
+        osc2.type = 'sine';
+        osc2.frequency.value = 40 + Math.random() * 30;
+
+        tFilter.type = 'lowpass';
+        tFilter.frequency.value = 200;
+
+        const now = audioCtx.currentTime;
+        tGain.gain.setValueAtTime(0, now);
+        tGain.gain.linearRampToValueAtTime(0.25, now + 0.1);
+        tGain.gain.exponentialRampToValueAtTime(0.001, now + 3);
+
+        osc.connect(tFilter);
+        osc2.connect(tFilter);
+        tFilter.connect(tGain);
+        tGain.connect(audioCtx.destination);
+
+        osc.start(now);
+        osc2.start(now);
+        osc.stop(now + 3.5);
+        osc2.stop(now + 3.5);
+
+        // Lightning flash
+        lightning = 1;
+      } catch(e) {}
+      scheduleThunder();
+    }, delay);
+  }
+
+  let lightning = 0;
+  let frame = 0;
+
+  function animate() {
+    requestAnimationFrame(animate);
+    frame++;
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Glass tint
+    ctx.fillStyle = 'rgba(10,12,20,0.12)';
+    ctx.fillRect(0, 0, W, H);
+
+    // Lightning flash
+    if (lightning > 0) {
+      ctx.fillStyle = `rgba(200,210,230,${lightning * 0.3})`;
+      ctx.fillRect(0, 0, W, H);
+      lightning *= 0.92;
+      if (lightning < 0.01) lightning = 0;
+    }
+
+    // Condensation
+    drawCondensation(ctx);
+
+    // Spawn new drops
+    if (frame % 3 === 0) spawnDrops(1);
+
+    // Merge occasionally
+    if (frame % 30 === 0) mergeDrops();
+
+    // Update and draw drops
+    for (let i = drops.length - 1; i >= 0; i--) {
+      const d = drops[i];
+      d.update();
+
+      // Remove off-screen
+      if (d.y > H + 20 || d.x < -20 || d.x > W + 20) {
+        drops.splice(i, 1);
+        continue;
+      }
+
+      d.draw(ctx);
+    }
+
+    // Fog at bottom (misted glass)
+    const fog = ctx.createLinearGradient(0, H - 100, 0, H);
+    fog.addColorStop(0, 'rgba(15,15,30,0)');
+    fog.addColorStop(1, 'rgba(15,15,30,0.25)');
+    ctx.fillStyle = fog;
+    ctx.fillRect(0, H - 100, W, 100);
+  }
+
+  // Interaction — tap to create drops
+  function addClickDrops(ex, ey) {
+    initAudio();
+    for (let i = 0; i < 5 + Math.random() * 8; i++) {
+      const d = new Drop(
+        ex + (Math.random() - 0.5) * 30,
+        ey + (Math.random() - 0.5) * 30,
+        true
+      );
+      d.vy = 1 + Math.random() * 2;
+      d.vx = (Math.random() - 0.5) * 2;
+      d.radius = 2 + Math.random() * 3;
+      d.mass = d.radius * d.radius;
+      drops.push(d);
+    }
+    // Fade prompt
+    if (prompt.style.opacity !== '0') {
+      prompt.style.opacity = '0';
+    }
+  }
+
+  rainCanvas.addEventListener('click', (e) => addClickDrops(e.clientX, e.clientY));
+  rainCanvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    for (const t of e.touches) addClickDrops(t.clientX, t.clientY);
+  }, { passive: false });
+
+  // Finger/mouse drag draws water
+  let dragging = false;
+  rainCanvas.addEventListener('mousedown', () => dragging = true);
+  rainCanvas.addEventListener('mouseup', () => dragging = false);
+  rainCanvas.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const d = new Drop(e.clientX, e.clientY, true);
+    d.radius = 2 + Math.random() * 2;
+    d.mass = d.radius * d.radius;
+    d.vy = 0.5;
+    drops.push(d);
+  });
+
+  window.addEventListener('resize', resize);
+  resize();
+  initCondensation();
+  animate();
+
+  // Fade prompt after a while
+  setTimeout(() => { if (prompt.style.opacity !== '0') prompt.style.opacity = '0'; }, 8000);
+})();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
