@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>aapple.com — Soap Opera</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: linear-gradient(180deg, #e8f0f8 0%, #d0e4f4 40%, #f0e8e0 100%);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  cursor: default;
+  font-family: 'Georgia', serif;
+}
+canvas { display: block; }
+#prompt {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(100,120,140,0.4);
+  font: italic 15px/1 'Georgia', serif;
+  letter-spacing: 1px;
+  z-index: 10;
+  pointer-events: none;
+  transition: opacity 3s;
+}
+.footer {
+  position: fixed;
+  bottom: 12px;
+  width: 100%;
+  text-align: center;
+  font: 11px/1.4 'Georgia', serif;
+  color: rgba(80,100,120,0.4);
+  z-index: 10;
+}
+.footer a { color: rgba(80,100,120,0.55); text-decoration: none; }
+.footer a:hover { color: rgba(80,100,120,0.9); }
+.footer .credit { font-size: 10px; margin-top: 3px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="prompt">pop</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+const bubbles = [];
+const pops = [];
+const MAX_BUBBLES = 40;
+let audioCtx;
+let promptEl = document.getElementById('prompt');
+let popped = 0;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playPop(x) {
+  if (!audioCtx) return;
+  const freq = 800 + (x / W) * 1200;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(freq * 0.3, audioCtx.currentTime + 0.08);
+  filter.type = 'bandpass';
+  filter.frequency.value = freq;
+  filter.Q.value = 2;
+  gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.15);
+}
+
+class Bubble {
+  constructor() {
+    this.reset(true);
+  }
+  reset(initial) {
+    this.r = 15 + Math.random() * 45;
+    this.x = this.r + Math.random() * (W - 2 * this.r);
+    this.y = initial ? Math.random() * H : H + this.r + Math.random() * 100;
+    this.vx = (Math.random() - 0.5) * 0.4;
+    this.vy = -0.3 - Math.random() * 0.7;
+    this.wobblePhase = Math.random() * Math.PI * 2;
+    this.wobbleSpeed = 0.01 + Math.random() * 0.02;
+    this.wobbleAmp = 0.3 + Math.random() * 0.5;
+    this.hueBase = Math.random() * 360;
+    this.hueShift = 60 + Math.random() * 120;
+    this.alive = true;
+    this.opacity = initial ? 0.7 + Math.random() * 0.3 : 0;
+    this.targetOpacity = 0.7 + Math.random() * 0.3;
+    this.age = 0;
+  }
+  update() {
+    this.age++;
+    this.wobblePhase += this.wobbleSpeed;
+    this.x += this.vx + Math.sin(this.wobblePhase) * this.wobbleAmp;
+    this.y += this.vy;
+    this.opacity += (this.targetOpacity - this.opacity) * 0.02;
+    if (this.x < -this.r || this.x > W + this.r || this.y < -this.r * 2) {
+      this.reset(false);
+    }
+  }
+  draw() {
+    const { x, y, r, hueBase, hueShift, opacity } = this;
+    ctx.save();
+    ctx.globalAlpha = opacity * 0.25;
+    const grad = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.05, x, y, r);
+    const h1 = hueBase + Math.sin(this.wobblePhase * 0.5) * hueShift;
+    const h2 = hueBase + hueShift + Math.cos(this.wobblePhase * 0.3) * 60;
+    grad.addColorStop(0, `hsla(${h1}, 70%, 92%, 0.1)`);
+    grad.addColorStop(0.4, `hsla(${h1}, 60%, 85%, 0.15)`);
+    grad.addColorStop(0.7, `hsla(${h2}, 80%, 80%, 0.2)`);
+    grad.addColorStop(1, `hsla(${h2}, 60%, 70%, 0.05)`);
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Thin film edge ring
+    ctx.globalAlpha = opacity * 0.4;
+    const edgeGrad = ctx.createRadialGradient(x, y, r * 0.85, x, y, r);
+    edgeGrad.addColorStop(0, 'transparent');
+    edgeGrad.addColorStop(0.5, `hsla(${h1}, 90%, 75%, 0.3)`);
+    edgeGrad.addColorStop(0.8, `hsla(${h2}, 80%, 65%, 0.25)`);
+    edgeGrad.addColorStop(1, 'transparent');
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = edgeGrad;
+    ctx.fill();
+
+    // Highlight
+    ctx.globalAlpha = opacity * 0.6;
+    const hlGrad = ctx.createRadialGradient(x - r * 0.35, y - r * 0.35, r * 0.02, x - r * 0.25, y - r * 0.25, r * 0.4);
+    hlGrad.addColorStop(0, 'rgba(255,255,255,0.7)');
+    hlGrad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.beginPath();
+    ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.4, 0, Math.PI * 2);
+    ctx.fillStyle = hlGrad;
+    ctx.fill();
+
+    // Subtle outline
+    ctx.globalAlpha = opacity * 0.12;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.strokeStyle = `hsla(${h1}, 50%, 60%, 0.4)`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+  contains(px, py) {
+    const dx = px - this.x, dy = py - this.y;
+    return dx * dx + dy * dy < this.r * this.r;
+  }
+}
+
+class Pop {
+  constructor(x, y, r, hue) {
+    this.x = x;
+    this.y = y;
+    this.particles = [];
+    const count = 8 + Math.floor(Math.random() * 8);
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
+      const speed = 1 + Math.random() * 3;
+      this.particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        r: 1 + Math.random() * 2.5,
+        life: 1,
+        hue: hue + Math.random() * 60,
+      });
+    }
+    // Add a ring
+    this.ring = { x, y, r: r * 0.5, maxR: r * 1.8, life: 1, hue };
+  }
+  update() {
+    this.particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy + 0.3;
+      p.life -= 0.03;
+      p.vx *= 0.97;
+    });
+    this.ring.r += (this.ring.maxR - this.ring.r) * 0.15;
+    this.ring.life -= 0.05;
+    this.particles = this.particles.filter(p => p.life > 0);
+  }
+  draw() {
+    // Ring
+    if (this.ring.life > 0) {
+      ctx.save();
+      ctx.globalAlpha = this.ring.life * 0.3;
+      ctx.beginPath();
+      ctx.arc(this.ring.x, this.ring.y, this.ring.r, 0, Math.PI * 2);
+      ctx.strokeStyle = `hsla(${this.ring.hue}, 70%, 80%, 0.5)`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.restore();
+    }
+    this.particles.forEach(p => {
+      ctx.save();
+      ctx.globalAlpha = p.life * 0.6;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${p.hue}, 80%, 80%, 0.8)`;
+      ctx.fill();
+      ctx.restore();
+    });
+  }
+  get dead() {
+    return this.ring.life <= 0 && this.particles.length === 0;
+  }
+}
+
+// Init bubbles
+for (let i = 0; i < MAX_BUBBLES; i++) {
+  bubbles.push(new Bubble());
+}
+
+function popBubble(px, py) {
+  initAudio();
+  // Pop from top (foreground) to bottom
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    if (bubbles[i].contains(px, py)) {
+      const b = bubbles[i];
+      pops.push(new Pop(b.x, b.y, b.r, b.hueBase));
+      playPop(b.x);
+      b.reset(false);
+      popped++;
+      if (popped === 1 && promptEl) {
+        promptEl.style.opacity = '0';
+        setTimeout(() => promptEl.remove(), 3000);
+        promptEl = null;
+      }
+      return;
+    }
+  }
+}
+
+canvas.addEventListener('pointerdown', e => popBubble(e.clientX, e.clientY));
+canvas.addEventListener('pointermove', e => {
+  if (e.buttons > 0 || e.pointerType === 'touch') return;
+  // Gentle push on hover
+  bubbles.forEach(b => {
+    const dx = e.clientX - b.x, dy = e.clientY - b.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < b.r * 2.5 && dist > 0) {
+      const force = 0.3 / dist;
+      b.vx -= dx * force;
+      b.vy -= dy * force;
+    }
+  });
+});
+
+// Touch support
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) popBubble(t.clientX, t.clientY);
+}, { passive: false });
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Subtle light rays from top
+  ctx.save();
+  ctx.globalAlpha = 0.03;
+  for (let i = 0; i < 5; i++) {
+    const x = W * (0.2 + i * 0.15);
+    const grad = ctx.createLinearGradient(x, 0, x + 40, H * 0.7);
+    grad.addColorStop(0, 'rgba(255,255,255,0.5)');
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    ctx.fillRect(x - 20, 0, 60, H * 0.7);
+  }
+  ctx.restore();
+
+  bubbles.forEach(b => { b.update(); b.draw(); });
+  pops.forEach(p => { p.update(); p.draw(); });
+  // Clean up dead pops
+  for (let i = pops.length - 1; i >= 0; i--) {
+    if (pops[i].dead) pops.splice(i, 1);
+  }
+
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
