@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>aapple.com — Magnetic Poetry</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #d4d0c8;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  cursor: default;
+  font-family: 'Courier New', monospace;
+  touch-action: none;
+}
+#fridge {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.08) 0%, transparent 50%),
+    linear-gradient(170deg, #c8ccd0 0%, #a8aeb8 30%, #98a0aa 60%, #8890a0 100%);
+  box-shadow: inset 0 0 100px rgba(0,0,0,0.15);
+}
+#fridge::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background:
+    repeating-linear-gradient(90deg, transparent 0, transparent 49.8%, rgba(0,0,0,0.03) 49.8%, rgba(0,0,0,0.03) 50.2%, transparent 50.2%),
+    url("data:image/svg+xml,%3Csvg width='4' height='4' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='1' height='1' fill='rgba(0,0,0,0.02)'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+.word {
+  position: absolute;
+  background: #f5f3ee;
+  color: #1a1a2e;
+  padding: 5px 10px;
+  font-size: 15px;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.5px;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  box-shadow:
+    1px 1px 2px rgba(0,0,0,0.3),
+    inset 0 0 0 1px rgba(0,0,0,0.05);
+  border-radius: 1px;
+  transition: box-shadow 0.15s, transform 0.1s;
+  z-index: 1;
+  white-space: nowrap;
+}
+.word:hover {
+  box-shadow:
+    2px 2px 4px rgba(0,0,0,0.35),
+    inset 0 0 0 1px rgba(0,0,0,0.05);
+}
+.word.dragging {
+  cursor: grabbing;
+  box-shadow:
+    3px 4px 8px rgba(0,0,0,0.4),
+    inset 0 0 0 1px rgba(0,0,0,0.05);
+  transform: scale(1.05);
+  z-index: 1000;
+}
+.word.glow {
+  background: #fffde8;
+  box-shadow:
+    1px 1px 2px rgba(0,0,0,0.3),
+    0 0 8px rgba(255,220,100,0.3),
+    inset 0 0 0 1px rgba(0,0,0,0.05);
+}
+#hint {
+  position: fixed;
+  bottom: 55px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(40,40,60,0.25);
+  font: italic 12px/1 'Georgia', serif;
+  letter-spacing: 1px;
+  pointer-events: none;
+  transition: opacity 3s;
+  z-index: 10;
+}
+.footer {
+  position: fixed;
+  bottom: 10px;
+  width: 100%;
+  text-align: center;
+  z-index: 10;
+  font-family: 'Courier New', monospace;
+}
+.footer a {
+  color: rgba(40,40,60,0.3);
+  text-decoration: none;
+  font-size: 11px;
+}
+.footer a:hover { color: rgba(40,40,60,0.6); }
+.footer .credit {
+  color: rgba(40,40,60,0.2);
+  font-size: 9px;
+  margin-top: 3px;
+}
+</style>
+</head>
+<body>
+<div id="fridge"></div>
+<div id="hint">drag the words</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const words = [
+  'the','a','is','are','was','of','in','to','and','but','or','not',
+  'I','you','we','they','it','my','your','our','this','that',
+  'dream','light','dark','water','fire','sky','moon','sun','star',
+  'night','morning','silence','echo','ghost','shadow','mirror',
+  'time','memory','forget','remember','lost','found','broken',
+  'beautiful','strange','quiet','wild','tender','bitter','sweet',
+  'sing','whisper','fall','drift','bloom','burn','vanish','breathe',
+  'ocean','rain','dust','bone','glass','stone','silk','rust',
+  'never','always','perhaps','almost','still','again','here','there',
+  'love','fear','hope','grief','wonder','longing','grace',
+  'door','window','garden','river','mountain','forest','road',
+  'blue','red','gold','white','black','silver','amber','violet',
+  'skin','heart','eye','hand','mouth','blood','voice','tongue',
+  'apple','seed','root','branch','leaf','petal','thorn',
+  'beneath','above','between','beyond','within','without',
+  'small','vast','ancient','new','hollow','heavy','soft',
+  'like','with','from','into','after','before','through',
+  'who','what','where','when','why','how',
+  'no','yes','maybe',
+  'sleep','wake','eat','run','hide','seek','wait','watch',
+  'secret','sacred','ordinary','impossible','invisible',
+  'one','thousand','infinite','zero','half',
+  'child','mother','father','stranger','beloved',
+  'music','color','scent','taste','touch',
+  'fog','frost','ash','smoke','honey','salt','wine',
+  'so','very','too','just','only','ever','now'
+];
+
+const fridge = document.getElementById('fridge');
+const hint = document.getElementById('hint');
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let dragging = null;
+let offsetX = 0, offsetY = 0;
+let lastSnap = 0;
+let interacted = false;
+
+function snap() {
+  const now = Date.now();
+  if (now - lastSnap < 40) return;
+  lastSnap = now;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = 300 + Math.random() * 600;
+  gain.gain.value = 0.03;
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.08);
+}
+
+function placeWords() {
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  const margin = 20;
+  const placed = [];
+
+  words.forEach(word => {
+    const el = document.createElement('div');
+    el.className = 'word';
+    el.textContent = word;
+    el.style.fontSize = (12 + Math.random() * 6) + 'px';
+
+    // slight random rotation
+    const rot = (Math.random() - 0.5) * 12;
+    el.style.transform = `rotate(${rot}deg)`;
+    el.dataset.rot = rot;
+
+    // random position, clustered toward center-ish
+    let x, y, attempts = 0;
+    do {
+      x = margin + Math.random() * (W - margin * 2 - 80);
+      y = margin + Math.random() * (H - margin * 2 - 40);
+      attempts++;
+    } while (attempts < 10);
+
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+
+    fridge.appendChild(el);
+  });
+}
+
+function onPointerDown(e) {
+  if (!e.target.classList.contains('word')) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (!interacted) {
+    hint.style.opacity = '0';
+    interacted = true;
+  }
+  dragging = e.target;
+  dragging.classList.add('dragging');
+  const rect = dragging.getBoundingClientRect();
+  offsetX = e.clientX - rect.left;
+  offsetY = e.clientY - rect.top;
+  snap();
+  e.preventDefault();
+}
+
+function onPointerMove(e) {
+  if (!dragging) return;
+  const x = e.clientX - offsetX;
+  const y = e.clientY - offsetY;
+  dragging.style.left = x + 'px';
+  dragging.style.top = y + 'px';
+  dragging.style.transform = `rotate(${dragging.dataset.rot}deg)`;
+  e.preventDefault();
+}
+
+function onPointerUp(e) {
+  if (!dragging) return;
+  dragging.classList.remove('dragging');
+
+  // Check proximity to other words — if close, subtle glow
+  const rect = dragging.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  let neighbors = 0;
+
+  document.querySelectorAll('.word').forEach(w => {
+    if (w === dragging) return;
+    const wr = w.getBoundingClientRect();
+    const wx = wr.left + wr.width / 2;
+    const wy = wr.top + wr.height / 2;
+    const dist = Math.hypot(cx - wx, cy - wy);
+    if (dist < 80) {
+      neighbors++;
+      w.classList.add('glow');
+      dragging.classList.add('glow');
+    }
+  });
+
+  if (neighbors > 0) snap();
+  dragging = null;
+}
+
+// Pointer events (works for mouse + touch)
+document.addEventListener('pointerdown', onPointerDown);
+document.addEventListener('pointermove', onPointerMove);
+document.addEventListener('pointerup', onPointerUp);
+
+// Double-click to ungroup/unglow
+document.addEventListener('dblclick', e => {
+  if (e.target.classList.contains('word')) {
+    e.target.classList.remove('glow');
+    snap();
+  }
+});
+
+placeWords();
+
+// Ambient hum
+function ambientHum() {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = 60;
+  gain.gain.value = 0.008;
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start();
+  // Very subtle fridge hum
+  const lfo = audioCtx.createOscillator();
+  const lfoGain = audioCtx.createGain();
+  lfo.frequency.value = 0.3;
+  lfoGain.gain.value = 2;
+  lfo.connect(lfoGain).connect(osc.frequency);
+  lfo.start();
+}
+
+// Start hum on first interaction
+document.addEventListener('pointerdown', function startHum() {
+  ambientHum();
+  document.removeEventListener('pointerdown', startHum);
+}, { once: false });
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
