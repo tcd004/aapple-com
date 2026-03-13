@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>aapple.com — Triskaidekaphobia</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0a0a;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  cursor: crosshair;
+  font-family: 'Courier New', monospace;
+}
+canvas { display: block; }
+#overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+#whisper {
+  position: fixed;
+  bottom: 60px;
+  width: 100%;
+  text-align: center;
+  color: rgba(180, 0, 0, 0);
+  font-size: 14px;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  font-family: 'Courier New', monospace;
+  pointer-events: none;
+  z-index: 20;
+  transition: color 3s;
+}
+.footer {
+  position: fixed;
+  bottom: 12px;
+  width: 100%;
+  text-align: center;
+  z-index: 30;
+}
+.footer a {
+  color: rgba(255,255,255,0.15);
+  text-decoration: none;
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 2px;
+}
+.footer a:hover { color: rgba(255,255,255,0.4); }
+.credit {
+  color: rgba(255,255,255,0.08);
+  font-size: 9px;
+  font-family: 'Courier New', monospace;
+  margin-top: 4px;
+}
+#count {
+  position: fixed;
+  top: 20px;
+  right: 24px;
+  color: rgba(120, 0, 0, 0.5);
+  font-size: 12px;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 2px;
+  z-index: 20;
+  pointer-events: none;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="overlay"></div>
+<div id="whisper"></div>
+<div id="count"></div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const whisperEl = document.getElementById('whisper');
+const countEl = document.getElementById('count');
+
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Whispers — eerie messages that fade in and out
+const whispers = [
+  'do you feel watched',
+  'friday the thirteenth',
+  'count them',
+  'one is missing',
+  'it was always thirteen',
+  'look behind you',
+  'the number follows you home',
+  'you clicked thirteen times',
+  'this page knows your name',
+  'close the tab while you still can',
+  'triskaidekaphobia',
+  'the thirteenth floor doesn\'t exist',
+  'every mirror has thirteen reflections'
+];
+
+// The Thirteens — entities that roam the canvas
+class Thirteen {
+  constructor(x, y) {
+    this.x = x || Math.random() * W;
+    this.y = y || Math.random() * H;
+    this.targetX = this.x;
+    this.targetY = this.y;
+    this.vx = 0;
+    this.vy = 0;
+    this.size = 14 + Math.random() * 28;
+    this.baseAlpha = 0.15 + Math.random() * 0.45;
+    this.alpha = this.baseAlpha;
+    this.rotation = Math.random() * Math.PI * 2;
+    this.rotSpeed = (Math.random() - 0.5) * 0.01;
+    this.phase = Math.random() * Math.PI * 2;
+    this.frightened = false;
+    this.frightTimer = 0;
+    this.glitch = false;
+    this.glitchTimer = 0;
+    this.style = Math.floor(Math.random() * 4); // different visual styles
+  }
+
+  wander(time) {
+    if (this.frightened) {
+      this.frightTimer--;
+      if (this.frightTimer <= 0) {
+        this.frightened = false;
+        this.targetX = Math.random() * W;
+        this.targetY = Math.random() * H;
+      }
+    } else {
+      if (Math.random() < 0.005) {
+        this.targetX = Math.random() * W;
+        this.targetY = Math.random() * H;
+      }
+    }
+
+    const dx = this.targetX - this.x;
+    const dy = this.targetY - this.y;
+    const speed = this.frightened ? 0.08 : 0.012;
+    this.vx += dx * speed * 0.01;
+    this.vy += dy * speed * 0.01;
+    this.vx *= 0.96;
+    this.vy *= 0.96;
+    this.x += this.vx;
+    this.y += this.vy;
+    this.rotation += this.rotSpeed;
+
+    // Pulse
+    this.alpha = this.baseAlpha + Math.sin(time * 0.002 + this.phase) * 0.1;
+
+    // Random glitch
+    if (Math.random() < 0.001) {
+      this.glitch = true;
+      this.glitchTimer = 5 + Math.random() * 15;
+    }
+    if (this.glitch) {
+      this.glitchTimer--;
+      if (this.glitchTimer <= 0) this.glitch = false;
+    }
+  }
+
+  flee(fx, fy) {
+    const dx = this.x - fx;
+    const dy = this.y - fy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 200) {
+      const angle = Math.atan2(dy, dx);
+      const force = (200 - dist) / 200;
+      this.targetX = this.x + Math.cos(angle) * 300 * force;
+      this.targetY = this.y + Math.sin(angle) * 300 * force;
+      this.frightened = true;
+      this.frightTimer = 60 + Math.random() * 60;
+      this.rotSpeed = (Math.random() - 0.5) * 0.08;
+    }
+  }
+
+  draw(ctx, time) {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rotation);
+
+    let r = this.frightened ? 200 : 120;
+    let g = this.frightened ? 30 : 0;
+    let b = 0;
+
+    if (this.glitch) {
+      ctx.translate((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8);
+      r = 255; g = 0; b = Math.random() * 100;
+    }
+
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${this.alpha})`;
+    ctx.font = `bold ${this.size}px 'Courier New', monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    if (this.style === 0) {
+      ctx.fillText('13', 0, 0);
+    } else if (this.style === 1) {
+      ctx.fillText('XIII', 0, 0);
+    } else if (this.style === 2) {
+      ctx.fillText('⚡13', 0, 0);
+    } else {
+      // Hollow style
+      ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${this.alpha})`;
+      ctx.lineWidth = 1;
+      ctx.strokeText('13', 0, 0);
+    }
+
+    // Shadow/afterimage
+    if (this.frightened) {
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${this.alpha * 0.3})`;
+      ctx.fillText('13', -3, 3);
+    }
+
+    ctx.restore();
+  }
+}
+
+// Initialize with 13 entities
+const entities = [];
+for (let i = 0; i < 13; i++) {
+  entities.push(new Thirteen());
+}
+
+// Track interactions
+let clickCount = 0;
+let mouseX = W / 2, mouseY = H / 2;
+let lastWhisper = 0;
+let whisperIndex = 0;
+
+// Audio context for eerie ambience
+let audioCtx = null;
+let audioStarted = false;
+
+function startAudio() {
+  if (audioStarted) return;
+  audioStarted = true;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  // Low drone
+  const osc1 = audioCtx.createOscillator();
+  const gain1 = audioCtx.createGain();
+  osc1.type = 'sine';
+  osc1.frequency.value = 55; // Low A
+  gain1.gain.value = 0.04;
+  osc1.connect(gain1);
+  gain1.connect(audioCtx.destination);
+  osc1.start();
+
+  // Detuned second oscillator
+  const osc2 = audioCtx.createOscillator();
+  const gain2 = audioCtx.createGain();
+  osc2.type = 'sine';
+  osc2.frequency.value = 55.5; // Slightly detuned for beating
+  gain2.gain.value = 0.03;
+  osc2.connect(gain2);
+  gain2.connect(audioCtx.destination);
+  osc2.start();
+
+  // High eerie tone
+  const osc3 = audioCtx.createOscillator();
+  const gain3 = audioCtx.createGain();
+  osc3.type = 'sine';
+  osc3.frequency.value = 1313; // 13 reference
+  gain3.gain.value = 0;
+  osc3.connect(gain3);
+  gain3.connect(audioCtx.destination);
+  osc3.start();
+
+  // Slowly modulate the high tone
+  const lfo = audioCtx.createOscillator();
+  const lfoGain = audioCtx.createGain();
+  lfo.frequency.value = 0.1;
+  lfoGain.gain.value = 0.008;
+  lfo.connect(lfoGain);
+  lfoGain.connect(gain3.gain);
+  lfo.start();
+}
+
+function triggerScare() {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.value = 130 + Math.random() * 200;
+  gain.gain.value = 0.06;
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.8);
+}
+
+// Click/touch handler
+function interact(x, y) {
+  startAudio();
+  clickCount++;
+  countEl.textContent = clickCount === 13 ? '⚠ 13 ⚠' : clickCount;
+
+  // Frighten nearby entities
+  entities.forEach(e => e.flee(x, y));
+  triggerScare();
+
+  // Every 13 clicks, spawn a new one
+  if (clickCount % 13 === 0) {
+    entities.push(new Thirteen(x, y));
+    showWhisper();
+    // Flash the background
+    document.body.style.background = '#1a0000';
+    setTimeout(() => document.body.style.background = '#0a0a0a', 150);
+  }
+
+  // At 13 clicks exactly, big event
+  if (clickCount === 13) {
+    countEl.style.color = 'rgba(255, 0, 0, 0.9)';
+    countEl.style.fontSize = '24px';
+    setTimeout(() => {
+      countEl.style.fontSize = '12px';
+      countEl.style.color = 'rgba(120, 0, 0, 0.5)';
+    }, 2000);
+  }
+}
+
+canvas.addEventListener('click', e => interact(e.clientX, e.clientY));
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  interact(t.clientX, t.clientY);
+}, { passive: false });
+
+canvas.addEventListener('mousemove', e => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+});
+
+function showWhisper() {
+  const msg = whispers[whisperIndex % whispers.length];
+  whisperIndex++;
+  whisperEl.textContent = msg;
+  whisperEl.style.color = 'rgba(180, 0, 0, 0.7)';
+  setTimeout(() => {
+    whisperEl.style.color = 'rgba(180, 0, 0, 0)';
+  }, 3000);
+}
+
+// Spontaneous whispers
+setInterval(() => {
+  if (Math.random() < 0.3) showWhisper();
+}, 8000);
+
+// Scan lines overlay
+const overlay = document.getElementById('overlay');
+overlay.style.background = 'repeating-linear-gradient(0deg, rgba(0,0,0,0.1) 0px, rgba(0,0,0,0.1) 1px, transparent 1px, transparent 3px)';
+
+// Mouse proximity — entities subtly avoid cursor
+function applyMouseRepel() {
+  entities.forEach(e => {
+    const dx = e.x - mouseX;
+    const dy = e.y - mouseY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 120 && !e.frightened) {
+      const angle = Math.atan2(dy, dx);
+      e.vx += Math.cos(angle) * 0.3;
+      e.vy += Math.sin(angle) * 0.3;
+    }
+  });
+}
+
+// Occasionally, entities form the number 13 in arrangement
+let forming = false;
+let formTimer = 0;
+
+function checkFormation(time) {
+  if (forming) {
+    formTimer--;
+    if (formTimer <= 0) forming = false;
+    return;
+  }
+  // Every ~30 seconds, briefly try to arrange
+  if (Math.random() < 0.0003 && entities.length >= 13) {
+    forming = true;
+    formTimer = 180;
+    // Target positions forming a big "13"
+    const cx = W / 2;
+    const cy = H / 2;
+    const s = Math.min(W, H) * 0.3;
+    // "1" - vertical line (5 entities)
+    for (let i = 0; i < 5 && i < entities.length; i++) {
+      entities[i].targetX = cx - s * 0.2;
+      entities[i].targetY = cy - s * 0.4 + (s * 0.8 / 4) * i;
+    }
+    // "3" - three horizontal curves (8 entities)
+    const pts3 = [
+      [-0.05, -0.4], [0.15, -0.35], [0.25, -0.2],
+      [0.1, -0.05], [0.25, 0.1],
+      [0.25, 0.25], [0.15, 0.38], [-0.05, 0.4]
+    ];
+    for (let i = 0; i < 8 && i + 5 < entities.length; i++) {
+      entities[i + 5].targetX = cx + pts3[i][0] * s;
+      entities[i + 5].targetY = cy + pts3[i][1] * s;
+    }
+  }
+}
+
+// Draw connecting threads between nearby entities
+function drawThreads(ctx) {
+  for (let i = 0; i < entities.length; i++) {
+    for (let j = i + 1; j < entities.length; j++) {
+      const dx = entities[i].x - entities[j].x;
+      const dy = entities[i].y - entities[j].y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 150) {
+        const alpha = (1 - dist / 150) * 0.08;
+        ctx.strokeStyle = `rgba(120, 0, 0, ${alpha})`;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(entities[i].x, entities[i].y);
+        ctx.lineTo(entities[j].x, entities[j].y);
+        ctx.stroke();
+      }
+    }
+  }
+}
+
+// Main loop
+function animate(time) {
+  ctx.fillStyle = 'rgba(10, 10, 10, 0.15)';
+  ctx.fillRect(0, 0, W, H);
+
+  applyMouseRepel();
+  checkFormation(time);
+
+  entities.forEach(e => {
+    e.wander(time);
+    e.draw(ctx, time);
+  });
+
+  drawThreads(ctx);
+
+  // Occasional full-screen glitch
+  if (Math.random() < 0.002) {
+    ctx.fillStyle = `rgba(${Math.random() < 0.5 ? '80,0,0' : '0,0,0'}, 0.3)`;
+    const glitchY = Math.random() * H;
+    ctx.fillRect(0, glitchY, W, 2 + Math.random() * 8);
+  }
+
+  // Very rare: briefly show 12 instead, then snap back
+  if (Math.random() < 0.0005) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.font = 'bold 200px Courier New';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('12', W / 2, H / 2);
+    setTimeout(() => {
+      ctx.fillStyle = 'rgba(10, 10, 10, 0.9)';
+      ctx.fillRect(W / 2 - 200, H / 2 - 120, 400, 240);
+    }, 100);
+  }
+
+  requestAnimationFrame(animate);
+}
+
+animate(0);
+
+// Start audio on first interaction
+document.addEventListener('click', startAudio, { once: true });
+document.addEventListener('touchstart', startAudio, { once: true });
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
