@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>aapple.com — The Infinite Slice</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0808;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  font-family: 'Courier New', monospace;
+  cursor: crosshair;
+  touch-action: none;
+}
+canvas { display: block; }
+#counter {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255,200,120,0.6);
+  font-size: 13px;
+  letter-spacing: 2px;
+  z-index: 10;
+  pointer-events: none;
+  text-align: center;
+}
+#prompt {
+  position: fixed;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255,200,120,0.3);
+  font-size: 12px;
+  letter-spacing: 1px;
+  z-index: 10;
+  pointer-events: none;
+  transition: opacity 4s;
+}
+.footer {
+  position: fixed;
+  bottom: 12px;
+  width: 100%;
+  text-align: center;
+  font: 11px/1.4 'Courier New', monospace;
+  color: rgba(255,200,120,0.2);
+  z-index: 10;
+}
+.footer a { color: rgba(255,200,120,0.35); text-decoration: none; }
+.footer a:hover { color: rgba(255,200,120,0.7); }
+.footer .credit { font-size: 10px; margin-top: 3px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="counter">π = 3.</div>
+<div id="prompt">click to cut a slice</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const PI = '14159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848111745028410270193852110555964462294895493038196442881097566593344612847564823378678316527120190914564856692346034861045432664821339360726024914127372458700660631558817488152092096282925409171536436789259036001133053054882046652138414695194151160943305727036575959195309218611738193261179310511854807446237996274956735188575272489122793818301194912983367336244065664308602139494639522473719070217986094370277053921717629317675238467481846766940513200056812714526356082778577134275778960917363717872146844090122495343014654958537105079227968925892354201995611212902196086403441815981362977477130996051870721134999999837297804995105973173281609631859502445945534690830264252230825334468503526193118817101000313783875288658753320838142061717766914730359825349042875546873115956286388235378759375195778185778053217122680661300192787661119590921642019893809525720106548586327886593615338182796823030195203530185296899577362259941389124972177528347913151557485724245415069595082953311686172785588907509838175463746493931925506040092770167113900984882401285836160356370766010471018194295559619894676783744944825537977472684710404753464620804668425906949129331367702898915210475216205696602405803815019351125338243003558764024749647326391419927260426992279678235478163600934172164121992458631503028618297455570674983850549458858692699569092721079750930295532116534498720275596023648066549911988183479775356636980742654252786255181841757467289097777279380008164706001614524919217321721477235014144197356854816136115735255213347574184946843852332390739414333454776241686251898356948556209921922218427255025425688767179049460165346680498862723279178608578438382796797668145410095388378636095068006422512520511739298489608412848862694560424196528502221066118630674427862203919494504712371378696095636437191728746776465757396241389086583264599581339047802759009946576407895126946839835259570982582262052248940772671947826848260147699090264013639443745530506820349625245174939965143142980919065925093722169646151570985838741059788595977297549893016175392846813826868386894277415599185592524595395943104997252468084598727364469584865383673622262609912460805124388439045124413654976278079771569143599770012961608944169486855584840635';
+let idx = 0;
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H, cx, cy;
+const slices = [];
+const particles = [];
+const digitColors = [
+  '#ff6b6b','#ffa502','#ffd93d','#6bcb77','#4d96ff',
+  '#845ec2','#d65db1','#ff6f91','#ff9671','#ffc75f'
+];
+let totalAngle = 0;
+let displayStr = 'π = 3.';
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2;
+  cy = H / 2;
+}
+resize();
+window.addEventListener('resize', resize);
+
+function addSlice(x, y) {
+  if (idx >= PI.length) return;
+  const digit = parseInt(PI[idx]);
+  const angleSize = (digit === 0 ? 0.5 : digit) * (Math.PI * 2 / 50);
+  const startAngle = totalAngle;
+  totalAngle += angleSize;
+  const color = digitColors[digit];
+  const maxR = Math.min(W, H) * 0.38;
+
+  slices.push({
+    startAngle, angleSize, color, digit,
+    currentR: 0, maxR, growing: true,
+    opacity: 1, born: Date.now()
+  });
+
+  displayStr += PI[idx];
+  document.getElementById('counter').textContent = displayStr;
+  idx++;
+
+  // Burst particles from click point
+  for (let i = 0; i < 8 + digit * 2; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const speed = 1 + Math.random() * 3;
+    particles.push({
+      x: x || cx, y: y || cy,
+      vx: Math.cos(a) * speed,
+      vy: Math.sin(a) * speed,
+      life: 1,
+      decay: 0.008 + Math.random() * 0.015,
+      color, size: 2 + Math.random() * 3
+    });
+  }
+
+  // Hide prompt after first click
+  const prompt = document.getElementById('prompt');
+  if (prompt.style.opacity !== '0') prompt.style.opacity = '0';
+
+  // Play a tone based on digit
+  try {
+    const actx = window._actx || (window._actx = new AudioContext());
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    const freq = 220 + digit * 55;
+    osc.type = ['sine','triangle','square'][digit % 3];
+    osc.frequency.setValueAtTime(freq, actx.currentTime);
+    gain.gain.setValueAtTime(0.08, actx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.4 + digit * 0.05);
+    osc.connect(gain);
+    gain.connect(actx.destination);
+    osc.start();
+    osc.stop(actx.currentTime + 0.5 + digit * 0.05);
+  } catch(e) {}
+}
+
+function draw() {
+  ctx.fillStyle = 'rgba(10,8,8,0.15)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Draw pie
+  for (const s of slices) {
+    if (s.growing) {
+      s.currentR += (s.maxR - s.currentR) * 0.06;
+      if (s.maxR - s.currentR < 0.5) s.growing = false;
+    }
+    ctx.save();
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, s.currentR, s.startAngle - Math.PI/2, s.startAngle + s.angleSize - Math.PI/2);
+    ctx.closePath();
+    ctx.fillStyle = s.color;
+    ctx.fill();
+    // Digit label
+    if (s.currentR > 30) {
+      const midAngle = s.startAngle + s.angleSize / 2 - Math.PI/2;
+      const labelR = s.currentR * 0.65;
+      const lx = cx + Math.cos(midAngle) * labelR;
+      const ly = cy + Math.sin(midAngle) * labelR;
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = '#0a0808';
+      ctx.font = `bold ${Math.min(18, s.angleSize * s.currentR * 0.3)}px Courier New`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(s.digit, lx, ly);
+    }
+    // Slice border
+    ctx.globalAlpha = 0.3;
+    ctx.strokeStyle = '#0a0808';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, s.currentR, s.startAngle - Math.PI/2, s.startAngle + s.angleSize - Math.PI/2);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Center circle
+  if (slices.length > 0) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, 28, 0, Math.PI * 2);
+    ctx.fillStyle = '#0a0808';
+    ctx.fill();
+    ctx.globalAlpha = 0.8;
+    ctx.fillStyle = '#ffd93d';
+    ctx.font = 'bold 22px Courier New';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('π', cx, cy + 1);
+    ctx.restore();
+  }
+
+  // Particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.02;
+    p.vx *= 0.995;
+    p.life -= p.decay;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    ctx.save();
+    ctx.globalAlpha = p.life * 0.7;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Ambient floating digits of pi in background
+  if (Math.random() < 0.03 && idx > 0) {
+    const d = parseInt(PI[Math.floor(Math.random() * idx)]);
+    floaters.push({
+      x: Math.random() * W,
+      y: H + 20,
+      digit: d,
+      speed: 0.3 + Math.random() * 0.7,
+      opacity: 0.05 + Math.random() * 0.1,
+      size: 10 + Math.random() * 20
+    });
+  }
+  for (let i = floaters.length - 1; i >= 0; i--) {
+    const f = floaters[i];
+    f.y -= f.speed;
+    if (f.y < -30) { floaters.splice(i, 1); continue; }
+    ctx.save();
+    ctx.globalAlpha = f.opacity;
+    ctx.fillStyle = digitColors[f.digit];
+    ctx.font = `${f.size}px Courier New`;
+    ctx.textAlign = 'center';
+    ctx.fillText(f.digit, f.x, f.y);
+    ctx.restore();
+  }
+
+  requestAnimationFrame(draw);
+}
+
+const floaters = [];
+
+canvas.addEventListener('click', (e) => addSlice(e.clientX, e.clientY));
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  addSlice(t.clientX, t.clientY);
+}, { passive: false });
+
+// Auto-slice on spacebar or any key
+document.addEventListener('keydown', (e) => {
+  if (e.key === ' ') e.preventDefault();
+  addSlice(cx + (Math.random()-0.5)*100, cy + (Math.random()-0.5)*100);
+});
+
+// Start with the "3" already shown, first click adds first decimal digit
+draw();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
