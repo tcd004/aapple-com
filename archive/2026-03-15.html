@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>aapple.com — Beware</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0c0a0e;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  font-family: 'Georgia', 'Times New Roman', serif;
+  cursor: default;
+  touch-action: none;
+}
+canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
+#textLayer {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}
+.ghost-text {
+  position: absolute;
+  color: rgba(180, 30, 30, 0);
+  font-style: italic;
+  white-space: nowrap;
+  pointer-events: none;
+  transition: color 4s ease-in;
+  text-shadow: 0 0 20px rgba(120, 0, 0, 0.3);
+}
+.ghost-text.visible {
+  color: rgba(180, 30, 30, 0.6);
+}
+.ghost-text.fading {
+  color: rgba(180, 30, 30, 0);
+}
+#warning {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  font-size: clamp(20px, 5vw, 48px);
+  color: rgba(200, 180, 160, 0);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  pointer-events: none;
+  transition: color 8s ease-in, letter-spacing 8s ease-out;
+  text-shadow: 0 0 40px rgba(150, 0, 0, 0.4);
+}
+#warning.reveal {
+  color: rgba(200, 180, 160, 0.15);
+  letter-spacing: 0.6em;
+}
+#date-mark {
+  position: fixed;
+  bottom: 80px;
+  width: 100%;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 4px;
+  color: rgba(100, 80, 80, 0);
+  z-index: 5;
+  pointer-events: none;
+  transition: color 6s ease-in;
+  font-variant: small-caps;
+}
+#date-mark.show {
+  color: rgba(100, 80, 80, 0.4);
+}
+.footer {
+  position: fixed;
+  bottom: 12px;
+  width: 100%;
+  text-align: center;
+  z-index: 20;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+}
+.footer a {
+  color: rgba(100, 80, 80, 0.4);
+  text-decoration: none;
+  margin: 0 8px;
+}
+.footer a:hover { color: rgba(180, 30, 30, 0.6); }
+.footer .credit {
+  color: rgba(100, 80, 80, 0.25);
+  font-size: 9px;
+  margin-top: 4px;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="textLayer"></div>
+<div id="warning">Beware</div>
+<div id="date-mark">MARCH · XV · MMXXVI</div>
+
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Shakespeare quotes from Julius Caesar
+const quotes = [
+  "Et tu, Brute?",
+  "Cowards die many times before their deaths",
+  "The valiant never taste of death but once",
+  "Beware the Ides of March",
+  "The fault, dear Brutus, is not in our stars",
+  "But in ourselves, that we are underlings",
+  "Cry Havoc, and let slip the dogs of war",
+  "There is a tide in the affairs of men",
+  "Men at some time are masters of their fates",
+  "I come to bury Caesar, not to praise him",
+  "The evil that men do lives after them",
+  "The good is oft interred with their bones",
+  "Yond Cassius has a lean and hungry look",
+  "He thinks too much; such men are dangerous",
+  "Friends, Romans, countrymen",
+  "Lend me your ears",
+  "This was the most unkindest cut of all",
+  "As Caesar loved me, I weep for him",
+  "Not that I loved Caesar less, but that I loved Rome more",
+  "Ambition's debt is paid",
+  "O mighty Caesar! Dost thou lie so low?",
+  "How many ages hence shall this our lofty scene be acted o'er",
+  "Let me have men about me that are fat",
+  "Infirmity doth still neglect all office",
+  "When beggars die there are no comets seen"
+];
+
+// Blood drops — particles that fall like drops
+const drops = [];
+const MAX_DROPS = 200;
+
+class Drop {
+  constructor(x, y) {
+    this.x = x || Math.random() * W;
+    this.y = y || -10;
+    this.vy = 0.3 + Math.random() * 1.5;
+    this.vx = (Math.random() - 0.5) * 0.3;
+    this.size = 1 + Math.random() * 3;
+    this.opacity = 0.3 + Math.random() * 0.5;
+    this.life = 1;
+    this.decay = 0.0005 + Math.random() * 0.001;
+    this.trail = [];
+    this.maxTrail = 5 + Math.floor(Math.random() * 10);
+  }
+
+  update() {
+    this.vy += 0.02; // gravity
+    this.x += this.vx;
+    this.y += this.vy;
+    this.life -= this.decay;
+
+    this.trail.push({ x: this.x, y: this.y, opacity: this.opacity * this.life });
+    if (this.trail.length > this.maxTrail) this.trail.shift();
+
+    return this.life > 0 && this.y < H + 20;
+  }
+
+  draw() {
+    // Trail
+    for (let i = 0; i < this.trail.length; i++) {
+      const t = this.trail[i];
+      const a = t.opacity * (i / this.trail.length) * 0.3;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, this.size * 0.6, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(120, 10, 10, ${a})`;
+      ctx.fill();
+    }
+    // Main drop
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(150, 20, 20, ${this.opacity * this.life})`;
+    ctx.fill();
+  }
+}
+
+// Dagger shapes drawn with lines
+const daggers = [];
+const MAX_DAGGERS = 12;
+
+class Dagger {
+  constructor() {
+    this.x = Math.random() * W;
+    this.y = Math.random() * H;
+    this.angle = Math.random() * Math.PI * 2;
+    this.rotSpeed = (Math.random() - 0.5) * 0.005;
+    this.scale = 0.4 + Math.random() * 0.8;
+    this.opacity = 0;
+    this.targetOpacity = 0.08 + Math.random() * 0.12;
+    this.fadeIn = 0.0003 + Math.random() * 0.0005;
+    this.driftX = (Math.random() - 0.5) * 0.2;
+    this.driftY = (Math.random() - 0.5) * 0.2;
+    this.born = Date.now();
+    this.lifespan = 15000 + Math.random() * 25000;
+  }
+
+  update() {
+    const age = Date.now() - this.born;
+    if (age < this.lifespan * 0.7) {
+      this.opacity = Math.min(this.opacity + this.fadeIn, this.targetOpacity);
+    } else {
+      this.opacity *= 0.998;
+    }
+    this.angle += this.rotSpeed;
+    this.x += this.driftX;
+    this.y += this.driftY;
+    return age < this.lifespan && this.opacity > 0.001;
+  }
+
+  draw() {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.angle);
+    ctx.scale(this.scale, this.scale);
+    ctx.strokeStyle = `rgba(180, 160, 140, ${this.opacity})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    // Blade
+    ctx.moveTo(0, -50);
+    ctx.lineTo(6, -10);
+    ctx.lineTo(6, 15);
+    ctx.lineTo(0, 20);
+    ctx.lineTo(-6, 15);
+    ctx.lineTo(-6, -10);
+    ctx.closePath();
+    ctx.stroke();
+    // Guard
+    ctx.beginPath();
+    ctx.moveTo(-14, 20);
+    ctx.lineTo(14, 20);
+    ctx.lineTo(12, 25);
+    ctx.lineTo(-12, 25);
+    ctx.closePath();
+    ctx.stroke();
+    // Handle
+    ctx.beginPath();
+    ctx.moveTo(-4, 25);
+    ctx.lineTo(-4, 50);
+    ctx.lineTo(4, 50);
+    ctx.lineTo(4, 25);
+    ctx.stroke();
+    // Pommel
+    ctx.beginPath();
+    ctx.arc(0, 54, 5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// Mouse/touch interaction — drops spawn from cursor
+let mouseX = W / 2, mouseY = H / 2;
+let mouseActive = false;
+
+function onPointer(e) {
+  const touch = e.touches ? e.touches[0] : e;
+  mouseX = touch.clientX;
+  mouseY = touch.clientY;
+  mouseActive = true;
+  // Spawn drops from cursor
+  for (let i = 0; i < 3; i++) {
+    if (drops.length < MAX_DROPS) {
+      drops.push(new Drop(
+        mouseX + (Math.random() - 0.5) * 30,
+        mouseY + (Math.random() - 0.5) * 30
+      ));
+    }
+  }
+}
+
+window.addEventListener('mousemove', onPointer);
+window.addEventListener('touchmove', e => { e.preventDefault(); onPointer(e); }, { passive: false });
+window.addEventListener('touchstart', e => { onPointer(e); }, { passive: true });
+
+// Ghost text spawner
+const textLayer = document.getElementById('textLayer');
+let lastQuoteTime = 0;
+
+function spawnQuote() {
+  const now = Date.now();
+  if (now - lastQuoteTime < 4000) return;
+  lastQuoteTime = now;
+
+  const el = document.createElement('div');
+  el.className = 'ghost-text';
+  el.textContent = quotes[Math.floor(Math.random() * quotes.length)];
+  el.style.left = (5 + Math.random() * 80) + '%';
+  el.style.top = (5 + Math.random() * 80) + '%';
+  el.style.fontSize = (12 + Math.random() * 18) + 'px';
+  textLayer.appendChild(el);
+
+  requestAnimationFrame(() => el.classList.add('visible'));
+
+  setTimeout(() => {
+    el.classList.remove('visible');
+    el.classList.add('fading');
+    setTimeout(() => el.remove(), 5000);
+  }, 5000 + Math.random() * 5000);
+}
+
+// Ambient background pulse
+let time = 0;
+const startTime = Date.now();
+
+function drawBackground() {
+  time += 0.005;
+  const elapsed = (Date.now() - startTime) / 1000;
+
+  // Darker as time passes (dread builds)
+  const dread = Math.min(elapsed / 120, 1); // max dread after 2 min
+
+  // Subtle vignette
+  const gradient = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W, H) * 0.7);
+  gradient.addColorStop(0, `rgba(12, 10, 14, 0.02)`);
+  gradient.addColorStop(1, `rgba(0, 0, 0, ${0.03 + dread * 0.02})`);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, W, H);
+
+  // Occasional screen flicker
+  if (Math.random() < 0.003 * (1 + dread)) {
+    ctx.fillStyle = `rgba(150, 20, 20, ${0.01 + Math.random() * 0.02})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+// Stab marks — click/tap creates a radiating wound
+window.addEventListener('click', (e) => {
+  const cx = e.clientX, cy = e.clientY;
+  for (let i = 0; i < 15; i++) {
+    if (drops.length < MAX_DROPS) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 1 + Math.random() * 4;
+      const d = new Drop(cx, cy);
+      d.vx = Math.cos(angle) * speed;
+      d.vy = Math.sin(angle) * speed - 2;
+      d.size = 1.5 + Math.random() * 3;
+      drops.push(d);
+    }
+  }
+});
+
+// Main loop
+let frameCount = 0;
+
+function animate() {
+  // Semi-transparent clear for trails
+  ctx.fillStyle = 'rgba(12, 10, 14, 0.04)';
+  ctx.fillRect(0, 0, W, H);
+
+  drawBackground();
+
+  // Ambient drops (slow drip)
+  if (Math.random() < 0.08 && drops.length < MAX_DROPS) {
+    drops.push(new Drop());
+  }
+
+  // Update and draw drops
+  for (let i = drops.length - 1; i >= 0; i--) {
+    if (!drops[i].update()) {
+      drops.splice(i, 1);
+    } else {
+      drops[i].draw();
+    }
+  }
+
+  // Daggers appear gradually
+  const elapsed = (Date.now() - startTime) / 1000;
+  if (elapsed > 5 && daggers.length < MAX_DAGGERS && Math.random() < 0.002) {
+    daggers.push(new Dagger());
+  }
+
+  for (let i = daggers.length - 1; i >= 0; i--) {
+    if (!daggers[i].update()) {
+      daggers.splice(i, 1);
+    } else {
+      daggers[i].draw();
+    }
+  }
+
+  // Spawn ghost text
+  if (elapsed > 2 && Math.random() < 0.01) {
+    spawnQuote();
+  }
+
+  // Reveal "BEWARE" after 10 seconds
+  if (elapsed > 10) {
+    document.getElementById('warning').classList.add('reveal');
+  }
+  if (elapsed > 6) {
+    document.getElementById('date-mark').classList.add('show');
+  }
+
+  // 23 stabs — at the 23-second mark, brief flurry
+  if (frameCount === 0 && elapsed > 23 && elapsed < 24) {
+    for (let i = 0; i < 23; i++) {
+      drops.push(new Drop(
+        W * 0.3 + Math.random() * W * 0.4,
+        H * 0.3 + Math.random() * H * 0.4
+      ));
+    }
+    frameCount = 1;
+  }
+
+  requestAnimationFrame(animate);
+}
+
+// Clear canvas fully once at start
+ctx.fillStyle = '#0c0a0e';
+ctx.fillRect(0, 0, W, H);
+
+animate();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
