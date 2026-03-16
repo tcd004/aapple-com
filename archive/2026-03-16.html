@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Now Serving — aapple.com</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+@font-face { font-family: 'seg'; src: local('Courier New'); }
+body {
+  background: #e8e4d8;
+  font-family: 'Courier New', monospace;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  cursor: default;
+  user-select: none;
+}
+#room {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: filter 2s;
+}
+#flicker {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  pointer-events: none;
+  z-index: 100;
+}
+#board {
+  background: #1a1a1a;
+  border: 8px solid #333;
+  border-radius: 4px;
+  padding: 30px 50px;
+  text-align: center;
+  box-shadow: 0 4px 30px rgba(0,0,0,0.4);
+  position: relative;
+}
+#board::before {
+  content: 'NOW SERVING';
+  display: block;
+  color: #ff3333;
+  font-size: 14px;
+  letter-spacing: 6px;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+}
+#number {
+  color: #ff2200;
+  font-size: 120px;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+  text-shadow: 0 0 20px rgba(255,34,0,0.6), 0 0 60px rgba(255,34,0,0.3);
+  line-height: 1;
+  min-width: 200px;
+  transition: all 0.3s;
+}
+#ticket {
+  margin-top: 40px;
+  background: #fff;
+  border: 2px dashed #999;
+  padding: 20px 30px;
+  text-align: center;
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
+  transform: rotate(-1deg);
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+#ticket:hover { transform: rotate(0deg) scale(1.02); }
+#ticket-label {
+  font-size: 10px;
+  color: #999;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+#ticket-num {
+  font-size: 48px;
+  color: #333;
+  font-weight: bold;
+  margin: 5px 0;
+}
+#ticket-sub {
+  font-size: 9px;
+  color: #aaa;
+  letter-spacing: 1px;
+}
+#message {
+  margin-top: 25px;
+  font-size: 11px;
+  color: #888;
+  letter-spacing: 1px;
+  height: 20px;
+  text-align: center;
+  max-width: 90vw;
+}
+#ambient-text {
+  position: fixed;
+  bottom: 80px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 10px;
+  color: rgba(0,0,0,0.2);
+  letter-spacing: 2px;
+  transition: all 3s;
+}
+#chairs {
+  position: fixed;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 15px;
+}
+.chair {
+  width: 30px;
+  height: 30px;
+  background: #b8a88a;
+  border-radius: 3px 3px 0 0;
+  position: relative;
+  opacity: 0.4;
+}
+.chair::after {
+  content: '';
+  position: absolute;
+  bottom: -12px;
+  left: 3px;
+  right: 3px;
+  height: 12px;
+  background: #a0916e;
+  border-radius: 0 0 2px 2px;
+}
+.chair.occupied { opacity: 0.8; }
+.chair.occupied::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  background: #666;
+  border-radius: 50%;
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+#ding {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%,-50%);
+  font-size: 200px;
+  color: rgba(255,34,0,0);
+  pointer-events: none;
+  transition: color 0.1s;
+  z-index: 50;
+}
+.footer {
+  position: fixed;
+  bottom: 15px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  z-index: 200;
+}
+.footer a {
+  color: rgba(0,0,0,0.25);
+  text-decoration: none;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+.footer a:hover { color: rgba(0,0,0,0.5); }
+.footer .credit {
+  color: rgba(0,0,0,0.12);
+  font-size: 8px;
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+}
+#clock {
+  position: fixed;
+  top: 20px;
+  right: 25px;
+  font-size: 11px;
+  color: #999;
+  letter-spacing: 2px;
+}
+#poster {
+  position: fixed;
+  top: 20px;
+  left: 25px;
+  width: 80px;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid #ddd;
+  font-size: 7px;
+  color: #aaa;
+  text-align: center;
+  line-height: 1.4;
+  transform: rotate(-2deg);
+  opacity: 0.5;
+}
+</style>
+</head>
+<body>
+<div id="flicker"></div>
+<div id="room">
+  <div id="board">
+    <div id="number">---</div>
+  </div>
+  <div id="ticket">
+    <div id="ticket-label">Your Number</div>
+    <div id="ticket-num">---</div>
+    <div id="ticket-sub">Please wait to be called</div>
+  </div>
+  <div id="message"></div>
+</div>
+<div id="chairs"></div>
+<div id="ambient-text"></div>
+<div id="ding"></div>
+<div id="clock"></div>
+<div id="poster">
+  PLEASE REMAIN<br>SEATED UNTIL<br>YOUR NUMBER<br>IS CALLED<br><br>
+  THANK YOU FOR<br>YOUR PATIENCE<br><br>
+  — MANAGEMENT
+</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+
+<script>
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let started = false;
+let phase = 0; // 0=normal, 1=uneasy, 2=weird, 3=existential
+let elapsed = 0;
+let currentServing = 0;
+let yourNumber = 0;
+let callCount = 0;
+
+// Ambient hum
+let hum = null;
+function startHum() {
+  if (hum) return;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = 'sawtooth';
+  o.frequency.value = 60;
+  g.gain.value = 0.015;
+  o.connect(g);
+  g.connect(audioCtx.destination);
+  o.start();
+  hum = { o, g };
+  // Fluorescent buzz
+  const o2 = audioCtx.createOscillator();
+  const g2 = audioCtx.createGain();
+  o2.type = 'square';
+  o2.frequency.value = 120;
+  g2.gain.value = 0.008;
+  o2.connect(g2);
+  g2.connect(audioCtx.destination);
+  o2.start();
+}
+
+function ding() {
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = 'sine';
+  o.frequency.value = phase >= 2 ? 440 + Math.random() * 200 : 880;
+  g.gain.value = 0.3;
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + (phase >= 3 ? 3 : 0.8));
+  o.connect(g);
+  g.connect(audioCtx.destination);
+  o.start();
+  o.stop(audioCtx.currentTime + (phase >= 3 ? 3 : 0.8));
+  // Visual ding
+  const el = document.getElementById('ding');
+  el.textContent = phase >= 3 ? '🔔' : '•';
+  el.style.color = 'rgba(255,34,0,0.3)';
+  setTimeout(() => el.style.color = 'rgba(255,34,0,0)', 200);
+}
+
+function init() {
+  if (started) return;
+  started = true;
+  audioCtx.resume();
+  startHum();
+  yourNumber = 47 + Math.floor(Math.random() * 30);
+  currentServing = yourNumber - 12 - Math.floor(Math.random() * 8);
+  document.getElementById('ticket-num').textContent = yourNumber;
+  document.getElementById('number').textContent = currentServing;
+  buildChairs();
+  scheduleNext();
+}
+
+document.addEventListener('click', init);
+document.addEventListener('touchstart', init);
+
+// Messages that play between calls
+const normalMessages = [
+  'Please have your documents ready.',
+  'Estimated wait: 12 minutes.',
+  'Window 3 is now closed.',
+  'Please do not use mobile phones.',
+  'Estimated wait: 11 minutes.',
+  'Thank you for your patience.',
+  'Window 7 is temporarily unavailable.',
+  'Estimated wait: 14 minutes.',
+  'Please take a number if you haven\'t already.',
+];
+const uneaseMsgs = [
+  'Estimated wait: 45 minutes.',
+  'We apologize for the delay.',
+  'Your patience is... noted.',
+  'Window 3 has been closed permanently.',
+  'Estimated wait: 2 hours.',
+  'Has it always been this warm in here?',
+  'Please do not look at the walls.',
+  'Estimated wait: recalculating...',
+  'The exit is behind you. Probably.',
+];
+const weirdMsgs = [
+  'Now serving: the concept of waiting.',
+  'Your number exists in all possible states.',
+  'Estimated wait: ∞',
+  'We are experiencing you.',
+  'Window ■ is now ████.',
+  'Please remain.',
+  'There is no window 3. There never was.',
+  'The number before yours does not want to be called.',
+  'You have always been here.',
+];
+const existentialMsgs = [
+  'What are you waiting for?',
+  'The queue is a metaphor. For what, we cannot say.',
+  'Your number is beautiful. We want to keep it.',
+  'The serving counter has become self-aware.',
+  'Numbers are a human construct. So is waiting.',
+  'The room remembers everyone who left.',
+  'Nobody leaves. They just stop waiting.',
+  'You are number ' + 47 + '. You have always been number ' + 47 + '.',
+];
+
+function getMessage() {
+  const pools = [normalMessages, uneaseMsgs, weirdMsgs, existentialMsgs];
+  return pools[Math.min(phase, 3)][Math.floor(Math.random() * pools[Math.min(phase, 3)].length)];
+}
+
+// Weird number formats for later phases
+function formatServing(n) {
+  if (phase === 0) return n;
+  if (phase === 1) return n;
+  if (phase === 2) {
+    const fmts = [
+      () => n,
+      () => n + '½',
+      () => n + 'b',
+      () => '~' + n,
+      () => n + '?',
+      () => String(n).split('').join(' '),
+    ];
+    return fmts[Math.floor(Math.random() * fmts.length)]();
+  }
+  // phase 3
+  const fmts = [
+    () => n + 'i',
+    () => '∅',
+    () => '█'.repeat(String(n).length),
+    () => 'π',
+    () => 'YOU',
+    () => n + '.' + Math.floor(Math.random()*999),
+    () => '∞',
+    () => String.fromCharCode(9608 + Math.floor(Math.random()*20)),
+    () => yourNumber - 1,
+    () => yourNumber + 1,
+  ];
+  return fmts[Math.floor(Math.random() * fmts.length)]();
+}
+
+function advanceNumber() {
+  callCount++;
+  ding();
+
+  // In phase 0-1, numbers advance normally but SKIP yours
+  if (phase < 2) {
+    currentServing++;
+    // Skip the player's number
+    if (currentServing === yourNumber) currentServing++;
+  } else {
+    // Weird progression
+    if (Math.random() < 0.3) {
+      currentServing--; // go backwards
+    } else if (Math.random() < 0.2) {
+      // skip several
+      currentServing += Math.floor(Math.random() * 5) + 2;
+      if (currentServing === yourNumber) currentServing++;
+    } else {
+      currentServing++;
+      if (currentServing === yourNumber) currentServing++;
+    }
+  }
+
+  const display = formatServing(currentServing);
+  const numEl = document.getElementById('number');
+  numEl.textContent = display;
+
+  // Flash effect
+  numEl.style.textShadow = '0 0 40px rgba(255,34,0,1), 0 0 80px rgba(255,34,0,0.8)';
+  setTimeout(() => {
+    numEl.style.textShadow = '0 0 20px rgba(255,34,0,0.6), 0 0 60px rgba(255,34,0,0.3)';
+  }, 500);
+
+  // Update message
+  setTimeout(() => {
+    document.getElementById('message').textContent = getMessage();
+  }, 1500);
+
+  // Remove a random chair occupant sometimes
+  if (Math.random() < 0.3) {
+    const occupied = document.querySelectorAll('.chair.occupied');
+    if (occupied.length > 1) {
+      const idx = Math.floor(Math.random() * occupied.length);
+      occupied[idx].classList.remove('occupied');
+    }
+  }
+
+  scheduleNext();
+}
+
+function scheduleNext() {
+  // Interval gets longer as phases progress
+  const base = phase === 0 ? 3000 : phase === 1 ? 4500 : phase === 2 ? 6000 : 8000;
+  const jitter = Math.random() * 2000;
+  setTimeout(advanceNumber, base + jitter);
+}
+
+// Phase management
+setInterval(() => {
+  if (!started) return;
+  elapsed++;
+
+  // Phase transitions
+  if (elapsed === 30 && phase === 0) {
+    phase = 1;
+    document.body.style.background = '#e0dcd0';
+  }
+  if (elapsed === 75 && phase === 1) {
+    phase = 2;
+    document.body.style.background = '#d8d4c4';
+    document.getElementById('poster').style.transform = 'rotate(-5deg)';
+    document.getElementById('poster').innerHTML = 'PLEASE REMAIN<br><br>PLEASE<br><br>REMAIN<br><br>— ████████';
+  }
+  if (elapsed === 140 && phase === 2) {
+    phase = 3;
+    document.body.style.background = '#ccc8b8';
+    document.getElementById('poster').style.opacity = '0';
+    document.getElementById('ticket-sub').textContent = 'Will you be called?';
+  }
+
+  // Ambient text changes
+  if (elapsed % 15 === 0) {
+    const texts = phase < 2 ? [
+      '', 'others are waiting too', 'the queue is moving',
+      'please be patient', 'your turn will come',
+    ] : [
+      'the walls are listening', 'how long have you been here',
+      'do you remember arriving', 'the door behind you',
+      'there are no other rooms', 'you chose this',
+      '', 'someone else has your number now',
+    ];
+    document.getElementById('ambient-text').textContent =
+      texts[Math.floor(Math.random() * texts.length)];
+  }
+}, 1000);
+
+// Fluorescent flicker
+setInterval(() => {
+  if (!started) return;
+  if (Math.random() < (phase >= 2 ? 0.15 : 0.03)) {
+    const fl = document.getElementById('flicker');
+    fl.style.background = 'rgba(0,0,0,0.08)';
+    setTimeout(() => fl.style.background = 'transparent', 50 + Math.random() * 100);
+    if (phase >= 2 && Math.random() < 0.3) {
+      setTimeout(() => {
+        fl.style.background = 'rgba(0,0,0,0.12)';
+        setTimeout(() => fl.style.background = 'transparent', 30);
+      }, 150);
+    }
+  }
+}, 200);
+
+// Clock (slightly wrong)
+function updateClock() {
+  const now = new Date();
+  let h = now.getHours(), m = now.getMinutes();
+  if (phase >= 2) {
+    m = (m + Math.floor(elapsed / 10)) % 60;
+    if (phase >= 3) h = (h + Math.floor(elapsed / 30)) % 24;
+  }
+  document.getElementById('clock').textContent =
+    String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// Build chairs
+function buildChairs() {
+  const container = document.getElementById('chairs');
+  const count = Math.min(Math.floor(window.innerWidth / 50), 12);
+  for (let i = 0; i < count; i++) {
+    const c = document.createElement('div');
+    c.className = 'chair' + (Math.random() < 0.6 ? ' occupied' : '');
+    container.appendChild(c);
+  }
+}
+
+// Ticket click — desperate
+document.getElementById('ticket').addEventListener('click', () => {
+  if (!started) return;
+  const sub = document.getElementById('ticket-sub');
+  const responses = phase < 2 ? [
+    'Please wait to be called.',
+    'Your number has been noted.',
+    'The queue is moving. Please wait.',
+    'Patience is appreciated.',
+  ] : [
+    'Clicking won\'t help.',
+    'We know you\'re here.',
+    'The number knows.',
+    'Stop.',
+    'Y̷o̷u̷r̷ ̷t̷u̷r̷n̷ ̷w̷i̷l̷l̷ ̷c̷o̷m̷e̷.',
+    'Will it?',
+    'Your number has been... reconsidered.',
+    '...',
+  ];
+  sub.textContent = responses[Math.floor(Math.random() * responses.length)];
+  // Small shake
+  document.getElementById('ticket').style.transform =
+    'rotate(' + (Math.random() * 4 - 2) + 'deg)';
+});
+
+// Prevent leaving (subtle)
+window.addEventListener('beforeunload', (e) => {
+  if (phase >= 2 && elapsed > 90) {
+    e.preventDefault();
+    e.returnValue = 'Your number hasn\'t been called yet.';
+  }
+});
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
