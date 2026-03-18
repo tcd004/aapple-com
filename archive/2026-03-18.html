@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fracture — aapple.com</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #000;
+  overflow: hidden;
+  cursor: crosshair;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+canvas { display: block; }
+.hint {
+  position: fixed;
+  bottom: 80px;
+  left: 0; right: 0;
+  text-align: center;
+  color: rgba(255,255,255,0.3);
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  letter-spacing: 2px;
+  pointer-events: none;
+  transition: opacity 2s;
+}
+.footer {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  text-align: center;
+  padding: 12px;
+  z-index: 100;
+}
+.footer a {
+  color: rgba(255,255,255,0.2);
+  text-decoration: none;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+.footer a:hover { color: rgba(255,255,255,0.5); }
+.footer .credit {
+  color: rgba(255,255,255,0.08);
+  font-family: 'Courier New', monospace;
+  font-size: 9px;
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hint" id="hint">click to fracture</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+const cracks = [];
+const shards = [];
+let stars = [];
+let hitCount = 0;
+let hintEl = document.getElementById('hint');
+let audioCtx;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  generateStars();
+}
+
+function generateStars() {
+  stars = [];
+  for (let i = 0; i < 200; i++) {
+    stars.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: Math.random() * 1.5 + 0.3,
+      twinkle: Math.random() * Math.PI * 2,
+      speed: Math.random() * 0.02 + 0.005
+    });
+  }
+}
+
+function drawStars(t) {
+  for (const s of stars) {
+    s.twinkle += s.speed;
+    const a = 0.3 + 0.7 * Math.abs(Math.sin(s.twinkle));
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(200,210,255,${a})`;
+    ctx.fill();
+  }
+}
+
+function drawNebula(t) {
+  const grd = ctx.createRadialGradient(W*0.3, H*0.4, 0, W*0.3, H*0.4, W*0.6);
+  grd.addColorStop(0, `rgba(40,10,60,0.15)`);
+  grd.addColorStop(0.5, `rgba(10,20,50,0.1)`);
+  grd.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, W, H);
+
+  const grd2 = ctx.createRadialGradient(W*0.7, H*0.6, 0, W*0.7, H*0.6, W*0.4);
+  grd2.addColorStop(0, `rgba(10,30,60,0.12)`);
+  grd2.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = grd2;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function playGlassSound() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const dur = 0.3 + Math.random() * 0.2;
+  const osc1 = audioCtx.createOscillator();
+  const osc2 = audioCtx.createOscillator();
+  const noise = audioCtx.createBufferSource();
+  const gain = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+
+  // Noise burst for crack texture
+  const bufSize = audioCtx.sampleRate * dur;
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufSize * 0.1));
+  noise.buffer = buf;
+
+  filter.type = 'highpass';
+  filter.frequency.value = 2000 + Math.random() * 4000;
+
+  gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+
+  noise.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  // High pitched ping
+  const pingGain = audioCtx.createGain();
+  osc1.type = 'sine';
+  osc1.frequency.value = 3000 + Math.random() * 3000;
+  pingGain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+  pingGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur * 0.5);
+  osc1.connect(pingGain);
+  pingGain.connect(audioCtx.destination);
+
+  noise.start();
+  osc1.start();
+  osc1.stop(audioCtx.currentTime + dur);
+  noise.stop(audioCtx.currentTime + dur);
+}
+
+class Crack {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.branches = [];
+    const numBranches = 5 + Math.floor(Math.random() * 8);
+    for (let i = 0; i < numBranches; i++) {
+      const angle = (Math.PI * 2 / numBranches) * i + (Math.random() - 0.5) * 0.6;
+      this.branches.push(new CrackBranch(x, y, angle, 1));
+    }
+  }
+  update() {
+    let active = false;
+    for (const b of this.branches) {
+      if (b.update()) active = true;
+    }
+    return active;
+  }
+  draw() {
+    for (const b of this.branches) b.draw();
+  }
+}
+
+class CrackBranch {
+  constructor(x, y, angle, gen) {
+    this.points = [{x, y}];
+    this.angle = angle;
+    this.speed = 3 + Math.random() * 4;
+    this.maxLen = (80 + Math.random() * 180) / gen;
+    this.len = 0;
+    this.done = false;
+    this.gen = gen;
+    this.children = [];
+    this.width = Math.max(0.5, 2.5 - gen * 0.5);
+    this.spawned = false;
+  }
+  update() {
+    if (this.done) {
+      let childActive = false;
+      for (const c of this.children) {
+        if (c.update()) childActive = true;
+      }
+      return childActive;
+    }
+    const wobble = (Math.random() - 0.5) * 0.3;
+    this.angle += wobble;
+    const last = this.points[this.points.length - 1];
+    const nx = last.x + Math.cos(this.angle) * this.speed;
+    const ny = last.y + Math.sin(this.angle) * this.speed;
+    this.points.push({x: nx, y: ny});
+    this.len += this.speed;
+
+    // Spawn sub-branches
+    if (!this.spawned && this.len > this.maxLen * 0.4 && this.gen < 4 && Math.random() < 0.3) {
+      this.spawned = true;
+      const side = Math.random() < 0.5 ? 1 : -1;
+      const childAngle = this.angle + side * (0.3 + Math.random() * 0.8);
+      this.children.push(new CrackBranch(nx, ny, childAngle, this.gen + 1));
+    }
+
+    if (this.len >= this.maxLen || nx < -10 || nx > W + 10 || ny < -10 || ny > H + 10) {
+      this.done = true;
+      // Terminal fork
+      if (this.gen < 3 && Math.random() < 0.5) {
+        for (let i = 0; i < 2; i++) {
+          const forkAngle = this.angle + (i === 0 ? -1 : 1) * (0.2 + Math.random() * 0.5);
+          this.children.push(new CrackBranch(nx, ny, forkAngle, this.gen + 1));
+        }
+      }
+    }
+    for (const c of this.children) c.update();
+    return true;
+  }
+  draw() {
+    if (this.points.length < 2) return;
+    ctx.beginPath();
+    ctx.moveTo(this.points[0].x, this.points[0].y);
+    for (let i = 1; i < this.points.length; i++) {
+      ctx.lineTo(this.points[i].x, this.points[i].y);
+    }
+    ctx.strokeStyle = `rgba(200,220,255,${0.8 / this.gen})`;
+    ctx.lineWidth = this.width;
+    ctx.stroke();
+
+    // Subtle glow
+    ctx.strokeStyle = `rgba(180,200,255,${0.15 / this.gen})`;
+    ctx.lineWidth = this.width + 3;
+    ctx.stroke();
+
+    for (const c of this.children) c.draw();
+  }
+}
+
+class FallingShard {
+  constructor(x, y) {
+    const size = 8 + Math.random() * 25;
+    this.points = [];
+    const verts = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < verts; i++) {
+      const a = (Math.PI * 2 / verts) * i + Math.random() * 0.5;
+      const r = size * (0.5 + Math.random() * 0.5);
+      this.points.push({x: Math.cos(a) * r, y: Math.sin(a) * r});
+    }
+    this.x = x;
+    this.y = y;
+    this.vx = (Math.random() - 0.5) * 2;
+    this.vy = Math.random() * -2;
+    this.rot = Math.random() * Math.PI * 2;
+    this.vr = (Math.random() - 0.5) * 0.08;
+    this.alpha = 0.6;
+    this.gravity = 0.08 + Math.random() * 0.05;
+  }
+  update() {
+    this.vy += this.gravity;
+    this.x += this.vx;
+    this.y += this.vy;
+    this.rot += this.vr;
+    this.alpha -= 0.003;
+    return this.alpha > 0 && this.y < H + 50;
+  }
+  draw() {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rot);
+    ctx.beginPath();
+    ctx.moveTo(this.points[0].x, this.points[0].y);
+    for (let i = 1; i < this.points.length; i++) {
+      ctx.lineTo(this.points[i].x, this.points[i].y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = `rgba(180,200,220,${this.alpha * 0.1})`;
+    ctx.fill();
+    ctx.strokeStyle = `rgba(200,220,255,${this.alpha * 0.5})`;
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function fracture(x, y) {
+  hitCount++;
+  if (hitCount === 1) hintEl.style.opacity = '0';
+  playGlassSound();
+  cracks.push(new Crack(x, y));
+  for (let i = 0; i < 3 + Math.floor(Math.random() * 5); i++) {
+    shards.push(new FallingShard(
+      x + (Math.random() - 0.5) * 40,
+      y + (Math.random() - 0.5) * 40
+    ));
+  }
+}
+
+// Surface pattern — frosted glass look
+let surfaceAlpha = 0.92;
+
+function drawSurface() {
+  if (surfaceAlpha <= 0) return;
+  // Reduce opacity with each hit
+  const target = Math.max(0, 0.92 - hitCount * 0.06);
+  surfaceAlpha += (target - surfaceAlpha) * 0.05;
+
+  ctx.fillStyle = `rgba(8,8,12,${surfaceAlpha})`;
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle surface texture
+  if (surfaceAlpha > 0.1) {
+    ctx.fillStyle = `rgba(20,20,30,${surfaceAlpha * 0.3})`;
+    for (let i = 0; i < 50; i++) {
+      const sx = (Math.sin(i * 127.1) * 0.5 + 0.5) * W;
+      const sy = (Math.cos(i * 311.7) * 0.5 + 0.5) * H;
+      ctx.fillRect(sx, sy, Math.random() * 3, Math.random() * 3);
+    }
+  }
+}
+
+let t = 0;
+function animate() {
+  t++;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H);
+
+  // Background cosmos
+  drawNebula(t);
+  drawStars(t);
+
+  // Frosted glass surface
+  drawSurface();
+
+  // Cracks
+  for (const crack of cracks) {
+    crack.update();
+    crack.draw();
+  }
+
+  // Shards
+  for (let i = shards.length - 1; i >= 0; i--) {
+    if (!shards[i].update()) {
+      shards.splice(i, 1);
+    } else {
+      shards[i].draw();
+    }
+  }
+
+  // Impact point halos
+  for (const crack of cracks) {
+    const age = t * 0.01;
+    const pulse = 0.05 + 0.03 * Math.sin(age);
+    ctx.beginPath();
+    ctx.arc(crack.x, crack.y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(200,220,255,${pulse})`;
+    ctx.fill();
+  }
+
+  requestAnimationFrame(animate);
+}
+
+window.addEventListener('resize', resize);
+
+canvas.addEventListener('click', (e) => {
+  fracture(e.clientX, e.clientY);
+});
+
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  for (const touch of e.changedTouches) {
+    fracture(touch.clientX, touch.clientY);
+  }
+}, {passive: false});
+
+resize();
+animate();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
