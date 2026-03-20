@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Equinox — aapple.com</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #000;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  touch-action: none;
+  cursor: crosshair;
+  font-family: 'Courier New', monospace;
+}
+canvas { display: block; position: fixed; top: 0; left: 0; }
+#hint {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(200,180,140,0.35);
+  font-size: 11px;
+  letter-spacing: 4px;
+  z-index: 10;
+  pointer-events: none;
+  text-align: center;
+  transition: opacity 6s;
+  text-transform: uppercase;
+}
+#time-label {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(200,180,140,0.0);
+  font-size: 10px;
+  letter-spacing: 6px;
+  z-index: 10;
+  pointer-events: none;
+  text-transform: uppercase;
+  transition: color 3s;
+}
+.footer {
+  position: fixed;
+  bottom: 12px;
+  left: 0; right: 0;
+  text-align: center;
+  z-index: 100;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+.footer a {
+  color: rgba(200,180,140,0.15);
+  text-decoration: none;
+  transition: color 0.3s;
+}
+.footer a:hover { color: rgba(200,180,140,0.5); }
+.credit {
+  color: rgba(200,180,140,0.08);
+  font-size: 9px;
+  margin-top: 4px;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hint">touch the darkness</div>
+<div id="time-label"></div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H, midX;
+let balance = 0.5; // 0 = all night, 1 = all day
+let targetBalance = 0.5;
+let seeds = [];
+let motes = [];
+let stars = [];
+let blooms = [];
+let time = 0;
+let interacted = false;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  midX = W / 2;
+  if (stars.length === 0) initStars();
+}
+
+function initStars() {
+  stars = [];
+  for (let i = 0; i < 120; i++) {
+    stars.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: Math.random() * 1.2 + 0.3,
+      twinkle: Math.random() * Math.PI * 2,
+      speed: Math.random() * 0.02 + 0.005
+    });
+  }
+}
+
+// Day colors
+const dayTop = [45, 80, 140];
+const dayBot = [180, 140, 90];
+const nightTop = [5, 5, 15];
+const nightBot = [10, 8, 20];
+
+// Horizon colors
+const sunColor = [255, 200, 100];
+const moonColor = [200, 210, 230];
+
+class Seed {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.born = time;
+    this.life = 0;
+    this.maxLife = 200 + Math.random() * 300;
+    this.petals = Math.floor(Math.random() * 3) + 4;
+    this.size = Math.random() * 15 + 8;
+    this.hue = Math.random() * 60 + 320; // pinks and magentas for spring
+    this.rotSpeed = (Math.random() - 0.5) * 0.01;
+    this.rot = Math.random() * Math.PI * 2;
+  }
+  update() {
+    this.life++;
+    this.rot += this.rotSpeed;
+    return this.life < this.maxLife;
+  }
+  draw() {
+    let alpha = 1;
+    let growT = Math.min(this.life / 40, 1);
+    if (this.life > this.maxLife - 60) alpha = (this.maxLife - this.life) / 60;
+    let sz = this.size * growT;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rot);
+    ctx.globalAlpha = alpha * 0.7;
+    // Draw petals
+    for (let i = 0; i < this.petals; i++) {
+      let angle = (Math.PI * 2 / this.petals) * i;
+      ctx.save();
+      ctx.rotate(angle);
+      ctx.beginPath();
+      ctx.ellipse(sz * 0.5, 0, sz * 0.5, sz * 0.25, 0, 0, Math.PI * 2);
+      let h = (this.hue + i * 10) % 360;
+      ctx.fillStyle = `hsla(${h}, 60%, 70%, ${alpha * 0.6})`;
+      ctx.fill();
+      ctx.restore();
+    }
+    // Center
+    ctx.beginPath();
+    ctx.arc(0, 0, sz * 0.2, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,220,100,${alpha * 0.8})`;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+}
+
+class Mote {
+  constructor() {
+    this.reset();
+  }
+  reset() {
+    this.side = Math.random() < balance ? 1 : 0; // 0=night, 1=day
+    if (this.side === 0) {
+      this.x = Math.random() * W * balance;
+    } else {
+      this.x = W * (1 - balance) + Math.random() * W * balance;
+    }
+    this.y = Math.random() * H;
+    this.vx = (Math.random() - 0.5) * 0.3;
+    this.vy = -Math.random() * 0.5 - 0.1;
+    this.r = Math.random() * 2 + 0.5;
+    this.life = Math.random() * 200 + 100;
+    this.maxLife = this.life;
+    this.type = this.side === 0 ? 'star' : 'pollen';
+  }
+  update() {
+    this.x += this.vx + Math.sin(time * 0.01 + this.y * 0.01) * 0.2;
+    this.y += this.vy;
+    this.life--;
+    if (this.life <= 0 || this.y < -10 || this.y > H + 10) {
+      this.reset();
+    }
+  }
+  draw() {
+    let alpha = Math.min(this.life / 30, (this.maxLife - this.life) / 30, 1);
+    if (this.type === 'star') {
+      ctx.fillStyle = `rgba(200,210,240,${alpha * 0.5})`;
+    } else {
+      ctx.fillStyle = `rgba(255,240,200,${alpha * 0.4})`;
+    }
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function init() {
+  resize();
+  for (let i = 0; i < 60; i++) {
+    motes.push(new Mote());
+  }
+}
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+function lerpColor(a, b, t) { return a.map((v, i) => Math.round(lerp(v, b[i], t))); }
+
+function drawSky() {
+  let divider = W * balance; // where night meets day
+
+  // Night side (left)
+  if (balance < 1) {
+    let grd = ctx.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, `rgb(${nightTop.join(',')})`);
+    grd.addColorStop(1, `rgb(${nightBot.join(',')})`);
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, divider, H);
+  }
+
+  // Day side (right)
+  if (balance > 0) {
+    let grd = ctx.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, `rgb(${dayTop.join(',')})`);
+    grd.addColorStop(0.7, `rgb(${lerpColor(dayTop, dayBot, 0.6).join(',')})`);
+    grd.addColorStop(1, `rgb(${dayBot.join(',')})`);
+    ctx.fillStyle = grd;
+    ctx.fillRect(divider, 0, W - divider, H);
+  }
+
+  // Blend zone at the divider
+  let blendW = W * 0.08;
+  let grd2 = ctx.createLinearGradient(divider - blendW, 0, divider + blendW, 0);
+  grd2.addColorStop(0, 'rgba(0,0,0,0)');
+  let midColor = lerpColor(nightTop, dayTop, 0.5);
+  grd2.addColorStop(0.4, `rgba(${midColor.join(',')},0.6)`);
+  grd2.addColorStop(0.5, `rgba(80,50,100,0.7)`);
+  grd2.addColorStop(0.6, `rgba(${midColor.join(',')},0.6)`);
+  grd2.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = grd2;
+  ctx.fillRect(divider - blendW, 0, blendW * 2, H);
+
+  // Horizon glow
+  let horizonY = H * 0.7;
+  let glowGrd = ctx.createRadialGradient(divider, horizonY, 0, divider, horizonY, H * 0.5);
+  glowGrd.addColorStop(0, 'rgba(255,150,50,0.15)');
+  glowGrd.addColorStop(0.5, 'rgba(200,100,80,0.05)');
+  glowGrd.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = glowGrd;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawStars() {
+  let divider = W * balance;
+  for (let s of stars) {
+    if (s.x > divider + 20) continue; // stars only on night side
+    let fadeZone = Math.max(0, Math.min(1, (divider - s.x) / 60));
+    let twinkle = (Math.sin(time * s.speed + s.twinkle) + 1) * 0.5;
+    let alpha = twinkle * 0.7 * fadeZone;
+    if (alpha < 0.01) continue;
+    ctx.fillStyle = `rgba(220,230,255,${alpha})`;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawHorizon() {
+  let horizonY = H * 0.75;
+
+  // Ground silhouette - rolling hills
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  for (let x = 0; x <= W; x += 2) {
+    let hill = Math.sin(x * 0.003) * 30 + Math.sin(x * 0.008 + 1) * 15 + Math.sin(x * 0.02 + 3) * 5;
+    ctx.lineTo(x, horizonY + hill);
+  }
+  ctx.lineTo(W, H);
+  ctx.closePath();
+
+  // Ground gradient - dark on night side, earthy on day side
+  let divider = W * balance;
+  let gGrd = ctx.createLinearGradient(0, 0, W, 0);
+  gGrd.addColorStop(0, 'rgb(8,8,15)');
+  let divT = Math.max(0, Math.min(1, balance));
+  gGrd.addColorStop(Math.max(0, divT - 0.1), 'rgb(10,10,18)');
+  gGrd.addColorStop(Math.min(1, divT + 0.1), 'rgb(40,55,30)');
+  gGrd.addColorStop(1, 'rgb(50,70,35)');
+  ctx.fillStyle = gGrd;
+  ctx.fill();
+
+  // Moon on night side
+  let moonX = divider * 0.4;
+  let moonY = H * 0.25;
+  if (balance < 0.95) {
+    let moonAlpha = Math.min(1, (1 - balance) * 2);
+    ctx.save();
+    ctx.globalAlpha = moonAlpha * 0.9;
+    // Moon glow
+    let mGrd = ctx.createRadialGradient(moonX, moonY, 0, moonX, moonY, 60);
+    mGrd.addColorStop(0, 'rgba(200,210,240,0.2)');
+    mGrd.addColorStop(1, 'rgba(200,210,240,0)');
+    ctx.fillStyle = mGrd;
+    ctx.beginPath();
+    ctx.arc(moonX, moonY, 60, 0, Math.PI * 2);
+    ctx.fill();
+    // Moon body
+    ctx.fillStyle = `rgba(230,235,245,${moonAlpha * 0.9})`;
+    ctx.beginPath();
+    ctx.arc(moonX, moonY, 18, 0, Math.PI * 2);
+    ctx.fill();
+    // Crescent shadow
+    ctx.fillStyle = `rgba(5,5,15,${moonAlpha * 0.8})`;
+    ctx.beginPath();
+    ctx.arc(moonX + 7, moonY - 2, 15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Sun on day side
+  let sunX = divider + (W - divider) * 0.6;
+  let sunY = H * 0.3;
+  if (balance > 0.05) {
+    let sunAlpha = Math.min(1, balance * 2);
+    ctx.save();
+    ctx.globalAlpha = sunAlpha;
+    // Sun glow
+    let sGrd = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 100);
+    sGrd.addColorStop(0, 'rgba(255,220,100,0.3)');
+    sGrd.addColorStop(0.5, 'rgba(255,180,60,0.1)');
+    sGrd.addColorStop(1, 'rgba(255,180,60,0)');
+    ctx.fillStyle = sGrd;
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, 100, 0, Math.PI * 2);
+    ctx.fill();
+    // Sun body
+    ctx.fillStyle = `rgba(255,230,140,${sunAlpha * 0.95})`;
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, 22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawDividerLine() {
+  let divider = W * balance;
+  // Thin luminous line at the boundary
+  ctx.save();
+  let lineGrd = ctx.createLinearGradient(0, 0, 0, H);
+  lineGrd.addColorStop(0, 'rgba(255,200,150,0)');
+  lineGrd.addColorStop(0.3, 'rgba(255,200,150,0.3)');
+  lineGrd.addColorStop(0.5, 'rgba(255,200,150,0.5)');
+  lineGrd.addColorStop(0.7, 'rgba(255,200,150,0.3)');
+  lineGrd.addColorStop(1, 'rgba(255,200,150,0)');
+  ctx.strokeStyle = lineGrd;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(divider, 0);
+  ctx.lineTo(divider, H);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawLabel() {
+  let divider = W * balance;
+  let labelAlpha = 0.2;
+  ctx.font = '10px Courier New';
+  ctx.letterSpacing = '3px';
+  ctx.textAlign = 'center';
+
+  // "NIGHT" on left
+  if (balance > 0.15) {
+    ctx.fillStyle = `rgba(180,190,220,${labelAlpha * Math.min(1, (balance) * 3)})`;
+    ctx.fillText('NIGHT', divider * 0.5, H * 0.5);
+  }
+  // "DAY" on right
+  if (balance < 0.85) {
+    ctx.fillStyle = `rgba(200,180,120,${labelAlpha * Math.min(1, (1 - balance) * 3)})`;
+    ctx.fillText('DAY', divider + (W - divider) * 0.5, H * 0.5);
+  }
+}
+
+function plantSeed(x, y) {
+  if (seeds.length < 40) {
+    seeds.push(new Seed(x, y));
+    // Each seed nudges balance toward day
+    targetBalance = Math.min(1, targetBalance + 0.008);
+  }
+}
+
+function handleInteraction(x, y) {
+  if (!interacted) {
+    interacted = true;
+    document.getElementById('hint').style.opacity = '0';
+    document.getElementById('time-label').style.color = 'rgba(200,180,140,0.25)';
+  }
+  plantSeed(x, y);
+}
+
+canvas.addEventListener('click', e => handleInteraction(e.clientX, e.clientY));
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  for (let t of e.touches) handleInteraction(t.clientX, t.clientY);
+}, { passive: false });
+
+let dragActive = false;
+canvas.addEventListener('mousedown', () => dragActive = true);
+canvas.addEventListener('mouseup', () => dragActive = false);
+canvas.addEventListener('mousemove', e => {
+  if (dragActive) handleInteraction(e.clientX, e.clientY);
+});
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  for (let t of e.touches) handleInteraction(t.clientX, t.clientY);
+}, { passive: false });
+
+function updateLabel() {
+  let pct = Math.round(balance * 100);
+  let nightPct = 100 - pct;
+  let label = document.getElementById('time-label');
+  if (Math.abs(balance - 0.5) < 0.02) {
+    label.textContent = '◯ EQUINOX ◯';
+  } else if (balance > 0.5) {
+    label.textContent = `${pct}% day · ${nightPct}% night`;
+  } else {
+    label.textContent = `${nightPct}% night · ${pct}% day`;
+  }
+}
+
+function frame() {
+  time++;
+  ctx.clearRect(0, 0, W, H);
+
+  // Slowly drift balance toward equilibrium (back to 0.5) with very gentle pull
+  targetBalance += (0.5 - targetBalance) * 0.0002;
+  balance += (targetBalance - balance) * 0.02;
+
+  drawSky();
+  drawStars();
+  drawHorizon();
+  drawDividerLine();
+  drawLabel();
+
+  // Update and draw seeds/blooms
+  seeds = seeds.filter(s => {
+    s.update();
+    s.draw();
+    return s.life < s.maxLife;
+  });
+
+  // Update and draw motes
+  for (let m of motes) {
+    m.update();
+    m.draw();
+  }
+
+  updateLabel();
+
+  requestAnimationFrame(frame);
+}
+
+window.addEventListener('resize', resize);
+init();
+frame();
+
+// Fade hint after 5 seconds
+setTimeout(() => {
+  let hint = document.getElementById('hint');
+  if (!interacted) hint.style.opacity = '0';
+}, 8000);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
