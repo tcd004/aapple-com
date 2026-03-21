@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Dissolving Verse — aapple.com</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0808;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: 'Georgia', 'Times New Roman', serif;
+}
+#hint {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(180,160,140,0.25);
+  font-size: 11px;
+  letter-spacing: 3px;
+  font-family: 'Courier New', monospace;
+  z-index: 100;
+  pointer-events: none;
+  text-align: center;
+  transition: opacity 4s;
+}
+.word {
+  position: absolute;
+  cursor: grab;
+  font-size: 22px;
+  color: rgba(220, 200, 170, 0.85);
+  text-shadow: 0 0 20px rgba(200, 160, 100, 0.15);
+  transition: text-shadow 0.5s, color 0.5s;
+  white-space: nowrap;
+  z-index: 2;
+}
+.word:hover {
+  color: rgba(255, 230, 190, 1);
+  text-shadow: 0 0 30px rgba(255, 200, 120, 0.4);
+}
+.word.dragging {
+  cursor: grabbing;
+  color: rgba(255, 240, 200, 1);
+  text-shadow: 0 0 40px rgba(255, 200, 100, 0.6);
+  z-index: 50;
+}
+.word.fading {
+  opacity: 0;
+  transition: opacity 3s;
+}
+.stanza-break {
+  position: absolute;
+  width: 30px;
+  height: 1px;
+  background: rgba(200,160,100,0.1);
+}
+#poem-ghost {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+#subtitle {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(180,160,140,0.15);
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-family: 'Courier New', monospace;
+  pointer-events: none;
+  text-align: center;
+  white-space: nowrap;
+}
+.footer {
+  position: fixed;
+  bottom: 12px;
+  left: 0; right: 0;
+  text-align: center;
+  z-index: 200;
+  font-family: 'Courier New', monospace;
+}
+.footer a {
+  color: rgba(255,255,255,0.15);
+  text-decoration: none;
+  font-size: 10px;
+  letter-spacing: 1px;
+  transition: color 0.3s;
+}
+.footer a:hover { color: rgba(255,255,255,0.4); }
+.footer .credit {
+  color: rgba(255,255,255,0.08);
+  font-size: 9px;
+  margin-top: 4px;
+}
+</style>
+</head>
+<body>
+<div id="hint">touch the words</div>
+<div id="subtitle">world poetry day — emily dickinson</div>
+<canvas id="poem-ghost"></canvas>
+
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+
+<script>
+// "I dwell in Possibility" — Emily Dickinson (public domain)
+const poemLines = [
+  ["I", "dwell", "in", "Possibility", "—"],
+  ["A", "fairer", "House", "than", "Prose", "—"],
+  ["More", "numerous", "of", "Windows", "—"],
+  ["Superior", "—", "for", "Doors", "—"],
+  [],
+  ["Of", "Chambers", "as", "the", "Cedars", "—"],
+  ["Impregnable", "of", "eye", "—"],
+  ["And", "for", "an", "everlasting", "Roof"],
+  ["The", "Gambrels", "of", "the", "Sky", "—"],
+  [],
+  ["Of", "Visitors", "—", "the", "fairest", "—"],
+  ["For", "Occupation", "—", "This", "—"],
+  ["The", "spreading", "wide", "my", "narrow", "Hands"],
+  ["To", "gather", "Paradise", "—"]
+];
+
+const words = [];
+const canvas = document.getElementById('poem-ghost');
+const ctx = canvas.getContext('2d');
+let W, H;
+let dragged = null;
+let dragOff = { x: 0, y: 0 };
+let interacted = false;
+let audioCtx = null;
+let lastChime = 0;
+
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W;
+  canvas.height = H;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Layout poem centered
+function layoutPoem() {
+  const lineHeight = 36;
+  const wordGap = 14;
+  const totalLines = poemLines.length;
+  const startY = (H - totalLines * lineHeight) / 2;
+
+  let wordIndex = 0;
+  poemLines.forEach((line, li) => {
+    if (line.length === 0) return; // stanza break
+    // Measure line width
+    const tempSpan = document.createElement('span');
+    tempSpan.style.cssText = 'position:absolute;visibility:hidden;font-family:Georgia,serif;font-size:22px;';
+    document.body.appendChild(tempSpan);
+    let totalWidth = 0;
+    const widths = line.map(w => {
+      tempSpan.textContent = w;
+      const ww = tempSpan.offsetWidth;
+      return ww;
+    });
+    document.body.removeChild(tempSpan);
+    totalWidth = widths.reduce((a, b) => a + b, 0) + (line.length - 1) * wordGap;
+    let cx = (W - totalWidth) / 2;
+    const cy = startY + li * lineHeight;
+
+    line.forEach((text, wi) => {
+      const el = document.createElement('div');
+      el.className = 'word';
+      el.textContent = text;
+      document.body.appendChild(el);
+
+      const homeX = cx;
+      const homeY = cy;
+
+      words.push({
+        el,
+        text,
+        homeX,
+        homeY,
+        x: homeX,
+        y: homeY,
+        vx: 0,
+        vy: 0,
+        driftAngle: Math.random() * Math.PI * 2,
+        driftSpeed: 0.2 + Math.random() * 0.3,
+        driftRadius: 3 + Math.random() * 8,
+        phase: Math.random() * Math.PI * 2,
+        released: false,
+        releaseTime: 0,
+        dissolved: false,
+        dissolveTime: 0,
+      });
+
+      el.style.left = homeX + 'px';
+      el.style.top = homeY + 'px';
+      el.style.opacity = '0';
+
+      cx += widths[wi] + wordGap;
+    });
+  });
+}
+
+layoutPoem();
+
+// Fade words in sequentially
+words.forEach((w, i) => {
+  setTimeout(() => {
+    w.el.style.transition = 'opacity 2s';
+    w.el.style.opacity = '1';
+  }, 300 + i * 80);
+});
+
+// Hide hint after first interaction
+function onFirstInteract() {
+  if (!interacted) {
+    interacted = true;
+    document.getElementById('hint').style.opacity = '0';
+    initAudio();
+  }
+}
+
+// Web Audio — gentle chimes when words are grabbed
+function initAudio() {
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch(e) {}
+}
+
+function chime(freq) {
+  if (!audioCtx) return;
+  const now = Date.now();
+  if (now - lastChime < 80) return;
+  lastChime = now;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  filter.type = 'lowpass';
+  filter.frequency.value = 2000;
+  gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 1.5);
+}
+
+// Pentatonic scale for pleasant random tones
+const scale = [261.6, 293.7, 329.6, 392.0, 440.0, 523.3, 587.3, 659.3];
+
+// Drag handling
+function getPos(e) {
+  if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  return { x: e.clientX, y: e.clientY };
+}
+
+function startDrag(e) {
+  const pos = getPos(e);
+  for (let i = words.length - 1; i >= 0; i--) {
+    const w = words[i];
+    const r = w.el.getBoundingClientRect();
+    if (pos.x >= r.left && pos.x <= r.right && pos.y >= r.top && pos.y <= r.bottom) {
+      dragged = w;
+      dragOff.x = pos.x - w.x;
+      dragOff.y = pos.y - w.y;
+      w.el.classList.add('dragging');
+      onFirstInteract();
+      chime(scale[Math.floor(Math.random() * scale.length)]);
+      e.preventDefault();
+      return;
+    }
+  }
+}
+
+function moveDrag(e) {
+  if (!dragged) return;
+  const pos = getPos(e);
+  dragged.x = pos.x - dragOff.x;
+  dragged.y = pos.y - dragOff.y;
+  e.preventDefault();
+}
+
+function endDrag(e) {
+  if (!dragged) return;
+  dragged.el.classList.remove('dragging');
+  dragged.released = true;
+  dragged.releaseTime = Date.now();
+  // Give a gentle random velocity
+  dragged.vx = (Math.random() - 0.5) * 0.5;
+  dragged.vy = (Math.random() - 0.5) * 0.5;
+  chime(scale[Math.floor(Math.random() * scale.length)] * 0.5);
+  dragged = null;
+}
+
+document.addEventListener('mousedown', startDrag);
+document.addEventListener('mousemove', moveDrag);
+document.addEventListener('mouseup', endDrag);
+document.addEventListener('touchstart', startDrag, { passive: false });
+document.addEventListener('touchmove', moveDrag, { passive: false });
+document.addEventListener('touchend', endDrag);
+
+// Spontaneous dissolution — every so often a random word drifts away
+let lastDissolve = Date.now() + 15000; // wait 15s before first dissolve
+const dissolveInterval = 8000; // every 8 seconds
+
+// Ghost trails on canvas
+const trails = [];
+
+function addTrail(x, y, text) {
+  trails.push({
+    x, y, text,
+    alpha: 0.12,
+    born: Date.now(),
+    drift: { x: (Math.random() - 0.5) * 0.2, y: -0.15 - Math.random() * 0.1 }
+  });
+  if (trails.length > 60) trails.shift();
+}
+
+// Main animation loop
+let time = 0;
+function animate() {
+  time += 0.016;
+  ctx.clearRect(0, 0, W, H);
+
+  // Draw ghost trails
+  ctx.font = '22px Georgia, serif';
+  for (let i = trails.length - 1; i >= 0; i--) {
+    const t = trails[i];
+    const age = (Date.now() - t.born) / 1000;
+    t.x += t.drift.x;
+    t.y += t.drift.y;
+    t.alpha = Math.max(0, 0.12 - age * 0.012);
+    if (t.alpha <= 0) {
+      trails.splice(i, 1);
+      continue;
+    }
+    ctx.fillStyle = `rgba(200, 160, 100, ${t.alpha})`;
+    ctx.fillText(t.text, t.x, t.y + 22);
+  }
+
+  const now = Date.now();
+
+  // Spontaneous dissolve
+  if (now - lastDissolve > dissolveInterval && interacted) {
+    lastDissolve = now;
+    const eligible = words.filter(w => !w.dissolved);
+    if (eligible.length > 0) {
+      const w = eligible[Math.floor(Math.random() * eligible.length)];
+      w.dissolved = true;
+      w.dissolveTime = now;
+      addTrail(w.x, w.y, w.text);
+    }
+  }
+
+  words.forEach(w => {
+    if (w === dragged) {
+      w.el.style.left = w.x + 'px';
+      w.el.style.top = w.y + 'px';
+      // Leave ghost trails while dragging
+      if (Math.random() < 0.15) addTrail(w.x, w.y, w.text);
+      return;
+    }
+
+    if (w.dissolved) {
+      const age = (now - w.dissolveTime) / 1000;
+      if (age < 5) {
+        // Drift away
+        w.x += Math.sin(w.driftAngle + time) * 0.3;
+        w.y -= 0.4;
+        w.el.style.left = w.x + 'px';
+        w.el.style.top = w.y + 'px';
+        w.el.style.opacity = Math.max(0, 1 - age / 3);
+        if (Math.random() < 0.05) addTrail(w.x, w.y, w.text);
+      } else if (age < 8) {
+        w.el.style.opacity = '0';
+      } else {
+        // Reconstitute at home
+        w.dissolved = false;
+        w.x = w.homeX + (Math.random() - 0.5) * 40;
+        w.y = w.homeY + (Math.random() - 0.5) * 20;
+        w.el.style.transition = 'opacity 3s';
+        w.el.style.opacity = '1';
+        w.el.style.left = w.x + 'px';
+        w.el.style.top = w.y + 'px';
+      }
+      return;
+    }
+
+    if (w.released) {
+      const age = (now - w.releaseTime) / 1000;
+      // Slowly drift back home with damping
+      const dx = w.homeX - w.x;
+      const dy = w.homeY - w.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      // Spring force — very gentle
+      const springK = 0.0003;
+      w.vx += dx * springK;
+      w.vy += dy * springK;
+
+      // Damping
+      w.vx *= 0.995;
+      w.vy *= 0.995;
+
+      w.x += w.vx;
+      w.y += w.vy;
+
+      // Never quite arrive — add breathing
+      const breathX = Math.sin(time * w.driftSpeed + w.phase) * w.driftRadius * 0.3;
+      const breathY = Math.cos(time * w.driftSpeed * 0.7 + w.phase) * w.driftRadius * 0.2;
+
+      w.el.style.left = (w.x + breathX) + 'px';
+      w.el.style.top = (w.y + breathY) + 'px';
+      w.el.style.transition = '';
+    } else {
+      // Gentle ambient breathing
+      const breathX = Math.sin(time * w.driftSpeed + w.phase) * w.driftRadius;
+      const breathY = Math.cos(time * w.driftSpeed * 0.7 + w.phase) * w.driftRadius * 0.6;
+
+      w.el.style.left = (w.homeX + breathX) + 'px';
+      w.el.style.top = (w.homeY + breathY) + 'px';
+    }
+  });
+
+  requestAnimationFrame(animate);
+}
+
+animate();
+
+// Ambient drone
+function startDrone() {
+  if (!audioCtx) return;
+  const osc1 = audioCtx.createOscillator();
+  const osc2 = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+
+  osc1.type = 'sine';
+  osc1.frequency.value = 65.4; // C2
+  osc2.type = 'sine';
+  osc2.frequency.value = 98.0; // G2
+
+  filter.type = 'lowpass';
+  filter.frequency.value = 300;
+
+  gain.gain.value = 0.015;
+
+  osc1.connect(filter);
+  osc2.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc1.start();
+  osc2.start();
+
+  // Slowly modulate
+  setInterval(() => {
+    const t = Date.now() / 10000;
+    osc1.frequency.value = 65.4 + Math.sin(t) * 5;
+    osc2.frequency.value = 98.0 + Math.cos(t * 0.7) * 3;
+    filter.frequency.value = 200 + Math.sin(t * 0.3) * 100;
+  }, 100);
+}
+
+// Start drone after first interaction
+const origInit = initAudio;
+initAudio = function() {
+  origInit();
+  setTimeout(startDrone, 500);
+  initAudio = function() {}; // only once
+};
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
