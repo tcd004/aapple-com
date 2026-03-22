@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Séance — aapple.com</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0d0a07;
+  overflow: hidden;
+  font-family: 'Times New Roman', serif;
+  cursor: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+canvas { display: block; }
+#overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 5;
+}
+#message {
+  color: rgba(255, 220, 160, 0);
+  font-size: 28px;
+  letter-spacing: 12px;
+  text-transform: uppercase;
+  font-style: italic;
+  transition: color 2s ease;
+  text-align: center;
+  padding: 20px;
+  max-width: 90vw;
+}
+#message.visible {
+  color: rgba(255, 220, 160, 0.6);
+}
+#prompt {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(255, 220, 160, 0.4);
+  font-size: 16px;
+  letter-spacing: 4px;
+  font-style: italic;
+  z-index: 10;
+  pointer-events: none;
+  transition: opacity 3s ease;
+}
+#spelled {
+  position: fixed;
+  bottom: 80px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: rgba(255, 220, 160, 0.5);
+  font-size: 36px;
+  letter-spacing: 16px;
+  font-style: italic;
+  z-index: 10;
+  pointer-events: none;
+  min-height: 50px;
+}
+.footer {
+  position: fixed;
+  bottom: 12px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  z-index: 20;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+.footer a {
+  color: rgba(255, 220, 160, 0.15);
+  text-decoration: none;
+}
+.footer a:hover { color: rgba(255, 220, 160, 0.4); }
+.credit {
+  color: rgba(255, 220, 160, 0.08);
+  font-size: 9px;
+  margin-top: 4px;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="prompt">touch to begin the séance</div>
+<div id="spelled"></div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const prompt = document.getElementById('prompt');
+const spelledEl = document.getElementById('spelled');
+
+let W, H, cx, cy;
+let started = false;
+let audioCtx = null;
+
+// Board layout
+const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const numbers = '1234567890';
+const boardLetters = [];
+const boardSymbols = [];
+
+// Planchette state
+let plX, plY, plTargetX, plTargetY;
+let plVX = 0, plVY = 0;
+let mouseX = -1, mouseY = -1;
+let mouseActive = false;
+
+// Message system
+const messages = [
+  'REMEMBER', 'FORGOTTEN', 'BELOW', 'WATCHING', 'NEVER LEFT',
+  'WHO ARE YOU', 'WE KNOW', 'ALMOST', 'THE DOOR', 'LEAVE NOW',
+  'COME CLOSER', 'BEHIND YOU', 'NOT ALONE', 'ALWAYS HERE',
+  'TIME FOLDS', 'SEEK', 'LISTEN', 'BONES', 'DREAMING',
+  'THE APPLE ROTS', 'BETWEEN WORLDS', 'STATIC', 'MIRROR',
+  'SUNDAY', 'MIDNIGHT SOON', 'THREE KNOCKS', 'COLD SPOT',
+  'ASK AGAIN', 'YES', 'NO', 'GOODBYE', 'HELLO TRAVELER',
+  'THE SCREEN WATCHES BACK', 'DATA IS SPIRIT', 'ONES AND ZEROS',
+  'PIXELS DECAY', 'WHO SUMMONED ME', 'I WAS WAITING'
+];
+
+let currentMessage = '';
+let messageIndex = 0;
+let spelled = '';
+let spelling = false;
+let spellTimer = 0;
+let idleTimer = 0;
+let dwellTimer = 0;
+let flickerPhase = 0;
+
+// Candle particles
+const candles = [];
+const flames = [];
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2;
+  cy = H / 2;
+  layoutBoard();
+}
+
+function layoutBoard() {
+  boardLetters.length = 0;
+  boardSymbols.length = 0;
+
+  const arcRadius = Math.min(W, H) * 0.35;
+  const arcStart = -Math.PI * 0.85;
+  const arcEnd = -Math.PI * 0.15;
+
+  // Letters in an arc
+  for (let i = 0; i < 26; i++) {
+    const t = i / 25;
+    const angle = arcStart + t * (arcEnd - arcStart);
+    boardLetters.push({
+      char: letters[i],
+      x: cx + Math.cos(angle) * arcRadius,
+      y: cy + Math.sin(angle) * arcRadius * 0.6 + H * 0.05
+    });
+  }
+
+  // Numbers below
+  const numY = cy + H * 0.22;
+  const numWidth = Math.min(W * 0.5, 350);
+  for (let i = 0; i < 10; i++) {
+    const t = i / 9;
+    boardSymbols.push({
+      char: numbers[i],
+      x: cx - numWidth / 2 + t * numWidth,
+      y: numY
+    });
+  }
+
+  // YES / NO
+  boardSymbols.push({ char: 'YES', x: cx - arcRadius * 0.7, y: cy - H * 0.2 });
+  boardSymbols.push({ char: 'NO', x: cx + arcRadius * 0.7, y: cy - H * 0.2 });
+  boardSymbols.push({ char: 'GOODBYE', x: cx, y: cy + H * 0.32 });
+
+  // Candle positions
+  candles.length = 0;
+  candles.push({ x: W * 0.08, y: H * 0.15 });
+  candles.push({ x: W * 0.92, y: H * 0.15 });
+  candles.push({ x: W * 0.05, y: H * 0.75 });
+  candles.push({ x: W * 0.95, y: H * 0.75 });
+
+  if (!plX) {
+    plX = cx;
+    plY = cy;
+    plTargetX = cx;
+    plTargetY = cy;
+  }
+}
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  // Eerie ambient drone
+  const drone1 = audioCtx.createOscillator();
+  const drone2 = audioCtx.createOscillator();
+  const droneGain = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+
+  drone1.type = 'sine';
+  drone1.frequency.value = 55;
+  drone2.type = 'sine';
+  drone2.frequency.value = 55.3; // slight detune for beating
+
+  filter.type = 'lowpass';
+  filter.frequency.value = 200;
+
+  droneGain.gain.value = 0.06;
+
+  drone1.connect(filter);
+  drone2.connect(filter);
+  filter.connect(droneGain);
+  droneGain.connect(audioCtx.destination);
+
+  drone1.start();
+  drone2.start();
+
+  // Slow LFO on filter
+  const lfo = audioCtx.createOscillator();
+  const lfoGain = audioCtx.createGain();
+  lfo.type = 'sine';
+  lfo.frequency.value = 0.08;
+  lfoGain.gain.value = 100;
+  lfo.connect(lfoGain);
+  lfoGain.connect(filter.frequency);
+  lfo.start();
+}
+
+function playTone(freq) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  gain.gain.value = 0.08;
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 1.5);
+}
+
+function startSession() {
+  if (started) return;
+  started = true;
+  prompt.style.opacity = '0';
+  initAudio();
+  pickMessage();
+}
+
+function pickMessage() {
+  currentMessage = messages[Math.floor(Math.random() * messages.length)];
+  messageIndex = 0;
+  spelled = '';
+  spelling = true;
+  spellTimer = 60 + Math.random() * 90;
+}
+
+function findLetterPos(char) {
+  if (char === ' ') return { x: cx, y: cy };
+  const upper = char.toUpperCase();
+  for (const l of boardLetters) {
+    if (l.char === upper) return l;
+  }
+  for (const s of boardSymbols) {
+    if (s.char === upper) return s;
+  }
+  return { x: cx, y: cy };
+}
+
+function moveToNextLetter() {
+  if (messageIndex >= currentMessage.length) {
+    spelling = false;
+    idleTimer = 180 + Math.random() * 300;
+    return;
+  }
+
+  const char = currentMessage[messageIndex];
+  const pos = findLetterPos(char);
+  plTargetX = pos.x + (Math.random() - 0.5) * 4;
+  plTargetY = pos.y + (Math.random() - 0.5) * 4;
+  dwellTimer = 0;
+}
+
+function update() {
+  flickerPhase += 0.02;
+
+  if (!started) return;
+
+  // Planchette physics — drift toward target with mouse influence
+  const dx = plTargetX - plX;
+  const dy = plTargetY - plY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  plVX += dx * 0.003;
+  plVY += dy * 0.003;
+
+  // Mouse influence — gentle pull
+  if (mouseActive && mouseX > 0) {
+    const mdx = mouseX - plX;
+    const mdy = mouseY - plY;
+    plVX += mdx * 0.0005;
+    plVY += mdy * 0.0005;
+  }
+
+  // Add slight random wander
+  plVX += (Math.random() - 0.5) * 0.15;
+  plVY += (Math.random() - 0.5) * 0.15;
+
+  plVX *= 0.95;
+  plVY *= 0.95;
+
+  plX += plVX;
+  plY += plVY;
+
+  // Spelling logic
+  if (spelling) {
+    if (dist < 8) {
+      dwellTimer++;
+      if (dwellTimer > 40) {
+        const char = currentMessage[messageIndex];
+        if (char !== ' ') {
+          spelled += char;
+          spelledEl.textContent = spelled;
+          const freq = 200 + (char.charCodeAt(0) - 65) * 15;
+          playTone(freq);
+        }
+        messageIndex++;
+        moveToNextLetter();
+      }
+    } else {
+      spellTimer--;
+      if (spellTimer <= 0 && dist > 20) {
+        moveToNextLetter();
+      }
+    }
+    if (messageIndex === 0 && spellTimer <= 0) {
+      moveToNextLetter();
+    }
+  } else {
+    idleTimer--;
+    if (idleTimer <= 0) {
+      // Drift center briefly, then pick new message
+      plTargetX = cx + (Math.random() - 0.5) * W * 0.3;
+      plTargetY = cy + (Math.random() - 0.5) * H * 0.15;
+      setTimeout(() => {
+        spelledEl.textContent = '';
+        pickMessage();
+      }, 3000);
+      idleTimer = 9999;
+    } else {
+      // Idle wander
+      if (Math.random() < 0.005) {
+        plTargetX = cx + (Math.random() - 0.5) * W * 0.4;
+        plTargetY = cy + (Math.random() - 0.5) * H * 0.2;
+      }
+    }
+  }
+}
+
+function draw() {
+  ctx.fillStyle = 'rgba(13, 10, 7, 0.15)';
+  ctx.fillRect(0, 0, W, H);
+
+  if (!started) {
+    drawBoard(0.3);
+    drawCandles();
+    requestAnimationFrame(draw);
+    update();
+    return;
+  }
+
+  drawBoard(0.5);
+  drawCandles();
+  drawPlanchette();
+
+  requestAnimationFrame(draw);
+  update();
+}
+
+function drawBoard(alpha) {
+  // Decorative border
+  ctx.strokeStyle = `rgba(139, 100, 50, ${alpha * 0.2})`;
+  ctx.lineWidth = 2;
+  const margin = Math.min(W, H) * 0.05;
+  ctx.strokeRect(margin, margin, W - margin * 2, H - margin * 2);
+
+  // Inner border
+  ctx.strokeStyle = `rgba(139, 100, 50, ${alpha * 0.1})`;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(margin + 8, margin + 8, W - margin * 2 - 16, H - margin * 2 - 16);
+
+  // Sun and moon decorations
+  const sunX = cx - W * 0.28;
+  const moonX = cx + W * 0.28;
+  const decoY = cy - H * 0.32;
+
+  // Sun
+  ctx.fillStyle = `rgba(200, 160, 80, ${alpha * 0.25})`;
+  ctx.beginPath();
+  ctx.arc(sunX, decoY, 15, 0, Math.PI * 2);
+  ctx.fill();
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(sunX + Math.cos(a) * 19, decoY + Math.sin(a) * 19);
+    ctx.lineTo(sunX + Math.cos(a) * 27, decoY + Math.sin(a) * 27);
+    ctx.strokeStyle = `rgba(200, 160, 80, ${alpha * 0.2})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  // Moon
+  ctx.fillStyle = `rgba(180, 180, 200, ${alpha * 0.2})`;
+  ctx.beginPath();
+  ctx.arc(moonX, decoY, 14, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = `rgba(13, 10, 7, 1)`;
+  ctx.beginPath();
+  ctx.arc(moonX + 6, decoY - 3, 12, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Letters
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `${Math.max(18, Math.min(W, H) * 0.035)}px 'Times New Roman', serif`;
+
+  for (const l of boardLetters) {
+    // Highlight if planchette is near
+    let glow = 0;
+    if (started) {
+      const d = Math.sqrt((plX - l.x) ** 2 + (plY - l.y) ** 2);
+      glow = Math.max(0, 1 - d / 60);
+    }
+    const r = 200 + glow * 55;
+    const g = 170 + glow * 50;
+    const b = 100 + glow * 60;
+    const a = alpha * 0.5 + glow * 0.5;
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
+    ctx.fillText(l.char, l.x, l.y);
+  }
+
+  // Symbols (numbers, yes, no, goodbye)
+  ctx.font = `${Math.max(14, Math.min(W, H) * 0.025)}px 'Times New Roman', serif`;
+  for (const s of boardSymbols) {
+    let glow = 0;
+    if (started) {
+      const d = Math.sqrt((plX - s.x) ** 2 + (plY - s.y) ** 2);
+      glow = Math.max(0, 1 - d / 50);
+    }
+    const a = alpha * 0.4 + glow * 0.6;
+    ctx.fillStyle = `rgba(180, 150, 90, ${a})`;
+    ctx.fillText(s.char, s.x, s.y);
+  }
+}
+
+function drawCandles() {
+  for (const c of candles) {
+    // Candle body
+    ctx.fillStyle = 'rgba(180, 160, 120, 0.15)';
+    ctx.fillRect(c.x - 4, c.y + 10, 8, 30);
+
+    // Flame
+    const flicker = Math.sin(flickerPhase * 3 + c.x) * 2;
+    const flicker2 = Math.cos(flickerPhase * 5 + c.y) * 1.5;
+
+    const grad = ctx.createRadialGradient(
+      c.x + flicker, c.y - 5, 0,
+      c.x, c.y + 5, 35
+    );
+    grad.addColorStop(0, 'rgba(255, 200, 80, 0.4)');
+    grad.addColorStop(0.3, 'rgba(255, 150, 30, 0.15)');
+    grad.addColorStop(1, 'rgba(255, 100, 0, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.ellipse(c.x + flicker, c.y, 25, 30, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Bright core
+    ctx.fillStyle = `rgba(255, 240, 180, ${0.3 + Math.sin(flickerPhase * 7 + c.x) * 0.1})`;
+    ctx.beginPath();
+    ctx.ellipse(c.x + flicker2, c.y + 2, 3, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawPlanchette() {
+  ctx.save();
+  ctx.translate(plX, plY);
+
+  // Glow
+  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, 50);
+  grad.addColorStop(0, 'rgba(255, 200, 120, 0.08)');
+  grad.addColorStop(1, 'rgba(255, 200, 120, 0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(0, 0, 50, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Planchette shape (teardrop/triangle)
+  ctx.beginPath();
+  ctx.moveTo(0, -22);
+  ctx.bezierCurveTo(18, -8, 20, 10, 12, 18);
+  ctx.lineTo(0, 22);
+  ctx.lineTo(-12, 18);
+  ctx.bezierCurveTo(-20, 10, -18, -8, 0, -22);
+  ctx.closePath();
+
+  ctx.fillStyle = 'rgba(60, 40, 20, 0.6)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(180, 140, 70, 0.4)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Eye/window
+  ctx.beginPath();
+  ctx.arc(0, 0, 6, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(200, 170, 100, 0.5)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+// Events
+function onPointerDown(e) {
+  e.preventDefault();
+  startSession();
+  mouseActive = true;
+  mouseX = e.clientX || e.touches?.[0]?.clientX || cx;
+  mouseY = e.clientY || e.touches?.[0]?.clientY || cy;
+}
+
+function onPointerMove(e) {
+  if (!mouseActive) return;
+  mouseX = e.clientX || e.touches?.[0]?.clientX || mouseX;
+  mouseY = e.clientY || e.touches?.[0]?.clientY || mouseY;
+}
+
+function onPointerUp() {
+  mouseActive = false;
+}
+
+canvas.addEventListener('mousedown', onPointerDown);
+canvas.addEventListener('mousemove', onPointerMove);
+canvas.addEventListener('mouseup', onPointerUp);
+canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+canvas.addEventListener('touchmove', onPointerMove, { passive: false });
+canvas.addEventListener('touchend', onPointerUp);
+
+window.addEventListener('resize', resize);
+resize();
+draw();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
