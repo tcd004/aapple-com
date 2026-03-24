@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Redacted — aapple.com</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #f5f0e8;
+  color: #1a1a1a;
+  font-family: 'Courier New', monospace;
+  min-height: 100vh;
+  overflow-x: hidden;
+  cursor: default;
+}
+.page {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 60px 30px 120px;
+}
+.header-stamp {
+  text-align: center;
+  margin-bottom: 40px;
+  user-select: none;
+}
+.stamp {
+  display: inline-block;
+  border: 3px solid #c0392b;
+  color: #c0392b;
+  padding: 8px 20px;
+  font-size: 22px;
+  font-weight: bold;
+  letter-spacing: 6px;
+  transform: rotate(-3deg);
+  opacity: 0.85;
+}
+.meta {
+  color: #888;
+  font-size: 11px;
+  margin-top: 15px;
+  letter-spacing: 1px;
+}
+.document {
+  line-height: 2;
+  font-size: 15px;
+  letter-spacing: 0.3px;
+}
+.word {
+  display: inline-block;
+  position: relative;
+  cursor: pointer;
+  transition: color 0.1s;
+  padding: 0 1px;
+}
+.word .bar {
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  top: 2px;
+  bottom: 2px;
+  background: #1a1a1a;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  border-radius: 1px;
+}
+.word.redacted .bar {
+  transform: scaleX(1);
+}
+.word.revealed .bar {
+  transform: scaleX(0) !important;
+  transition: transform 0.15s ease-out;
+}
+.word:hover:not(.redacted) {
+  color: #c0392b;
+}
+.counter {
+  position: fixed;
+  top: 15px;
+  right: 20px;
+  font-size: 11px;
+  color: #aaa;
+  letter-spacing: 1px;
+  user-select: none;
+  z-index: 10;
+}
+.counter .pct {
+  font-size: 28px;
+  color: #c0392b;
+  font-weight: bold;
+  display: block;
+  letter-spacing: 0;
+}
+.msg {
+  position: fixed;
+  bottom: 80px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 12px;
+  color: #999;
+  letter-spacing: 2px;
+  opacity: 0;
+  transition: opacity 1s;
+  user-select: none;
+  pointer-events: none;
+}
+.msg.visible { opacity: 1; }
+.footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px;
+  text-align: center;
+  background: rgba(245, 240, 232, 0.95);
+  z-index: 10;
+}
+.footer a {
+  color: #999;
+  text-decoration: none;
+  font-size: 11px;
+  letter-spacing: 1px;
+  font-family: 'Courier New', monospace;
+}
+.footer a:hover { color: #555; }
+.credit {
+  color: rgba(0,0,0,0.2);
+  font-size: 9px;
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+  font-family: 'Courier New', monospace;
+}
+.coffee-stain {
+  position: fixed;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 2px solid rgba(139, 90, 43, 0.08);
+  top: 60px;
+  right: 80px;
+  pointer-events: none;
+  z-index: 0;
+}
+.coffee-stain::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 1px solid rgba(139, 90, 43, 0.04);
+  top: 3px;
+  left: 2px;
+}
+@media (max-width: 600px) {
+  .page { padding: 50px 20px 120px; }
+  .document { font-size: 14px; line-height: 1.9; }
+  .stamp { font-size: 18px; letter-spacing: 4px; }
+  .coffee-stain { display: none; }
+  .counter { top: 10px; right: 12px; }
+}
+</style>
+</head>
+<body>
+<div class="coffee-stain"></div>
+<div class="counter">
+  <span class="pct" id="pct">0%</span>
+  REDACTED
+</div>
+<div class="page">
+  <div class="header-stamp">
+    <div class="stamp">CLASSIFIED</div>
+    <div class="meta">DOCUMENT #4471-C &nbsp;|&nbsp; CLEARANCE: ████████ &nbsp;|&nbsp; DATE: 2026-03-24</div>
+  </div>
+  <div class="document" id="doc"></div>
+</div>
+<div class="msg" id="msg"></div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+
+<script>
+const paragraphs = [
+  "The following report details the findings of Project ORCHARD conducted between January and March of this year at the facility known only by its coordinates. All personnel involved have been reassigned. Their memories of the project are reportedly intact though none will discuss it voluntarily.",
+
+  "On the morning of February twelfth a researcher whose name has been removed from all records entered Laboratory Seven carrying a single apple. The fruit was unremarkable in appearance. Standard variety. Slightly bruised on one side. What happened next was recorded by four separate cameras though the footage from three of them has since been declared corrupted beyond recovery.",
+
+  "The apple was placed on the steel examination table at precisely nine seventeen in the morning. Within seconds the ambient temperature in the room dropped by fourteen degrees. The fluorescent lights began to flicker at a frequency later determined to match the resonant frequency of human bone. The researcher reported hearing a sound like someone whispering numbers backwards though no audio anomaly was detected by the recording equipment.",
+
+  "By nine twenty-three the apple had begun to change. Its skin darkened from red to a deep purple that none of the spectrometers could properly classify. The color existed according to one physicist outside the range we have agreed to perceive. Attempts to touch the fruit resulted in a sensation described alternately as pins and needles and the feeling of forgetting something important.",
+
+  "At nine thirty-one the apple split open without any external force. Inside was not the expected flesh and seeds but what appeared to be a perfectly miniature replica of the facility itself rendered in organic material. Under magnification the replica contained rooms and corridors and in one room a tiny steel table upon which sat something too small to resolve even at maximum zoom.",
+
+  "The researcher was removed from the laboratory at nine forty-five. The apple was placed in containment. Three days later the containment unit was found empty. The apple was discovered in the facility cafeteria sitting in a bowl of ordinary fruit. No one could explain how it got there. No one wanted to.",
+
+  "This document recommends immediate cessation of all activities related to Project ORCHARD. The apple has been destroyed or so we have been told. The researcher has returned to work and reports no lasting effects apart from a persistent dream about an orchard that stretches infinitely in all directions where every tree bears fruit that looks like small dark worlds.",
+
+  "It is the opinion of this committee that some questions are better left unasked. The apple was just an apple. The project found nothing. This report does not exist."
+];
+
+const doc = document.getElementById('doc');
+const pctEl = document.getElementById('pct');
+const msgEl = document.getElementById('msg');
+const words = [];
+let totalWords = 0;
+let redactedCount = 0;
+let revealedThisSession = 0;
+let redactionRate = 800;
+let gameOver = false;
+
+const messages = [
+  { threshold: 10, text: "click the black bars to reveal words" },
+  { threshold: 25, text: "the truth wants to be found" },
+  { threshold: 40, text: "you are fighting a losing battle" },
+  { threshold: 55, text: "some information resists being known" },
+  { threshold: 70, text: "the document is forgetting itself" },
+  { threshold: 85, text: "let it go" },
+  { threshold: 95, text: "█████████████████████████" },
+];
+let lastMsgIdx = -1;
+
+paragraphs.forEach((p, pi) => {
+  const para = document.createElement('p');
+  para.style.marginBottom = '20px';
+  const tokens = p.split(/(\s+)/);
+  tokens.forEach(token => {
+    if (/^\s+$/.test(token)) {
+      para.appendChild(document.createTextNode(token));
+      return;
+    }
+    const span = document.createElement('span');
+    span.className = 'word';
+    span.textContent = token;
+    const bar = document.createElement('span');
+    bar.className = 'bar';
+    span.appendChild(bar);
+    span.addEventListener('click', () => reveal(span));
+    span.addEventListener('touchstart', (e) => { e.preventDefault(); reveal(span); }, { passive: false });
+    para.appendChild(span);
+    words.push(span);
+  });
+  doc.appendChild(para);
+});
+
+totalWords = words.length;
+
+function reveal(span) {
+  if (!span.classList.contains('redacted') || gameOver) return;
+  span.classList.remove('redacted');
+  span.classList.add('revealed');
+  redactedCount--;
+  revealedThisSession++;
+  updatePct();
+  // Each reveal makes redaction faster
+  redactionRate = Math.max(150, redactionRate - 15);
+  // Reveal triggers extra redactions
+  if (revealedThisSession > 5) {
+    for (let i = 0; i < 2; i++) {
+      setTimeout(() => redactRandom(), Math.random() * 300);
+    }
+  }
+  setTimeout(() => span.classList.remove('revealed'), 200);
+}
+
+function redactRandom() {
+  if (gameOver) return;
+  const available = words.filter(w => !w.classList.contains('redacted'));
+  if (available.length === 0) {
+    endGame();
+    return;
+  }
+  const target = available[Math.floor(Math.random() * available.length)];
+  target.classList.add('redacted');
+  redactedCount++;
+  updatePct();
+  checkMessages();
+}
+
+function updatePct() {
+  const pct = Math.round((redactedCount / totalWords) * 100);
+  pctEl.textContent = pct + '%';
+}
+
+function checkMessages() {
+  const pct = (redactedCount / totalWords) * 100;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (pct >= messages[i].threshold && i > lastMsgIdx) {
+      lastMsgIdx = i;
+      showMsg(messages[i].text);
+      break;
+    }
+  }
+}
+
+function showMsg(text) {
+  msgEl.textContent = text;
+  msgEl.classList.add('visible');
+  setTimeout(() => msgEl.classList.remove('visible'), 4000);
+}
+
+function endGame() {
+  gameOver = true;
+  pctEl.textContent = '100%';
+  setTimeout(() => {
+    showMsg('this document does not exist');
+  }, 1000);
+  setTimeout(() => {
+    document.body.style.transition = 'opacity 5s';
+    document.body.style.opacity = '0';
+  }, 5000);
+}
+
+// Initial delay before redaction starts
+setTimeout(() => {
+  showMsg('click the black bars to reveal words');
+  // Start slow, accelerate
+  function tick() {
+    if (gameOver) return;
+    redactRandom();
+    // Accelerate over time
+    redactionRate = Math.max(120, redactionRate * 0.997);
+    setTimeout(tick, redactionRate + Math.random() * 200);
+  }
+  // Redact first few words
+  for (let i = 0; i < 3; i++) {
+    setTimeout(() => redactRandom(), i * 400);
+  }
+  setTimeout(tick, 1500);
+}, 2000);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
