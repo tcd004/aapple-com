@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Tidepool — aapple.com</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #020810;
+  overflow: hidden;
+  cursor: crosshair;
+  min-height: 100vh;
+}
+canvas { display: block; }
+.hint {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(80, 180, 220, 0.4);
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  pointer-events: none;
+  transition: opacity 3s;
+  text-align: center;
+}
+.footer {
+  position: fixed;
+  bottom: 15px;
+  width: 100%;
+  text-align: center;
+  z-index: 10;
+}
+.footer a {
+  color: rgba(80, 180, 220, 0.25);
+  text-decoration: none;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+}
+.footer a:hover { color: rgba(80, 180, 220, 0.5); }
+.credit {
+  color: rgba(80, 180, 220, 0.12);
+  font-family: 'Courier New', monospace;
+  font-size: 9px;
+  margin-top: 6px;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hint" id="hint">touch the water</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Hide hint after first interaction
+let hintEl = document.getElementById('hint');
+let interacted = false;
+function hideHint() {
+  if (!interacted) {
+    interacted = true;
+    hintEl.style.opacity = '0';
+  }
+}
+
+// Ripples
+const ripples = [];
+class Ripple {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.r = 0;
+    this.maxR = 80 + Math.random() * 60;
+    this.life = 1;
+    this.speed = 1.5 + Math.random();
+  }
+  update() {
+    this.r += this.speed;
+    this.life = Math.max(0, 1 - this.r / this.maxR);
+  }
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(60, 200, 255, ${this.life * 0.15})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+}
+
+// Bioluminescent creatures
+const creatures = [];
+const CREATURE_COUNT = 60;
+
+class Creature {
+  constructor() {
+    this.x = Math.random() * W;
+    this.y = Math.random() * H;
+    this.vx = (Math.random() - 0.5) * 0.6;
+    this.vy = (Math.random() - 0.5) * 0.6;
+    this.size = 2 + Math.random() * 4;
+    this.type = Math.random();
+    // Color palette: cyan, teal, blue, green, occasional magenta
+    if (this.type < 0.35) {
+      this.hue = 180 + Math.random() * 20; // cyan
+    } else if (this.type < 0.6) {
+      this.hue = 200 + Math.random() * 30; // blue
+    } else if (this.type < 0.8) {
+      this.hue = 150 + Math.random() * 20; // green-teal
+    } else {
+      this.hue = 280 + Math.random() * 30; // magenta/violet
+    }
+    this.glow = 0.3 + Math.random() * 0.4;
+    this.glowTarget = this.glow;
+    this.pulseSpeed = 0.005 + Math.random() * 0.015;
+    this.pulsePhase = Math.random() * Math.PI * 2;
+    this.trail = [];
+    this.maxTrail = 8 + Math.floor(Math.random() * 12);
+    this.wanderAngle = Math.random() * Math.PI * 2;
+    this.wanderSpeed = 0.02 + Math.random() * 0.03;
+    this.startled = 0;
+  }
+  update(mx, my, mActive) {
+    // Pulse glow
+    this.pulsePhase += this.pulseSpeed;
+    let pulse = Math.sin(this.pulsePhase) * 0.15;
+
+    // Wander
+    this.wanderAngle += (Math.random() - 0.5) * this.wanderSpeed;
+    this.vx += Math.cos(this.wanderAngle) * 0.02;
+    this.vy += Math.sin(this.wanderAngle) * 0.02;
+
+    // React to ripples
+    for (let r of ripples) {
+      let dx = this.x - r.x;
+      let dy = this.y - r.y;
+      let dist = Math.sqrt(dx * dx + dy * dy);
+      let rippleDist = Math.abs(dist - r.r);
+      if (rippleDist < 30 && r.life > 0.2) {
+        let force = (1 - rippleDist / 30) * r.life * 0.3;
+        let angle = Math.atan2(dy, dx);
+        this.vx += Math.cos(angle) * force;
+        this.vy += Math.sin(angle) * force;
+        this.glowTarget = Math.min(1, this.glow + 0.5);
+        this.startled = 30;
+      }
+    }
+
+    // Mouse attraction (gentle)
+    if (mActive) {
+      let dx = mx - this.x;
+      let dy = my - this.y;
+      let dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 200 && dist > 20) {
+        this.vx += (dx / dist) * 0.03;
+        this.vy += (dy / dist) * 0.03;
+        this.glowTarget = Math.min(1, this.glow + 0.2);
+      } else if (dist <= 20) {
+        // Scatter if too close
+        this.vx -= (dx / dist) * 0.2;
+        this.vy -= (dy / dist) * 0.2;
+        this.startled = 15;
+      }
+    }
+
+    // Damping
+    this.vx *= 0.985;
+    this.vy *= 0.985;
+
+    // Speed limit
+    let speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+    if (speed > 3) {
+      this.vx = (this.vx / speed) * 3;
+      this.vy = (this.vy / speed) * 3;
+    }
+
+    this.x += this.vx;
+    this.y += this.vy;
+
+    // Wrap around edges softly
+    if (this.x < -20) this.x = W + 20;
+    if (this.x > W + 20) this.x = -20;
+    if (this.y < -20) this.y = H + 20;
+    if (this.y > H + 20) this.y = -20;
+
+    // Glow decay
+    this.glowTarget = Math.max(0.3 + pulse, this.glowTarget - 0.01);
+    this.glow += (this.glowTarget - this.glow) * 0.05;
+    if (this.startled > 0) this.startled--;
+
+    // Trail
+    this.trail.push({ x: this.x, y: this.y, glow: this.glow });
+    if (this.trail.length > this.maxTrail) this.trail.shift();
+  }
+  draw() {
+    // Trail
+    for (let i = 0; i < this.trail.length - 1; i++) {
+      let t = this.trail[i];
+      let alpha = (i / this.trail.length) * this.glow * 0.3;
+      let sz = this.size * (i / this.trail.length) * 0.6;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, sz, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${this.hue}, 80%, 65%, ${alpha})`;
+      ctx.fill();
+    }
+
+    // Body glow (outer)
+    let glowR = this.size * (2.5 + this.glow * 2);
+    let grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, glowR);
+    grad.addColorStop(0, `hsla(${this.hue}, 90%, 70%, ${this.glow * 0.4})`);
+    grad.addColorStop(0.4, `hsla(${this.hue}, 80%, 50%, ${this.glow * 0.15})`);
+    grad.addColorStop(1, `hsla(${this.hue}, 80%, 50%, 0)`);
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, glowR, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Body core
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${this.hue}, 85%, 75%, ${0.5 + this.glow * 0.5})`;
+    ctx.fill();
+
+    // Bright center
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size * 0.4, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${this.hue}, 60%, 95%, ${this.glow * 0.8})`;
+    ctx.fill();
+  }
+}
+
+for (let i = 0; i < CREATURE_COUNT; i++) {
+  creatures.push(new Creature());
+}
+
+// Floating particles (plankton dust)
+const particles = [];
+const PARTICLE_COUNT = 120;
+for (let i = 0; i < PARTICLE_COUNT; i++) {
+  particles.push({
+    x: Math.random() * W,
+    y: Math.random() * H,
+    size: 0.5 + Math.random() * 1.2,
+    drift: 0.1 + Math.random() * 0.2,
+    phase: Math.random() * Math.PI * 2,
+    speed: 0.003 + Math.random() * 0.008,
+    alpha: 0.1 + Math.random() * 0.2
+  });
+}
+
+// Caustic light effect (subtle)
+let causticTime = 0;
+function drawCaustics() {
+  causticTime += 0.003;
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 5; i++) {
+    let cx = W * 0.3 + Math.sin(causticTime + i * 1.3) * W * 0.3;
+    let cy = H * 0.3 + Math.cos(causticTime * 0.7 + i * 0.9) * H * 0.3;
+    let r = 100 + Math.sin(causticTime * 0.5 + i) * 40;
+    let grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    grad.addColorStop(0, 'rgba(20, 60, 80, 0.015)');
+    grad.addColorStop(1, 'rgba(10, 30, 50, 0)');
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+// Mouse state
+let mouseX = W / 2, mouseY = H / 2, mouseActive = false;
+
+canvas.addEventListener('mousemove', (e) => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+  mouseActive = true;
+  hideHint();
+});
+canvas.addEventListener('mouseleave', () => { mouseActive = false; });
+canvas.addEventListener('click', (e) => {
+  ripples.push(new Ripple(e.clientX, e.clientY));
+  hideHint();
+});
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  for (let t of e.touches) {
+    ripples.push(new Ripple(t.clientX, t.clientY));
+    mouseX = t.clientX;
+    mouseY = t.clientY;
+    mouseActive = true;
+  }
+  hideHint();
+}, { passive: false });
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  mouseX = e.touches[0].clientX;
+  mouseY = e.touches[0].clientY;
+  if (Math.random() < 0.15) {
+    ripples.push(new Ripple(mouseX, mouseY));
+  }
+}, { passive: false });
+canvas.addEventListener('touchend', () => { mouseActive = false; });
+
+// Ambient ripples
+setInterval(() => {
+  if (Math.random() < 0.3) {
+    ripples.push(new Ripple(Math.random() * W, Math.random() * H));
+  }
+}, 2000);
+
+function animate() {
+  // Fade with deep ocean color
+  ctx.fillStyle = 'rgba(2, 8, 16, 0.12)';
+  ctx.fillRect(0, 0, W, H);
+
+  drawCaustics();
+
+  // Update and draw particles
+  for (let p of particles) {
+    p.phase += p.speed;
+    p.x += Math.sin(p.phase) * p.drift;
+    p.y -= p.drift * 0.3;
+    if (p.y < -5) { p.y = H + 5; p.x = Math.random() * W; }
+    if (p.x < -5) p.x = W + 5;
+    if (p.x > W + 5) p.x = -5;
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(100, 180, 200, ${p.alpha})`;
+    ctx.fill();
+  }
+
+  // Update and draw ripples
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    ripples[i].update();
+    ripples[i].draw();
+    if (ripples[i].life <= 0) ripples.splice(i, 1);
+  }
+
+  // Update and draw creatures
+  for (let c of creatures) {
+    c.update(mouseX, mouseY, mouseActive);
+    c.draw();
+  }
+
+  requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
