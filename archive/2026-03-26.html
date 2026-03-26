@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Pendulum Wave — aapple.com</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0806;
+  overflow: hidden;
+  min-height: 100vh;
+  font-family: 'Georgia', serif;
+  cursor: default;
+}
+canvas { display: block; }
+#hint {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(255, 220, 160, 0.25);
+  font-size: 11px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  pointer-events: none;
+  z-index: 10;
+  text-align: center;
+  transition: opacity 4s;
+}
+#title {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 220, 160, 0.08);
+  font-size: 10px;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  pointer-events: none;
+  z-index: 10;
+}
+.footer {
+  position: fixed;
+  bottom: 12px;
+  left: 0; right: 0;
+  text-align: center;
+  z-index: 100;
+  font-family: 'Courier New', monospace;
+}
+.footer a {
+  color: rgba(255,220,160,0.15);
+  text-decoration: none;
+  font-size: 10px;
+  letter-spacing: 2px;
+  transition: color 0.5s;
+}
+.footer a:hover { color: rgba(255,220,160,0.5); }
+.footer .credit {
+  color: rgba(255,220,160,0.08);
+  font-size: 9px;
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+}
+</style>
+</head>
+<body>
+<div id="title">pendulum wave</div>
+<div id="hint">tap to begin</div>
+<canvas id="c"></canvas>
+
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hint = document.getElementById('hint');
+
+let W, H;
+let started = false;
+let startTime = 0;
+let audioCtx = null;
+let masterGain = null;
+
+const NUM = 17;
+const CYCLE_BASE = 60;
+const pendulums = [];
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Each pendulum completes a different number of oscillations in the full cycle
+for (let i = 0; i < NUM; i++) {
+  const oscillations = 20 + i; // 20 to 36 oscillations per full cycle
+  const period = CYCLE_BASE / oscillations;
+  const baseNote = 60 + i * 2; // MIDI notes
+  const freq = 440 * Math.pow(2, (baseNote - 69) / 12);
+  pendulums.push({
+    period,
+    freq,
+    angle: 0,
+    prevAngle: 0,
+    lastSoundDir: 0,
+    hue: 25 + (i / NUM) * 30, // warm gold to amber range
+    brightness: 0
+  });
+}
+
+function initAudio() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.12;
+  
+  // Subtle reverb via delay
+  const delay = audioCtx.createDelay();
+  delay.delayTime.value = 0.08;
+  const feedback = audioCtx.createGain();
+  feedback.gain.value = 0.2;
+  delay.connect(feedback);
+  feedback.connect(delay);
+  
+  const dryGain = audioCtx.createGain();
+  dryGain.gain.value = 0.7;
+  const wetGain = audioCtx.createGain();
+  wetGain.gain.value = 0.3;
+  
+  masterGain.connect(dryGain);
+  masterGain.connect(delay);
+  delay.connect(wetGain);
+  dryGain.connect(audioCtx.destination);
+  wetGain.connect(audioCtx.destination);
+}
+
+function playTone(freq, volume) {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const env = audioCtx.createGain();
+  
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  
+  // Soft bell-like envelope
+  env.gain.setValueAtTime(0, now);
+  env.gain.linearRampToValueAtTime(volume * 0.5, now + 0.005);
+  env.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+  
+  // Add a harmonic
+  const osc2 = audioCtx.createOscillator();
+  const env2 = audioCtx.createGain();
+  osc2.type = 'sine';
+  osc2.frequency.value = freq * 2.01;
+  env2.gain.setValueAtTime(0, now);
+  env2.gain.linearRampToValueAtTime(volume * 0.15, now + 0.003);
+  env2.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+  
+  osc.connect(env);
+  osc2.connect(env2);
+  env.connect(masterGain);
+  env2.connect(masterGain);
+  
+  osc.start(now);
+  osc.stop(now + 1);
+  osc2.start(now);
+  osc2.stop(now + 0.5);
+}
+
+function start() {
+  if (started) return;
+  started = true;
+  startTime = performance.now();
+  hint.style.opacity = '0';
+  initAudio();
+}
+
+canvas.addEventListener('click', start);
+canvas.addEventListener('touchstart', (e) => { e.preventDefault(); start(); }, { passive: false });
+
+function draw(now) {
+  requestAnimationFrame(draw);
+  
+  ctx.fillStyle = 'rgba(10, 8, 6, 0.15)';
+  ctx.fillRect(0, 0, W, H);
+  
+  const elapsed = started ? (now - startTime) / 1000 : 0;
+  const anchorY = H * 0.08;
+  const spacing = W / (NUM + 1);
+  const maxLen = H * 0.55;
+  const maxAngle = Math.PI / 4;
+  
+  // Draw the bar
+  ctx.strokeStyle = 'rgba(120, 100, 70, 0.3)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(spacing * 0.5, anchorY);
+  ctx.lineTo(W - spacing * 0.5, anchorY);
+  ctx.stroke();
+  
+  for (let i = 0; i < NUM; i++) {
+    const p = pendulums[i];
+    const x = spacing * (i + 1);
+    
+    // Length varies so shorter pendulums swing faster
+    const lenFraction = 0.5 + (i / (NUM - 1)) * 0.5;
+    const len = maxLen * lenFraction;
+    
+    p.prevAngle = p.angle;
+    p.angle = started ? maxAngle * Math.sin(2 * Math.PI * elapsed / p.period) : maxAngle * Math.sin(i * 0.3);
+    
+    // Detect zero crossing for sound
+    if (started && p.prevAngle * p.angle < 0 && Math.abs(p.angle) < 0.1) {
+      const dir = p.angle > 0 ? 1 : -1;
+      if (dir !== p.lastSoundDir) {
+        p.lastSoundDir = dir;
+        p.brightness = 1;
+        playTone(p.freq, 0.3 + (i / NUM) * 0.4);
+      }
+    }
+    
+    const bobX = x + Math.sin(p.angle) * len;
+    const bobY = anchorY + Math.cos(p.angle) * len;
+    
+    // Fade brightness
+    p.brightness *= 0.95;
+    
+    // String
+    const alpha = 0.15 + p.brightness * 0.3;
+    ctx.strokeStyle = `rgba(180, 160, 120, ${alpha})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, anchorY);
+    ctx.lineTo(bobX, bobY);
+    ctx.stroke();
+    
+    // Bob glow
+    const glowR = 12 + p.brightness * 20;
+    const grad = ctx.createRadialGradient(bobX, bobY, 0, bobX, bobY, glowR);
+    const sat = 60 + p.brightness * 40;
+    const light = 55 + p.brightness * 35;
+    grad.addColorStop(0, `hsla(${p.hue}, ${sat}%, ${light}%, ${0.8 + p.brightness * 0.2})`);
+    grad.addColorStop(0.4, `hsla(${p.hue}, ${sat}%, ${light * 0.7}%, ${0.3 + p.brightness * 0.4})`);
+    grad.addColorStop(1, `hsla(${p.hue}, ${sat}%, ${light * 0.4}%, 0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(bobX, bobY, glowR, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Bob core
+    const coreR = 5 + p.brightness * 3;
+    ctx.fillStyle = `hsla(${p.hue}, 70%, ${70 + p.brightness * 25}%, 1)`;
+    ctx.beginPath();
+    ctx.arc(bobX, bobY, coreR, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Anchor point
+    ctx.fillStyle = 'rgba(120, 100, 70, 0.4)';
+    ctx.beginPath();
+    ctx.arc(x, anchorY, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  
+  // Shadow/reflection under bobs
+  if (started) {
+    const shadowY = anchorY + maxLen + 40;
+    for (let i = 0; i < NUM; i++) {
+      const p = pendulums[i];
+      const x = spacing * (i + 1);
+      const lenFraction = 0.5 + (i / (NUM - 1)) * 0.5;
+      const len = maxLen * lenFraction;
+      const bobX = x + Math.sin(p.angle) * len;
+      
+      const shadowAlpha = 0.03 + p.brightness * 0.08;
+      ctx.fillStyle = `hsla(${p.hue}, 40%, 50%, ${shadowAlpha})`;
+      ctx.beginPath();
+      ctx.ellipse(bobX, shadowY, 6 + p.brightness * 4, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  
+  // Phase indicator: cycle progress
+  if (started) {
+    const cycleProgress = (elapsed % CYCLE_BASE) / CYCLE_BASE;
+    const barW = W * 0.3;
+    const barX = (W - barW) / 2;
+    const barY = H - 50;
+    ctx.fillStyle = 'rgba(120, 100, 70, 0.08)';
+    ctx.fillRect(barX, barY, barW, 1);
+    ctx.fillStyle = 'rgba(200, 170, 100, 0.15)';
+    ctx.fillRect(barX, barY, barW * cycleProgress, 1);
+  }
+}
+
+requestAnimationFrame(draw);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
