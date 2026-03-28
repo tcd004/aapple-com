@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cartography of Nowhere</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #f4ead5; overflow: hidden; font-family: 'Courier New', monospace; cursor: crosshair; }
+canvas { display: block; }
+#overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none; z-index: 10;
+  opacity: 1; transition: opacity 2s;
+}
+#overlay.hidden { opacity: 0; }
+#overlay-text {
+  color: #5a4a3a; font-size: 14px; letter-spacing: 3px;
+  text-transform: uppercase; text-align: center; line-height: 2.4;
+  background: rgba(244,234,213,0.85); padding: 30px 50px; border: 1px solid #c8b89a;
+}
+#tooltip {
+  position: fixed; pointer-events: none; z-index: 20;
+  color: #5a4a3a; font-size: 11px; letter-spacing: 1px;
+  font-style: italic; opacity: 0; transition: opacity 0.3s;
+  text-shadow: 1px 1px 0 #f4ead5;
+}
+.footer {
+  position: fixed; bottom: 10px; left: 0; width: 100%;
+  text-align: center; z-index: 30; font-size: 11px;
+}
+.footer a { color: #a0906a; text-decoration: none; letter-spacing: 1px; }
+.footer a:hover { color: #5a4a3a; }
+.credit { color: rgba(90,74,58,0.3); font-size: 9px; margin-top: 4px; letter-spacing: 0.5px; }
+#compass {
+  position: fixed; top: 20px; right: 20px; z-index: 15;
+  width: 60px; height: 60px; opacity: 0.5;
+}
+</style>
+</head>
+<body>
+<div id="overlay">
+  <div id="overlay-text">
+    Cartography of Nowhere<br>
+    <span style="font-size:11px;letter-spacing:1px;color:#8a7a6a;">click to name the unnamed places<br>scroll to traverse the void</span>
+  </div>
+</div>
+<div id="tooltip"></div>
+<canvas id="compass"></canvas>
+<canvas id="map"></canvas>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+
+<script>
+const canvas = document.getElementById('map');
+const ctx = canvas.getContext('2d');
+const compass = document.getElementById('compass');
+const cctx = compass.getContext('2d');
+const tooltip = document.getElementById('tooltip');
+const overlay = document.getElementById('overlay');
+
+let W, H;
+const resize = () => { W = canvas.width = innerWidth; H = canvas.height = innerHeight; compass.width = 60; compass.height = 60; };
+resize();
+addEventListener('resize', resize);
+
+// Seeded random
+let seed = 28032026;
+const sr = () => { seed = (seed * 16807 + 0) % 2147483647; return (seed - 1) / 2147483646; };
+
+// Camera
+let camX = 0, camY = 0, zoom = 1;
+let targetCamX = 0, targetCamY = 0, targetZoom = 1;
+
+// Perlin-like noise (simple value noise with interpolation)
+const NOISE_SIZE = 256;
+const noiseTable = [];
+for (let i = 0; i < NOISE_SIZE; i++) noiseTable[i] = sr();
+const perm = [];
+for (let i = 0; i < NOISE_SIZE; i++) perm[i] = i;
+for (let i = NOISE_SIZE - 1; i > 0; i--) { const j = Math.floor(sr() * (i + 1)); [perm[i], perm[j]] = [perm[j], perm[i]]; }
+for (let i = 0; i < NOISE_SIZE; i++) perm[NOISE_SIZE + i] = perm[i];
+
+function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+function lerp(a, b, t) { return a + t * (b - a); }
+
+function noise2d(x, y) {
+  const xi = Math.floor(x) & (NOISE_SIZE - 1);
+  const yi = Math.floor(y) & (NOISE_SIZE - 1);
+  const xf = x - Math.floor(x);
+  const yf = y - Math.floor(y);
+  const u = fade(xf);
+  const v = fade(yf);
+  const aa = noiseTable[perm[perm[xi] + yi]];
+  const ab = noiseTable[perm[perm[xi] + yi + 1]];
+  const ba = noiseTable[perm[perm[xi + 1] + yi]];
+  const bb = noiseTable[perm[perm[xi + 1] + yi + 1]];
+  return lerp(lerp(aa, ba, u), lerp(ab, bb, u), v);
+}
+
+function fbm(x, y, octaves) {
+  let val = 0, amp = 1, freq = 1, max = 0;
+  for (let i = 0; i < octaves; i++) {
+    val += noise2d(x * freq, y * freq) * amp;
+    max += amp;
+    amp *= 0.5;
+    freq *= 2;
+  }
+  return val / max;
+}
+
+// Place names
+const prefixes = ['Ash','Moss','Thorn','Raven','Silver','Stone','Drift','Iron','Amber','Hollow','Whisper','Shadow','Ember','Bone','Mist','Frost','Pale','Grey','Dusk','Dawn','Lost','Fallen','Silent','Wander','Forgotten','Dream','Ruin','Old','Deep','Far','Long','Sad'];
+const suffixes = ['vale','moor','fen','reach','hollow','mere','wood','keep','ford','haven','fell','watch','rest','gate','marsh','cairn','deep','peak','shore','drift','spire','well','cross','helm','end','fall','brook','ridge','down','waste'];
+const epithets = ['the Quiet','the Forsaken','the Drowned','the Sleeping','the Broken','the Last','of Sighs','of Echoes','the Unmapped','the Wandering','Below','Beyond','the Forgotten','of No Return','the Sunken','the Hollow','the Ancient','the Nameless'];
+
+function genName() {
+  const p = prefixes[Math.floor(sr() * prefixes.length)];
+  const s = suffixes[Math.floor(sr() * suffixes.length)];
+  if (sr() < 0.3) return p + s + ' ' + epithets[Math.floor(sr() * epithets.length)];
+  return p + s;
+}
+
+// Named places (user-clicked + generated)
+const places = [];
+const CELL = 200;
+
+function getTerrainAt(wx, wy) {
+  const scale = 0.003;
+  const e = fbm(wx * scale, wy * scale, 6);
+  return e;
+}
+
+// Generate landmarks in cells
+const generatedCells = new Set();
+function ensureLandmarks(cx, cy) {
+  const key = cx + ',' + cy;
+  if (generatedCells.has(key)) return;
+  generatedCells.add(key);
+  const oldSeed = seed;
+  seed = (cx * 73856093 ^ cy * 19349663) >>> 0;
+  seed = seed || 1;
+  const count = Math.floor(sr() * 3);
+  for (let i = 0; i < count; i++) {
+    const wx = cx * CELL + sr() * CELL;
+    const wy = cy * CELL + sr() * CELL;
+    const e = getTerrainAt(wx, wy);
+    if (e > 0.35 && e < 0.75) {
+      places.push({ x: wx, y: wy, name: genName(), type: e > 0.55 ? 'peak' : 'town', userPlaced: false });
+    }
+  }
+  seed = oldSeed;
+}
+
+// Colors
+const PAPER = '#f4ead5';
+const INK = '#5a4a3a';
+const WATER = '#b8ccd8';
+const WATER_DEEP = '#8aabb8';
+const LAND_LOW = '#e2d8bf';
+const LAND_MID = '#d4c9a8';
+const LAND_HIGH = '#c0ad82';
+const MOUNTAIN = '#a09070';
+const CONTOUR = 'rgba(90,74,58,0.15)';
+
+function worldToScreen(wx, wy) {
+  return { x: (wx - camX) * zoom + W / 2, y: (wy - camY) * zoom + H / 2 };
+}
+function screenToWorld(sx, sy) {
+  return { x: (sx - W / 2) / zoom + camX, y: (sy - H / 2) / zoom + camY };
+}
+
+// Render terrain tile-based
+const TILE = 6;
+function drawMap() {
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(0, 0, W, H);
+
+  const tileWorld = TILE / zoom;
+  const tl = screenToWorld(0, 0);
+  const br = screenToWorld(W, H);
+  const startX = Math.floor(tl.x / tileWorld) * tileWorld;
+  const startY = Math.floor(tl.y / tileWorld) * tileWorld;
+
+  // Ensure landmarks
+  const cellTL = { x: Math.floor(tl.x / CELL) - 1, y: Math.floor(tl.y / CELL) - 1 };
+  const cellBR = { x: Math.floor(br.x / CELL) + 1, y: Math.floor(br.y / CELL) + 1 };
+  for (let cy = cellTL.y; cy <= cellBR.y; cy++)
+    for (let cx = cellTL.x; cx <= cellBR.x; cx++)
+      ensureLandmarks(cx, cy);
+
+  // Draw terrain
+  for (let wy = startY; wy < br.y; wy += tileWorld) {
+    for (let wx = startX; wx < br.x; wx += tileWorld) {
+      const e = getTerrainAt(wx, wy);
+      const sp = worldToScreen(wx, wy);
+      let color;
+      if (e < 0.32) color = WATER_DEEP;
+      else if (e < 0.38) color = WATER;
+      else if (e < 0.48) color = LAND_LOW;
+      else if (e < 0.58) color = LAND_MID;
+      else if (e < 0.68) color = LAND_HIGH;
+      else color = MOUNTAIN;
+      ctx.fillStyle = color;
+      ctx.fillRect(sp.x, sp.y, TILE + 1, TILE + 1);
+    }
+  }
+
+  // Contour lines
+  ctx.strokeStyle = CONTOUR;
+  ctx.lineWidth = 0.5;
+  const contourStep = tileWorld * 2;
+  for (let wy = startY; wy < br.y; wy += contourStep) {
+    for (let wx = startX; wx < br.x; wx += contourStep) {
+      const e = getTerrainAt(wx, wy);
+      const levels = [0.35, 0.45, 0.55, 0.65];
+      for (const lv of levels) {
+        const er = getTerrainAt(wx + contourStep, wy);
+        const eb = getTerrainAt(wx, wy + contourStep);
+        if ((e < lv && er >= lv) || (e >= lv && er < lv)) {
+          const t = (lv - e) / (er - e);
+          const sp = worldToScreen(wx + t * contourStep, wy);
+          ctx.beginPath();
+          ctx.arc(sp.x, sp.y, 1, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        if ((e < lv && eb >= lv) || (e >= lv && eb < lv)) {
+          const t = (lv - e) / (eb - e);
+          const sp = worldToScreen(wx, wy + t * contourStep);
+          ctx.beginPath();
+          ctx.arc(sp.x, sp.y, 1, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  // Draw rivers (procedural paths following downhill)
+  ctx.strokeStyle = 'rgba(138,171,184,0.6)';
+  ctx.lineWidth = 1.2 * zoom;
+  const riverSeeds = [];
+  for (let ry = cellTL.y; ry <= cellBR.y; ry++) {
+    for (let rx = cellTL.x; rx <= cellBR.x; rx++) {
+      const rs = (rx * 48271 ^ ry * 65537) >>> 0;
+      if (rs % 7 === 0) {
+        riverSeeds.push({ x: rx * CELL + (rs % CELL), y: ry * CELL + ((rs * 3) % CELL) });
+      }
+    }
+  }
+  for (const rs of riverSeeds) {
+    let rx = rs.x, ry = rs.y;
+    const e0 = getTerrainAt(rx, ry);
+    if (e0 < 0.5) continue;
+    ctx.beginPath();
+    const sp0 = worldToScreen(rx, ry);
+    ctx.moveTo(sp0.x, sp0.y);
+    for (let step = 0; step < 80; step++) {
+      const d = 3;
+      let bestE = getTerrainAt(rx, ry);
+      let bx = rx, by = ry;
+      for (let a = 0; a < 8; a++) {
+        const ang = a * Math.PI / 4;
+        const nx = rx + Math.cos(ang) * d;
+        const ny = ry + Math.sin(ang) * d;
+        const ne = getTerrainAt(nx, ny);
+        if (ne < bestE) { bestE = ne; bx = nx; by = ny; }
+      }
+      if (bx === rx && by === ry) break;
+      rx = bx; ry = by;
+      const sp = worldToScreen(rx, ry);
+      ctx.lineTo(sp.x, sp.y);
+      if (bestE < 0.33) break;
+    }
+    ctx.stroke();
+  }
+
+  // Stipple shading for mountains
+  const stippleDensity = Math.min(500, (br.x - tl.x) * (br.y - tl.y) / 800);
+  ctx.fillStyle = 'rgba(90,74,58,0.25)';
+  for (let i = 0; i < stippleDensity; i++) {
+    const wx = tl.x + sr() * (br.x - tl.x);
+    const wy = tl.y + sr() * (br.y - tl.y);
+    const e = getTerrainAt(wx, wy);
+    if (e > 0.6 && sr() < (e - 0.6) * 3) {
+      const sp = worldToScreen(wx, wy);
+      ctx.fillRect(sp.x, sp.y, 1, 1);
+    }
+  }
+
+  // Draw mountain symbols
+  for (let wy2 = startY; wy2 < br.y; wy2 += tileWorld * 12) {
+    for (let wx2 = startX; wx2 < br.x; wx2 += tileWorld * 12) {
+      const e = getTerrainAt(wx2, wy2);
+      if (e > 0.65) {
+        const sp = worldToScreen(wx2, wy2);
+        const sz = 4 * zoom;
+        ctx.strokeStyle = 'rgba(90,74,58,0.4)';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(sp.x - sz, sp.y + sz * 0.6);
+        ctx.lineTo(sp.x, sp.y - sz * 0.8);
+        ctx.lineTo(sp.x + sz, sp.y + sz * 0.6);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Draw places
+  ctx.textAlign = 'center';
+  for (const p of places) {
+    const sp = worldToScreen(p.x, p.y);
+    if (sp.x < -100 || sp.x > W + 100 || sp.y < -100 || sp.y > H + 100) continue;
+    const fontSize = Math.max(8, Math.min(12, 10 * zoom));
+    ctx.font = `italic ${fontSize}px 'Courier New', monospace`;
+    ctx.fillStyle = p.userPlaced ? '#8b3a3a' : 'rgba(90,74,58,0.7)';
+    ctx.fillText(p.name, sp.x, sp.y - 8 * zoom);
+    // dot
+    ctx.beginPath();
+    ctx.arc(sp.x, sp.y, 2 * zoom, 0, Math.PI * 2);
+    ctx.fill();
+    if (p.type === 'peak') {
+      ctx.strokeStyle = ctx.fillStyle;
+      ctx.lineWidth = 0.6;
+      const s = 3 * zoom;
+      ctx.beginPath();
+      ctx.moveTo(sp.x - s, sp.y + s * 0.5);
+      ctx.lineTo(sp.x, sp.y - s);
+      ctx.lineTo(sp.x + s, sp.y + s * 0.5);
+      ctx.stroke();
+    }
+  }
+
+  // Paper texture overlay
+  ctx.fillStyle = 'rgba(90,74,58,0.02)';
+  for (let i = 0; i < 300; i++) {
+    ctx.fillRect(Math.random() * W, Math.random() * H, Math.random() * 2, Math.random() * 2);
+  }
+
+  // Vignette
+  const grad = ctx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.3, W/2, H/2, Math.max(W,H)*0.8);
+  grad.addColorStop(0, 'rgba(244,234,213,0)');
+  grad.addColorStop(1, 'rgba(180,160,120,0.15)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Border lines
+  ctx.strokeStyle = 'rgba(90,74,58,0.2)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(15, 15, W - 30, H - 30);
+  ctx.strokeRect(18, 18, W - 36, H - 36);
+}
+
+// Compass
+function drawCompass() {
+  const cx = 30, cy = 30, r = 22;
+  cctx.clearRect(0, 0, 60, 60);
+  cctx.strokeStyle = 'rgba(90,74,58,0.4)';
+  cctx.lineWidth = 1;
+  cctx.beginPath();
+  cctx.arc(cx, cy, r, 0, Math.PI * 2);
+  cctx.stroke();
+
+  // N arrow
+  cctx.fillStyle = '#8b3a3a';
+  cctx.beginPath();
+  cctx.moveTo(cx, cy - r + 3);
+  cctx.lineTo(cx - 4, cy);
+  cctx.lineTo(cx + 4, cy);
+  cctx.fill();
+
+  // S arrow
+  cctx.fillStyle = 'rgba(90,74,58,0.3)';
+  cctx.beginPath();
+  cctx.moveTo(cx, cy + r - 3);
+  cctx.lineTo(cx - 4, cy);
+  cctx.lineTo(cx + 4, cy);
+  cctx.fill();
+
+  cctx.font = 'italic 8px Courier New';
+  cctx.fillStyle = '#5a4a3a';
+  cctx.textAlign = 'center';
+  cctx.fillText('N', cx, cy - r + 13);
+  cctx.fillStyle = 'rgba(90,74,58,0.4)';
+  cctx.fillText('S', cx, cy + r - 6);
+  cctx.fillText('E', cx + r - 7, cy + 3);
+  cctx.fillText('W', cx - r + 7, cy + 3);
+}
+
+// Interaction
+let dragging = false, lastMX, lastMY;
+let touchDist0 = null;
+
+canvas.addEventListener('mousedown', (e) => { dragging = true; lastMX = e.clientX; lastMY = e.clientY; });
+addEventListener('mousemove', (e) => {
+  if (dragging) {
+    targetCamX -= (e.clientX - lastMX) / zoom;
+    targetCamY -= (e.clientY - lastMY) / zoom;
+    lastMX = e.clientX; lastMY = e.clientY;
+  }
+  // Tooltip
+  const w = screenToWorld(e.clientX, e.clientY);
+  let closest = null, closestD = 30 / zoom;
+  for (const p of places) {
+    const d = Math.hypot(p.x - w.x, p.y - w.y);
+    if (d < closestD) { closestD = d; closest = p; }
+  }
+  if (closest) {
+    tooltip.style.left = (e.clientX + 15) + 'px';
+    tooltip.style.top = (e.clientY - 10) + 'px';
+    const e2 = getTerrainAt(closest.x, closest.y);
+    const elev = Math.round((e2 - 0.35) * 3000);
+    tooltip.textContent = `${closest.name} — elev. ${elev}m`;
+    tooltip.style.opacity = 1;
+  } else {
+    tooltip.style.opacity = 0;
+  }
+});
+addEventListener('mouseup', () => { dragging = false; });
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 0.9 : 1.1;
+  targetZoom = Math.max(0.3, Math.min(4, targetZoom * factor));
+}, { passive: false });
+
+// Touch
+canvas.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 1) {
+    dragging = true;
+    lastMX = e.touches[0].clientX;
+    lastMY = e.touches[0].clientY;
+  } else if (e.touches.length === 2) {
+    dragging = false;
+    touchDist0 = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+  }
+}, { passive: true });
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (e.touches.length === 1 && dragging) {
+    targetCamX -= (e.touches[0].clientX - lastMX) / zoom;
+    targetCamY -= (e.touches[0].clientY - lastMY) / zoom;
+    lastMX = e.touches[0].clientX;
+    lastMY = e.touches[0].clientY;
+  } else if (e.touches.length === 2 && touchDist0) {
+    const d = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    targetZoom = Math.max(0.3, Math.min(4, targetZoom * (d / touchDist0)));
+    touchDist0 = d;
+  }
+}, { passive: false });
+canvas.addEventListener('touchend', () => { dragging = false; touchDist0 = null; });
+
+// Click to name a place
+canvas.addEventListener('click', (e) => {
+  if (overlay.classList.contains('hidden')) {
+    const w = screenToWorld(e.clientX, e.clientY);
+    const terrain = getTerrainAt(w.x, w.y);
+    if (terrain > 0.33) {
+      places.push({
+        x: w.x, y: w.y,
+        name: genName(),
+        type: terrain > 0.55 ? 'peak' : 'town',
+        userPlaced: true
+      });
+    }
+  }
+});
+
+// Dismiss overlay
+setTimeout(() => overlay.classList.add('hidden'), 3500);
+overlay.addEventListener('click', () => overlay.classList.add('hidden'));
+
+// Animation loop
+function frame() {
+  camX += (targetCamX - camX) * 0.12;
+  camY += (targetCamY - camY) * 0.12;
+  zoom += (targetZoom - zoom) * 0.12;
+  drawMap();
+  drawCompass();
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
