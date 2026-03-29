@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>404 Souls Found — aapple.com</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0c0c0f;
+  overflow: hidden;
+  font-family: 'Courier New', monospace;
+  min-height: 100vh;
+  cursor: pointer;
+  user-select: none;
+}
+#error-box {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 5;
+  pointer-events: none;
+  transition: opacity 1s;
+}
+#error-code {
+  font-size: clamp(60px, 15vw, 160px);
+  font-weight: bold;
+  color: rgba(255, 80, 80, 0.12);
+  letter-spacing: 8px;
+  line-height: 1;
+}
+#error-msg {
+  color: rgba(255, 255, 255, 0.15);
+  font-size: clamp(10px, 2vw, 14px);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  margin-top: 10px;
+}
+#counter {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  color: rgba(255, 80, 80, 0.3);
+  font-size: 12px;
+  letter-spacing: 2px;
+  z-index: 10;
+}
+#hint {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255,255,255,0.12);
+  font-size: 11px;
+  letter-spacing: 3px;
+  z-index: 10;
+  pointer-events: none;
+  transition: opacity 3s;
+  text-align: center;
+}
+canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2;
+}
+.footer {
+  position: fixed; bottom: 10px; left: 0; width: 100%;
+  text-align: center; font-size: 10px; z-index: 20;
+}
+.footer a { color: rgba(255,255,255,0.15); text-decoration: none; }
+.footer a:hover { color: rgba(255,255,255,0.4); }
+.footer .credit { color: rgba(255,255,255,0.06); margin-top: 4px; font-size: 9px; }
+</style>
+</head>
+<body>
+<div id="error-box">
+  <div id="error-code">404</div>
+  <div id="error-msg">souls found</div>
+</div>
+<div id="counter">souls: <span id="count">0</span></div>
+<div id="hint">click to summon</div>
+<canvas id="c"></canvas>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const countEl = document.getElementById('count');
+const codeEl = document.getElementById('error-code');
+const hint = document.getElementById('hint');
+
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+const FIRST_NAMES = [
+  'Agnes','Bartholomew','Clementine','Desmond','Eustace','Fern','Gideon',
+  'Hortense','Ignatius','Juniper','Klaus','Lavinia','Mortimer','Nerys',
+  'Oberon','Prudence','Quentin','Rosalind','Silas','Tabitha','Ulrich',
+  'Viola','Winifred','Xerxes','Yvaine','Zelda','Ambrose','Birdie',
+  'Cornelius','Daphne','Elspeth','Felix','Griselda','Hugo','Isolde',
+  'Jasper','Keturah','Laszlo','Mabel','Neville','Ophelia','Percival'
+];
+
+const CAUSES = [
+  'lost in a redirect loop','expired cookie syndrome','dereferenced from reality',
+  'cleared from the cache','404\'d from existence','timed out waiting',
+  'garbage collected','stack overflowed','segfaulted at dawn',
+  'null pointer to the void','unhandled exception in living','deprecated gracefully',
+  'lost their session','caught in infinite recursion','leaked from memory',
+  'unresolved dependency','killed by OOM','parsed incorrectly',
+  'dropped by load balancer','exceeded TTL','evicted from the heap',
+  'lost in DNS resolution','rejected by CORS policy','failed the handshake',
+  'bricked during update','dissolved in the bit bucket','fell off the edge of the DOM',
+  'consumed by entropy','forgot their own address','trapped in a while(true)'
+];
+
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+class Ghost {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.name = pick(FIRST_NAMES);
+    this.cause = pick(CAUSES);
+    this.vx = (Math.random() - 0.5) * 0.6;
+    this.vy = (Math.random() - 0.5) * 0.6;
+    this.baseSize = 12 + Math.random() * 10;
+    this.size = this.baseSize;
+    this.opacity = 0;
+    this.targetOpacity = 0.15 + Math.random() * 0.2;
+    this.phase = Math.random() * Math.PI * 2;
+    this.speed = 0.3 + Math.random() * 0.4;
+    this.wobble = 0.5 + Math.random() * 1.5;
+    this.showName = false;
+    this.nameOpacity = 0;
+    this.hue = Math.random() < 0.3 ? 0 : (180 + Math.random() * 60); // red or cyan-ish
+    this.age = 0;
+    this.driftAngle = Math.random() * Math.PI * 2;
+    this.driftSpeed = 0.002 + Math.random() * 0.003;
+    this.socialDist = 40 + Math.random() * 30;
+  }
+
+  update(ghosts, mx, my, dt) {
+    this.age += dt;
+    this.phase += this.speed * dt * 0.06;
+    this.driftAngle += this.driftSpeed * dt;
+
+    // Gentle drift
+    this.vx += Math.cos(this.driftAngle) * 0.01;
+    this.vy += Math.sin(this.driftAngle) * 0.01;
+
+    // Avoid other ghosts softly
+    for (const g of ghosts) {
+      if (g === this) continue;
+      const dx = this.x - g.x;
+      const dy = this.y - g.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < this.socialDist && dist > 0) {
+        const force = (this.socialDist - dist) / this.socialDist * 0.02;
+        this.vx += (dx / dist) * force;
+        this.vy += (dy / dist) * force;
+      }
+    }
+
+    // Slight attraction to center
+    const cx = W / 2, cy = H / 2;
+    const dcx = cx - this.x, dcy = cy - this.y;
+    const dCenter = Math.sqrt(dcx * dcx + dcy * dcy);
+    if (dCenter > 200) {
+      this.vx += (dcx / dCenter) * 0.003;
+      this.vy += (dcy / dCenter) * 0.003;
+    }
+
+    // Mouse avoidance
+    if (mx !== null) {
+      const dmx = this.x - mx;
+      const dmy = this.y - my;
+      const dMouse = Math.sqrt(dmx * dmx + dmy * dmy);
+      if (dMouse < 120 && dMouse > 0) {
+        const flee = (120 - dMouse) / 120 * 0.08;
+        this.vx += (dmx / dMouse) * flee;
+        this.vy += (dmy / dMouse) * flee;
+      }
+    }
+
+    // Damping
+    this.vx *= 0.98;
+    this.vy *= 0.98;
+
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+
+    // Wrap around
+    if (this.x < -30) this.x = W + 30;
+    if (this.x > W + 30) this.x = -30;
+    if (this.y < -30) this.y = H + 30;
+    if (this.y > H + 30) this.y = -30;
+
+    // Fade in
+    if (this.opacity < this.targetOpacity) {
+      this.opacity = Math.min(this.opacity + 0.003 * dt, this.targetOpacity);
+    }
+
+    // Wobble size
+    this.size = this.baseSize + Math.sin(this.phase) * 2;
+
+    // Name display on hover
+    if (mx !== null) {
+      const dx = this.x - mx;
+      const dy = this.y - my;
+      this.showName = Math.sqrt(dx * dx + dy * dy) < this.size + 15;
+    }
+    this.nameOpacity += ((this.showName ? 0.7 : 0) - this.nameOpacity) * 0.08;
+  }
+
+  draw(ctx) {
+    const s = this.size;
+    const breathe = Math.sin(this.phase) * 0.1 + 1;
+    const w = s * breathe;
+    const h = s * 1.2 * breathe;
+
+    ctx.save();
+    ctx.translate(this.x, this.y);
+
+    // Ghost body
+    ctx.beginPath();
+    ctx.moveTo(-w / 2, h * 0.1);
+    ctx.quadraticCurveTo(-w / 2, -h / 2, 0, -h / 2);
+    ctx.quadraticCurveTo(w / 2, -h / 2, w / 2, h * 0.1);
+
+    // Wavy bottom
+    const segs = 5;
+    const segW = w / segs;
+    for (let i = 0; i < segs; i++) {
+      const bx = w / 2 - segW * (i + 1);
+      const waveY = h * 0.1 + Math.sin(this.phase + i * 1.2) * 3;
+      const midY = h * 0.3 + Math.sin(this.phase + i * 0.8 + 0.5) * 2;
+      ctx.quadraticCurveTo(
+        bx + segW / 2, midY,
+        bx, waveY
+      );
+    }
+    ctx.closePath();
+
+    const alpha = this.opacity;
+    const hue = this.hue;
+    ctx.fillStyle = hue === 0
+      ? `rgba(255, 200, 200, ${alpha})`
+      : `hsla(${hue}, 40%, 70%, ${alpha})`;
+    ctx.fill();
+
+    // Eyes
+    const eyeY = -h * 0.15;
+    const eyeSpacing = w * 0.2;
+    const eyeSize = s * 0.08;
+    const eyeAlpha = alpha * 2;
+    ctx.fillStyle = `rgba(0, 0, 0, ${Math.min(eyeAlpha, 0.6)})`;
+    ctx.beginPath();
+    ctx.arc(-eyeSpacing, eyeY, eyeSize, 0, Math.PI * 2);
+    ctx.arc(eyeSpacing, eyeY, eyeSize, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Name tooltip
+    if (this.nameOpacity > 0.01) {
+      ctx.globalAlpha = this.nameOpacity;
+      ctx.fillStyle = `hsla(${hue === 0 ? 0 : hue}, 30%, 80%, 1)`;
+      ctx.font = '10px Courier New';
+      ctx.textAlign = 'center';
+      ctx.fillText(this.name, 0, -h / 2 - 12);
+      ctx.font = '8px Courier New';
+      ctx.fillStyle = `rgba(255, 255, 255, 0.5)`;
+      ctx.fillText(this.cause, 0, -h / 2 - 2);
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.restore();
+  }
+}
+
+const ghosts = [];
+let soulCount = 0;
+let mx = null, my = null;
+
+function addGhost(x, y) {
+  if (ghosts.length >= 200) return; // performance cap
+  const g = new Ghost(x, y);
+  ghosts.push(g);
+  soulCount++;
+  countEl.textContent = soulCount;
+  codeEl.textContent = 404 + soulCount;
+
+  if (soulCount === 1) {
+    setTimeout(() => { hint.style.opacity = '0'; }, 500);
+  }
+
+  // Play a tiny sound
+  playNote();
+}
+
+// Web Audio
+let audioCtx = null;
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playNote() {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+
+  const notes = [261.6, 293.7, 329.6, 349.2, 392.0, 440.0, 493.9, 523.3];
+  const freq = notes[Math.floor(Math.random() * notes.length)] * (0.5 + Math.random());
+
+  osc.type = Math.random() < 0.5 ? 'sine' : 'triangle';
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(freq * 0.5, audioCtx.currentTime + 1.5);
+
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(800 + Math.random() * 400, audioCtx.currentTime);
+  filter.Q.setValueAtTime(1, audioCtx.currentTime);
+
+  gain.gain.setValueAtTime(0, audioCtx.currentTime);
+  gain.gain.linearRampToValueAtTime(0.04, audioCtx.currentTime + 0.05);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2);
+
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 2);
+}
+
+// Ambient drone
+function startDrone() {
+  if (!audioCtx) return;
+  const osc1 = audioCtx.createOscillator();
+  const osc2 = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+
+  osc1.type = 'sine';
+  osc1.frequency.setValueAtTime(55, audioCtx.currentTime);
+  osc2.type = 'sine';
+  osc2.frequency.setValueAtTime(55.3, audioCtx.currentTime);
+
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(200, audioCtx.currentTime);
+
+  gain.gain.setValueAtTime(0, audioCtx.currentTime);
+  gain.gain.linearRampToValueAtTime(0.02, audioCtx.currentTime + 3);
+
+  osc1.connect(filter);
+  osc2.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc1.start();
+  osc2.start();
+}
+
+let droneStarted = false;
+
+function handleInteraction(x, y) {
+  initAudio();
+  if (!droneStarted) { startDrone(); droneStarted = true; }
+  addGhost(x, y);
+}
+
+canvas.addEventListener('click', e => handleInteraction(e.clientX, e.clientY));
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  for (const t of e.touches) {
+    handleInteraction(t.clientX, t.clientY);
+  }
+}, { passive: false });
+
+canvas.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+canvas.addEventListener('mouseleave', () => { mx = null; my = null; });
+canvas.addEventListener('touchmove', e => {
+  if (e.touches.length > 0) { mx = e.touches[0].clientX; my = e.touches[0].clientY; }
+}, { passive: true });
+
+// Seed a few ghosts
+setTimeout(() => {
+  for (let i = 0; i < 4; i++) {
+    addGhost(
+      W * 0.2 + Math.random() * W * 0.6,
+      H * 0.2 + Math.random() * H * 0.6
+    );
+  }
+}, 800);
+
+let lastTime = performance.now();
+
+function animate(now) {
+  const dt = Math.min((now - lastTime) / 16.67, 3); // normalize to ~60fps, cap
+  lastTime = now;
+
+  ctx.clearRect(0, 0, W, H);
+
+  for (const g of ghosts) {
+    g.update(ghosts, mx, my, dt);
+  }
+  for (const g of ghosts) {
+    g.draw(ctx);
+  }
+
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
