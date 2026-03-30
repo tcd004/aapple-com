@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>The Last Broadcast — aapple.com</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #1a1008;
+  overflow: hidden;
+  font-family: 'Courier New', monospace;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+#scene {
+  position: relative;
+  width: 90vw;
+  max-width: 500px;
+}
+#radio {
+  background: linear-gradient(180deg, #3d2b1a 0%, #2a1c0e 40%, #1f1409 100%);
+  border-radius: 20px;
+  padding: 30px 25px 20px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,220,160,0.08);
+  border: 1px solid #4a3520;
+}
+#display {
+  background: #0d0d06;
+  border-radius: 8px;
+  height: 120px;
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #2a1c0e;
+  box-shadow: inset 0 2px 10px rgba(0,0,0,0.8);
+}
+#dial-bg {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+}
+#freq-display {
+  position: absolute;
+  bottom: 8px; right: 12px;
+  font-size: 11px;
+  color: #d4a54a;
+  opacity: 0.7;
+  letter-spacing: 2px;
+  text-shadow: 0 0 8px rgba(212,165,74,0.4);
+}
+#station-name {
+  position: absolute;
+  top: 12px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #d4a54a;
+  opacity: 0;
+  transition: opacity 0.8s;
+  text-shadow: 0 0 12px rgba(212,165,74,0.5);
+  white-space: nowrap;
+}
+#needle {
+  position: absolute;
+  top: 45px;
+  width: 2px;
+  height: 35px;
+  background: #e84030;
+  box-shadow: 0 0 6px rgba(232,64,48,0.6);
+  z-index: 2;
+  pointer-events: none;
+}
+.dial-marks {
+  position: absolute;
+  top: 50px;
+  left: 5%; width: 90%; height: 20px;
+}
+#slider-area {
+  width: 100%;
+  height: 50px;
+  cursor: ew-resize;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 15px;
+}
+#knob {
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #5a4530, #2a1c0e);
+  border: 2px solid #6b5540;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+  position: relative;
+  cursor: grab;
+}
+#knob::after {
+  content: '';
+  position: absolute;
+  top: 8px; left: 50%;
+  transform: translateX(-50%);
+  width: 2px; height: 14px;
+  background: #d4a54a;
+  border-radius: 1px;
+}
+#knob.grabbing { cursor: grabbing; }
+#speaker {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  opacity: 0.3;
+}
+.speaker-slot {
+  width: 2px;
+  height: 40px;
+  background: #4a3520;
+  border-radius: 1px;
+}
+#vu-meter {
+  display: flex;
+  gap: 3px;
+  justify-content: center;
+  margin-bottom: 15px;
+  height: 20px;
+  align-items: flex-end;
+}
+.vu-bar {
+  width: 6px;
+  background: #d4a54a;
+  border-radius: 1px;
+  transition: height 0.08s;
+  min-height: 2px;
+}
+#power-area {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+#power-btn {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #333;
+  border: 2px solid #555;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+#power-btn.on {
+  background: #d4a54a;
+  box-shadow: 0 0 10px rgba(212,165,74,0.6);
+  border-color: #d4a54a;
+}
+#power-label {
+  font-size: 9px;
+  color: #4a3520;
+  letter-spacing: 2px;
+}
+#hint {
+  position: fixed;
+  bottom: 70px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: rgba(212,165,74,0.3);
+  letter-spacing: 2px;
+  transition: opacity 2s;
+  text-align: center;
+}
+.footer {
+  position: fixed; bottom: 10px; left: 0; right: 0;
+  text-align: center; font-size: 10px; z-index: 10;
+}
+.footer a { color: rgba(212,165,74,0.2); text-decoration: none; }
+.footer a:hover { color: rgba(212,165,74,0.5); }
+.footer .credit { color: rgba(255,255,255,0.06); margin-top: 4px; font-size: 9px; }
+#glow {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  border-radius: 8px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1s;
+  background: radial-gradient(ellipse at 50% 50%, rgba(212,165,74,0.04) 0%, transparent 70%);
+}
+</style>
+</head>
+<body>
+<div id="scene">
+  <div id="radio">
+    <div id="power-area">
+      <div id="power-btn" title="Power"></div>
+      <span id="power-label">TAP TO TUNE IN</span>
+    </div>
+    <div id="display">
+      <canvas id="dial-bg"></canvas>
+      <div id="needle"></div>
+      <div id="station-name"></div>
+      <div id="freq-display">88.0 MHz</div>
+      <div id="glow"></div>
+    </div>
+    <div id="vu-meter"></div>
+    <div id="slider-area">
+      <div id="knob"></div>
+    </div>
+    <div id="speaker"></div>
+  </div>
+</div>
+<div id="hint">drag the knob to scan the dial</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const AC = new (window.AudioContext || window.webkitAudioContext)();
+let powered = false;
+let freq = 88.0;
+let masterGain, noiseGain, stationGain;
+let noiseNode, noiseSource;
+let activeStation = null;
+let stationNodes = [];
+let dragging = false;
+let dragStartX = 0;
+let dragStartFreq = 0;
+const knob = document.getElementById('knob');
+const freqDisp = document.getElementById('freq-display');
+const stationName = document.getElementById('station-name');
+const needle = document.getElementById('needle');
+const display = document.getElementById('display');
+const powerBtn = document.getElementById('power-btn');
+const glow = document.getElementById('glow');
+const hint = document.getElementById('hint');
+
+const stations = [
+  { freq: 89.3, name: 'Drone Chapel', type: 'drone' },
+  { freq: 91.7, name: 'Numbers Station', type: 'numbers' },
+  { freq: 94.1, name: 'Lullaby', type: 'lullaby' },
+  { freq: 96.5, name: 'Clockwork', type: 'clock' },
+  { freq: 99.9, name: 'The Hum', type: 'hum' },
+  { freq: 102.3, name: 'Ghost Choir', type: 'choir' },
+  { freq: 105.1, name: 'Morse', type: 'morse' },
+  { freq: 107.5, name: 'Apple FM', type: 'apple' },
+];
+
+// VU meter
+const vuMeter = document.getElementById('vu-meter');
+const vuBars = [];
+for (let i = 0; i < 16; i++) {
+  const bar = document.createElement('div');
+  bar.className = 'vu-bar';
+  bar.style.height = '2px';
+  vuMeter.appendChild(bar);
+  vuBars.push(bar);
+}
+
+// Speaker slots
+const speaker = document.getElementById('speaker');
+for (let i = 0; i < 40; i++) {
+  const s = document.createElement('div');
+  s.className = 'speaker-slot';
+  s.style.height = (25 + Math.sin(i * 0.3) * 15) + 'px';
+  speaker.appendChild(s);
+}
+
+// Draw dial marks
+const dialCanvas = document.getElementById('dial-bg');
+function drawDial() {
+  const w = display.clientWidth;
+  const h = display.clientHeight;
+  dialCanvas.width = w;
+  dialCanvas.height = h;
+  const ctx = dialCanvas.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+  const pad = w * 0.05;
+  const dw = w - pad * 2;
+  for (let f = 88; f <= 108; f += 0.5) {
+    const x = pad + ((f - 88) / 20) * dw;
+    const isMajor = f % 2 === 0;
+    ctx.strokeStyle = isMajor ? 'rgba(212,165,74,0.25)' : 'rgba(212,165,74,0.08)';
+    ctx.lineWidth = isMajor ? 1 : 0.5;
+    ctx.beginPath();
+    ctx.moveTo(x, 85);
+    ctx.lineTo(x, isMajor ? 105 : 95);
+    ctx.stroke();
+    if (isMajor) {
+      ctx.fillStyle = 'rgba(212,165,74,0.2)';
+      ctx.font = '9px Courier New';
+      ctx.textAlign = 'center';
+      ctx.fillText(f, x, 115);
+    }
+  }
+  // Station dots
+  stations.forEach(s => {
+    const x = pad + ((s.freq - 88) / 20) * dw;
+    ctx.fillStyle = 'rgba(212,165,74,0.3)';
+    ctx.beginPath();
+    ctx.arc(x, 80, 2, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function updateNeedle() {
+  const w = display.clientWidth;
+  const pad = w * 0.05;
+  const dw = w - pad * 2;
+  const x = pad + ((freq - 88) / 20) * dw;
+  needle.style.left = x + 'px';
+}
+
+function updateFreq(f) {
+  freq = Math.max(88.0, Math.min(108.0, f));
+  freqDisp.textContent = freq.toFixed(1) + ' MHz';
+  updateNeedle();
+  // rotate knob
+  const angle = ((freq - 88) / 20) * 270 - 135;
+  knob.style.transform = `rotate(${angle}deg)`;
+  if (powered) tuneStation();
+}
+
+// White noise generator
+function createNoise() {
+  const bufferSize = AC.sampleRate * 2;
+  const buffer = AC.createBuffer(1, bufferSize, AC.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+  noiseNode = AC.createBufferSource();
+  noiseNode.buffer = buffer;
+  noiseNode.loop = true;
+  const filter = AC.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.value = 3000;
+  filter.Q.value = 0.5;
+  noiseGain = AC.createGain();
+  noiseGain.gain.value = 0;
+  noiseNode.connect(filter);
+  filter.connect(noiseGain);
+  noiseGain.connect(masterGain);
+  noiseNode.start();
+}
+
+// Station sound generators
+function createDrone() {
+  const osc1 = AC.createOscillator();
+  const osc2 = AC.createOscillator();
+  const gain = AC.createGain();
+  osc1.type = 'sine'; osc1.frequency.value = 110;
+  osc2.type = 'sine'; osc2.frequency.value = 165;
+  const lfo = AC.createOscillator();
+  const lfoGain = AC.createGain();
+  lfo.frequency.value = 0.2; lfoGain.gain.value = 8;
+  lfo.connect(lfoGain);
+  lfoGain.connect(osc1.frequency);
+  gain.gain.value = 0;
+  osc1.connect(gain); osc2.connect(gain);
+  gain.connect(stationGain);
+  osc1.start(); osc2.start(); lfo.start();
+  return { gain, stop: () => { osc1.stop(); osc2.stop(); lfo.stop(); }};
+}
+
+function createNumbers() {
+  const osc = AC.createOscillator();
+  const gain = AC.createGain();
+  osc.type = 'square'; osc.frequency.value = 440;
+  gain.gain.value = 0;
+  osc.connect(gain); gain.connect(stationGain);
+  osc.start();
+  let iv = setInterval(() => {
+    if (!powered) return;
+    const t = AC.currentTime;
+    const note = [330, 392, 440, 494, 523][Math.floor(Math.random() * 5)];
+    osc.frequency.setValueAtTime(note, t);
+    gain.gain.setValueAtTime(0.15, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+  }, 400 + Math.random() * 300);
+  return { gain, stop: () => { clearInterval(iv); osc.stop(); }};
+}
+
+function createLullaby() {
+  const notes = [262, 294, 330, 349, 392, 440, 392, 349, 330, 294];
+  const gain = AC.createGain();
+  gain.gain.value = 0;
+  gain.connect(stationGain);
+  let idx = 0;
+  const osc = AC.createOscillator();
+  osc.type = 'triangle';
+  osc.frequency.value = notes[0];
+  const oscGain = AC.createGain();
+  oscGain.gain.value = 0.2;
+  osc.connect(oscGain);
+  oscGain.connect(gain);
+  osc.start();
+  let iv = setInterval(() => {
+    if (!powered) return;
+    idx = (idx + 1) % notes.length;
+    const t = AC.currentTime;
+    osc.frequency.exponentialRampToValueAtTime(notes[idx], t + 0.3);
+    oscGain.gain.setValueAtTime(0.2, t);
+    oscGain.gain.exponentialRampToValueAtTime(0.05, t + 0.8);
+  }, 900);
+  return { gain, stop: () => { clearInterval(iv); osc.stop(); }};
+}
+
+function createClock() {
+  const gain = AC.createGain();
+  gain.gain.value = 0;
+  gain.connect(stationGain);
+  const osc = AC.createOscillator();
+  osc.type = 'sine'; osc.frequency.value = 800;
+  const tickGain = AC.createGain();
+  tickGain.gain.value = 0;
+  osc.connect(tickGain); tickGain.connect(gain);
+  osc.start();
+  let iv = setInterval(() => {
+    if (!powered) return;
+    const t = AC.currentTime;
+    const f = Math.random() > 0.5 ? 800 : 600;
+    osc.frequency.setValueAtTime(f, t);
+    tickGain.gain.setValueAtTime(0.3, t);
+    tickGain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+  }, 500);
+  return { gain, stop: () => { clearInterval(iv); osc.stop(); }};
+}
+
+function createHum() {
+  const osc = AC.createOscillator();
+  const gain = AC.createGain();
+  osc.type = 'sawtooth'; osc.frequency.value = 60;
+  gain.gain.value = 0;
+  const filter = AC.createBiquadFilter();
+  filter.type = 'lowpass'; filter.frequency.value = 200;
+  osc.connect(filter); filter.connect(gain);
+  gain.connect(stationGain);
+  osc.start();
+  return { gain, stop: () => { osc.stop(); }};
+}
+
+function createChoir() {
+  const freqs = [220, 277, 330, 440];
+  const oscs = freqs.map(f => {
+    const o = AC.createOscillator();
+    o.type = 'sine'; o.frequency.value = f;
+    const lfo = AC.createOscillator();
+    const lg = AC.createGain();
+    lfo.frequency.value = 0.5 + Math.random() * 2;
+    lg.gain.value = 3;
+    lfo.connect(lg); lg.connect(o.frequency);
+    lfo.start();
+    return { osc: o, lfo };
+  });
+  const gain = AC.createGain();
+  gain.gain.value = 0;
+  const rev = AC.createConvolver();
+  const revBuf = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate);
+  const revData = revBuf.getChannelData(0);
+  for (let i = 0; i < revData.length; i++) revData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (AC.sampleRate * 0.8));
+  rev.buffer = revBuf;
+  oscs.forEach(o => { o.osc.connect(rev); o.osc.start(); });
+  rev.connect(gain); gain.connect(stationGain);
+  return { gain, stop: () => oscs.forEach(o => { o.osc.stop(); o.lfo.stop(); }) };
+}
+
+function createMorse() {
+  const gain = AC.createGain();
+  gain.gain.value = 0;
+  gain.connect(stationGain);
+  const osc = AC.createOscillator();
+  osc.type = 'sine'; osc.frequency.value = 680;
+  const mGain = AC.createGain();
+  mGain.gain.value = 0;
+  osc.connect(mGain); mGain.connect(gain);
+  osc.start();
+  const msg = '... --- ... / .- .--. .--. .-.. . / ..-. -- ';
+  let ci = 0;
+  let iv = setInterval(() => {
+    if (!powered) return;
+    const ch = msg[ci % msg.length];
+    const t = AC.currentTime;
+    if (ch === '.') {
+      mGain.gain.setValueAtTime(0.3, t);
+      mGain.gain.setValueAtTime(0, t + 0.08);
+    } else if (ch === '-') {
+      mGain.gain.setValueAtTime(0.3, t);
+      mGain.gain.setValueAtTime(0, t + 0.22);
+    }
+    ci++;
+  }, 250);
+  return { gain, stop: () => { clearInterval(iv); osc.stop(); }};
+}
+
+function createApple() {
+  const notes = [523, 587, 659, 784, 880, 784, 659, 587];
+  const gain = AC.createGain();
+  gain.gain.value = 0;
+  gain.connect(stationGain);
+  const osc = AC.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.value = notes[0];
+  const oGain = AC.createGain();
+  oGain.gain.value = 0.15;
+  osc.connect(oGain); oGain.connect(gain);
+  osc.start();
+  let idx = 0;
+  let iv = setInterval(() => {
+    if (!powered) return;
+    idx = (idx + 1) % notes.length;
+    const t = AC.currentTime;
+    osc.frequency.exponentialRampToValueAtTime(notes[idx], t + 0.15);
+    oGain.gain.setValueAtTime(0.15, t);
+    oGain.gain.exponentialRampToValueAtTime(0.03, t + 0.5);
+  }, 600);
+  return { gain, stop: () => { clearInterval(iv); osc.stop(); }};
+}
+
+const creators = {
+  drone: createDrone, numbers: createNumbers, lullaby: createLullaby,
+  clock: createClock, hum: createHum, choir: createChoir,
+  morse: createMorse, apple: createApple
+};
+
+function tuneStation() {
+  let closest = null;
+  let minDist = Infinity;
+  stations.forEach(s => {
+    const d = Math.abs(freq - s.freq);
+    if (d < minDist) { minDist = d; closest = s; }
+  });
+  const tuneWidth = 0.6;
+  const onStation = minDist < tuneWidth;
+  const clarity = onStation ? Math.max(0, 1 - (minDist / tuneWidth)) : 0;
+  // Noise: loud when off station
+  if (noiseGain) {
+    const nv = powered ? 0.12 * (1 - clarity * 0.95) : 0;
+    noiseGain.gain.setTargetAtTime(nv, AC.currentTime, 0.05);
+  }
+  // Station audio
+  stationNodes.forEach(sn => {
+    if (sn.station === closest && onStation) {
+      sn.gain.gain.setTargetAtTime(0.3 * clarity, AC.currentTime, 0.1);
+    } else {
+      sn.gain.gain.setTargetAtTime(0, AC.currentTime, 0.05);
+    }
+  });
+  // Display
+  if (onStation && clarity > 0.5) {
+    stationName.textContent = closest.name;
+    stationName.style.opacity = clarity;
+    glow.style.opacity = clarity * 0.8;
+    activeStation = closest;
+  } else {
+    stationName.style.opacity = 0;
+    glow.style.opacity = 0;
+    activeStation = null;
+  }
+}
+
+function powerOn() {
+  if (AC.state === 'suspended') AC.resume();
+  powered = true;
+  powerBtn.classList.add('on');
+  masterGain = AC.createGain();
+  masterGain.gain.value = 0.5;
+  masterGain.connect(AC.destination);
+  stationGain = AC.createGain();
+  stationGain.gain.value = 1;
+  stationGain.connect(masterGain);
+  createNoise();
+  stations.forEach(s => {
+    const node = creators[s.type]();
+    stationNodes.push({ ...node, station: s });
+  });
+  tuneStation();
+  hint.style.opacity = '0';
+}
+
+function powerOff() {
+  powered = false;
+  powerBtn.classList.remove('on');
+  stationName.style.opacity = 0;
+  glow.style.opacity = 0;
+  try {
+    if (noiseNode) noiseNode.stop();
+    stationNodes.forEach(sn => { try { sn.stop(); } catch(e){} });
+    masterGain.disconnect();
+  } catch(e) {}
+  stationNodes = [];
+  noiseNode = null;
+}
+
+powerBtn.addEventListener('click', () => {
+  if (powered) powerOff(); else powerOn();
+});
+
+// Drag to tune
+function startDrag(x) {
+  dragging = true;
+  dragStartX = x;
+  dragStartFreq = freq;
+  knob.classList.add('grabbing');
+}
+function moveDrag(x) {
+  if (!dragging) return;
+  const dx = x - dragStartX;
+  const sens = 0.05;
+  updateFreq(dragStartFreq + dx * sens);
+}
+function endDrag() {
+  dragging = false;
+  knob.classList.remove('grabbing');
+}
+
+// Mouse events on whole document for smooth dragging
+knob.addEventListener('mousedown', e => { e.preventDefault(); startDrag(e.clientX); });
+knob.addEventListener('touchstart', e => { e.preventDefault(); startDrag(e.touches[0].clientX); }, { passive: false });
+document.addEventListener('mousemove', e => moveDrag(e.clientX));
+document.addEventListener('touchmove', e => moveDrag(e.touches[0].clientX), { passive: false });
+document.addEventListener('mouseup', endDrag);
+document.addEventListener('touchend', endDrag);
+
+// Also allow clicking on display to jump to frequency
+display.addEventListener('click', e => {
+  if (!powered) { powerOn(); return; }
+  const rect = display.getBoundingClientRect();
+  const pad = rect.width * 0.05;
+  const dw = rect.width - pad * 2;
+  const x = e.clientX - rect.left - pad;
+  const f = 88 + (x / dw) * 20;
+  updateFreq(f);
+});
+
+// VU meter animation
+function animateVU() {
+  requestAnimationFrame(animateVU);
+  if (!powered) {
+    vuBars.forEach(b => b.style.height = '2px');
+    return;
+  }
+  vuBars.forEach((b, i) => {
+    const base = activeStation ? 6 : 2;
+    const rand = Math.random() * (activeStation ? 14 : 4);
+    const h = base + rand;
+    b.style.height = h + 'px';
+    b.style.background = h > 14 ? '#e84030' : '#d4a54a';
+  });
+}
+
+drawDial();
+updateFreq(88.0);
+animateVU();
+window.addEventListener('resize', () => { drawDial(); updateNeedle(); });
+
+// Auto power on after a moment
+setTimeout(() => {
+  if (!powered) powerOn();
+}, 1500);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
