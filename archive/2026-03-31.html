@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Waiting Room — aapple.com</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #e8e4d8;
+  overflow: hidden;
+  font-family: 'Courier New', monospace;
+  min-height: 100vh;
+  user-select: none;
+  cursor: default;
+}
+#room {
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 8s;
+}
+#now-serving {
+  position: fixed;
+  top: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 10;
+}
+#now-serving .label {
+  font-size: clamp(10px, 2vw, 14px);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #8a7e6e;
+  margin-bottom: 8px;
+}
+#now-serving .number {
+  font-size: clamp(48px, 12vw, 120px);
+  font-weight: bold;
+  color: #c0392b;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+  transition: transform 0.3s;
+  line-height: 1;
+}
+#now-serving .number.flip {
+  transform: scaleY(0);
+}
+#your-ticket {
+  position: fixed;
+  bottom: 12%;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 10;
+  background: #fff;
+  padding: 15px 30px;
+  border: 2px dashed #bbb;
+  box-shadow: 2px 4px 12px rgba(0,0,0,0.08);
+}
+#your-ticket .label {
+  font-size: 9px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #999;
+  margin-bottom: 4px;
+}
+#your-ticket .number {
+  font-size: clamp(28px, 6vw, 48px);
+  font-weight: bold;
+  color: #2c3e50;
+}
+#clock {
+  position: fixed;
+  top: 8%;
+  right: 5%;
+  font-size: clamp(12px, 2.5vw, 18px);
+  color: #8a7e6e;
+  letter-spacing: 2px;
+  z-index: 10;
+}
+#message {
+  position: fixed;
+  top: 45%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: clamp(10px, 1.8vw, 14px);
+  color: rgba(138,126,110,0);
+  letter-spacing: 2px;
+  text-align: center;
+  z-index: 10;
+  transition: color 3s;
+  max-width: 80vw;
+  font-style: italic;
+}
+#ding {
+  position: fixed;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  opacity: 0;
+  transition: opacity 0.5s;
+  z-index: 10;
+}
+canvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+.footer {
+  position: fixed;
+  bottom: 10px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  z-index: 20;
+}
+.footer a {
+  color: rgba(138,126,110,0.4);
+  text-decoration: none;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+.footer a:hover { color: rgba(138,126,110,0.8); }
+.credit {
+  color: rgba(138,126,110,0.2);
+  font-size: 9px;
+  margin-top: 4px;
+}
+#magazine {
+  position: fixed;
+  z-index: 5;
+  font-size: 10px;
+  color: #aaa;
+  letter-spacing: 1px;
+  transform: rotate(-3deg);
+  cursor: pointer;
+}
+#magazine:hover { color: #888; }
+</style>
+</head>
+<body>
+<div id="room">
+  <div id="now-serving">
+    <div class="label">Now Serving</div>
+    <div class="number" id="serving-num">—</div>
+  </div>
+  <div id="ding">🔔</div>
+  <div id="message"></div>
+  <div id="clock"></div>
+  <div id="your-ticket">
+    <div class="label">Your Number</div>
+    <div class="number" id="ticket-num"></div>
+  </div>
+  <div id="magazine"></div>
+  <canvas id="c"></canvas>
+</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Your ticket number is always just out of reach
+const YOUR_NUMBER = 73;
+let currentServing = 1;
+let elapsed = 0;
+let weirdness = 0;
+let lastCall = 0;
+let messages = [
+  'Please wait. Your number will be called shortly.',
+  'We appreciate your patience.',
+  'Please remain seated.',
+  'Your appointment is very important to us.',
+  'Service will resume momentarily.',
+  'Thank you for waiting.',
+  'Almost there.',
+  'Not much longer now.',
+  'The wait is nearly over.',
+  'Or is it?',
+  'Time is a flat circle.',
+  'Have you always been here?',
+  'The chairs remember you.',
+  'We called your number once. You weren\'t listening.',
+  'Are you sure you have the right room?',
+  'The room has been waiting for you.',
+  'Ticket 73 was never issued.',
+  'You brought this number from home.',
+  'The waiting is the point.',
+  'There is no counter. There never was.',
+];
+let msgIndex = 0;
+let magazineTexts = [
+  '📰 Highlights (2 years old)',
+  '📖 Reader\'s Digest (1987)',
+  '📋 Form 27-B/6',
+  '🍎 Apple Quarterly',
+  '📰 Yesterday\'s News (last Thursday)',
+  '📖 How To Wait: A Guide',
+  '📋 The Waiting Room Gazette',
+];
+let magIdx = 0;
+
+document.getElementById('ticket-num').textContent = YOUR_NUMBER;
+const magEl = document.getElementById('magazine');
+magEl.style.left = '8%';
+magEl.style.top = '60%';
+magEl.textContent = magazineTexts[0];
+magEl.addEventListener('click', () => {
+  magIdx = (magIdx + 1) % magazineTexts.length;
+  magEl.textContent = magazineTexts[magIdx];
+});
+
+// Patients — abstract shapes that fidget in chairs
+class Patient {
+  constructor() {
+    this.x = Math.random() * W;
+    this.y = H * 0.35 + Math.random() * H * 0.35;
+    this.size = 8 + Math.random() * 16;
+    this.type = Math.floor(Math.random() * 4);
+    this.phase = Math.random() * Math.PI * 2;
+    this.speed = 0.3 + Math.random() * 0.7;
+    this.fidget = 0;
+    this.hue = 20 + Math.random() * 30;
+    this.gone = false;
+  }
+  update(t) {
+    this.phase += 0.01 * this.speed;
+    this.fidget = Math.sin(t * this.speed * 0.5 + this.phase) * (1 + weirdness * 2);
+    // At higher weirdness, patients start drifting
+    if (weirdness > 0.5) {
+      this.y += Math.sin(t * 0.2 + this.phase) * 0.1 * weirdness;
+      this.x += Math.cos(t * 0.15 + this.phase) * 0.05 * weirdness;
+    }
+  }
+  draw() {
+    if (this.gone) return;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.fidget * 0.05);
+    const a = 0.3 + weirdness * 0.2;
+    const h = this.hue + weirdness * 60;
+    ctx.fillStyle = `hsla(${h}, 25%, 55%, ${a})`;
+    const s = this.size * (1 + Math.sin(this.phase) * 0.1 * (1 + weirdness));
+    switch(this.type) {
+      case 0: // circle head
+        ctx.beginPath();
+        ctx.arc(0, -s*0.5, s*0.4, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillRect(-s*0.25, 0, s*0.5, s*0.8);
+        break;
+      case 1: // triangle person
+        ctx.beginPath();
+        ctx.moveTo(0, -s);
+        ctx.lineTo(s*0.5, s*0.3);
+        ctx.lineTo(-s*0.5, s*0.3);
+        ctx.fill();
+        break;
+      case 2: // blob
+        ctx.beginPath();
+        for (let i = 0; i < 8; i++) {
+          const ang = (i/8) * Math.PI * 2;
+          const r = s * (0.4 + 0.15 * Math.sin(ang * 3 + this.phase));
+          const px = Math.cos(ang) * r;
+          const py = Math.sin(ang) * r;
+          i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+        break;
+      case 3: // rectangle
+        ctx.fillRect(-s*0.3, -s*0.6, s*0.6, s);
+        break;
+    }
+    ctx.restore();
+  }
+}
+
+let patients = [];
+for (let i = 0; i < 12; i++) patients.push(new Patient());
+
+// Web Audio — muzak drone
+let audioCtx, gainNode;
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  gainNode = audioCtx.createGain();
+  gainNode.gain.value = 0.04;
+  gainNode.connect(audioCtx.destination);
+  // Warm drone
+  [196, 261.6, 329.6].forEach((freq, i) => {
+    const osc = audioCtx.createOscillator();
+    osc.type = i === 0 ? 'sine' : 'triangle';
+    osc.frequency.value = freq;
+    const g = audioCtx.createGain();
+    g.gain.value = i === 0 ? 0.5 : 0.2;
+    osc.connect(g);
+    g.connect(gainNode);
+    osc.start();
+  });
+}
+document.addEventListener('click', initAudio, { once: true });
+document.addEventListener('touchstart', initAudio, { once: true });
+
+function playDing() {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.value = 880;
+  const g = audioCtx.createGain();
+  g.gain.value = 0.15;
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2);
+  osc.connect(g);
+  g.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 1.2);
+}
+
+// Clock that runs wrong
+function updateClock() {
+  const now = new Date();
+  let h = now.getHours();
+  let m = now.getMinutes();
+  let s = now.getSeconds();
+  // At higher weirdness, clock drifts
+  if (weirdness > 0.3) {
+    m = (m + Math.floor(weirdness * 47)) % 60;
+    h = (h + Math.floor(weirdness * 7)) % 24;
+  }
+  if (weirdness > 0.8) {
+    s = (99 - s) % 60;
+  }
+  const pad = n => String(n).padStart(2, '0');
+  const sep = weirdness > 0.6 ? (Math.random() > 0.5 ? ':' : ' ') : ':';
+  document.getElementById('clock').textContent = `${pad(h)}${sep}${pad(m)}${sep}${pad(s)}`;
+}
+
+// Call next number — skips yours
+function callNext() {
+  const servEl = document.getElementById('serving-num');
+  servEl.classList.add('flip');
+  setTimeout(() => {
+    currentServing++;
+    // Skip 73!
+    if (currentServing === YOUR_NUMBER) currentServing++;
+    // At high weirdness, numbers get weird
+    let display = currentServing;
+    if (weirdness > 0.6) {
+      const glitches = ['7̷3̷', '∞', '??', '█▓', 'π', '0', 'N/A', '73?'];
+      if (Math.random() < weirdness * 0.3) {
+        display = glitches[Math.floor(Math.random() * glitches.length)];
+      }
+    }
+    servEl.textContent = display;
+    servEl.classList.remove('flip');
+    // Ding
+    playDing();
+    const dingEl = document.getElementById('ding');
+    dingEl.style.opacity = '1';
+    setTimeout(() => dingEl.style.opacity = '0', 800);
+    // Remove a patient sometimes
+    const alive = patients.filter(p => !p.gone);
+    if (alive.length > 3 && Math.random() < 0.4) {
+      alive[Math.floor(Math.random() * alive.length)].gone = true;
+    }
+  }, 300);
+}
+
+// Show a message
+function showMessage() {
+  const el = document.getElementById('message');
+  el.textContent = messages[Math.min(msgIndex, messages.length - 1)];
+  el.style.color = `rgba(138,126,110,${0.5 + weirdness * 0.4})`;
+  msgIndex++;
+  setTimeout(() => {
+    el.style.color = 'rgba(138,126,110,0)';
+  }, 5000);
+}
+
+// Room color shifts
+const roomColors = [
+  '#e8e4d8', '#e2ddd0', '#d8d4c8', '#d0ccc0',
+  '#c8c4b8', '#c0bcb0', '#c8c0b0', '#d0c0a0',
+  '#d8c8a0', '#c0b898', '#b8b090', '#b0a888',
+  '#c8b8a0', '#d0c8b8', '#ccc0b0', '#dcd0c0',
+  '#e0d8d0', '#d8d0c8', '#e8dcd0', '#f0e4d0',
+];
+
+let t = 0;
+function animate() {
+  t += 0.016;
+  elapsed += 0.016;
+  weirdness = Math.min(1, elapsed / 180); // Full weird at 3 minutes
+
+  // Background shift
+  const ci = Math.floor((elapsed / 15) % roomColors.length);
+  document.getElementById('room').style.backgroundColor = roomColors[ci];
+
+  // Canvas effects
+  ctx.clearRect(0, 0, W, H);
+
+  // Subtle grain/texture at higher weirdness
+  if (weirdness > 0.2) {
+    const imgData = ctx.createImageData(W, H);
+    const d = imgData.data;
+    const step = Math.max(1, Math.floor(4 - weirdness * 3));
+    for (let i = 0; i < d.length; i += 4 * step) {
+      const v = Math.random() * weirdness * 30;
+      d[i] = v; d[i+1] = v; d[i+2] = v;
+      d[i+3] = v * 0.5;
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  // Draw chair rows (subtle)
+  const chairY = H * 0.55;
+  ctx.strokeStyle = `rgba(180,170,155,${0.15 + weirdness * 0.1})`;
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 8; i++) {
+    const cx = W * 0.1 + (W * 0.8 / 8) * i + Math.sin(t * 0.3 + i) * weirdness * 5;
+    const cy = chairY + Math.cos(t * 0.2 + i) * weirdness * 3;
+    ctx.strokeRect(cx - 10, cy, 20, 15);
+    ctx.strokeRect(cx - 10, cy - 12, 20, 12);
+  }
+
+  // Draw & update patients
+  patients.forEach(p => { p.update(t); p.draw(); });
+
+  // Magazine wobble at high weirdness
+  if (weirdness > 0.4) {
+    magEl.style.transform = `rotate(${-3 + Math.sin(t) * weirdness * 8}deg)`;
+  }
+
+  // Ticket paper crinkle effect
+  if (weirdness > 0.7) {
+    const ticket = document.getElementById('your-ticket');
+    const wobble = Math.sin(t * 2) * weirdness * 2;
+    ticket.style.transform = `translateX(-50%) rotate(${wobble}deg)`;
+  }
+
+  updateClock();
+  requestAnimationFrame(animate);
+}
+
+// Schedule number calls — faster as time goes on
+function scheduleCall() {
+  const delay = Math.max(2000, 8000 - elapsed * 30);
+  setTimeout(() => {
+    callNext();
+    scheduleCall();
+  }, delay);
+}
+
+// Schedule messages
+function scheduleMsg() {
+  const delay = 10000 + Math.random() * 8000;
+  setTimeout(() => {
+    showMessage();
+    scheduleMsg();
+  }, delay);
+}
+
+// Start
+callNext();
+scheduleCall();
+setTimeout(showMessage, 3000);
+scheduleMsg();
+animate();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
