@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>THIS DOMAIN HAS BEEN SEIZED</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #fff;
+  font-family: 'Inter', Arial, sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: background 2s;
+  cursor: default;
+}
+.seized-banner {
+  background: #1a1a2e;
+  color: #fff;
+  width: 100%;
+  padding: 12px;
+  text-align: center;
+  font-size: 13px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  position: fixed;
+  top: 0;
+  z-index: 100;
+  font-weight: 700;
+}
+.container {
+  text-align: center;
+  max-width: 700px;
+  padding: 20px;
+  position: relative;
+}
+.seal {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 30px;
+  position: relative;
+}
+.seal-circle {
+  width: 120px;
+  height: 120px;
+  border: 4px solid #1a1a2e;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.seal-inner {
+  font-size: 40px;
+  line-height: 1;
+}
+.seal-text {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  animation: none;
+}
+.seal-text span {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  transform-origin: 0 60px;
+  color: #1a1a2e;
+}
+h1 {
+  font-size: clamp(20px, 4vw, 32px);
+  font-weight: 900;
+  color: #1a1a2e;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  line-height: 1.3;
+}
+.notice {
+  font-size: 14px;
+  color: #444;
+  line-height: 1.8;
+  margin-bottom: 20px;
+}
+.agency {
+  font-weight: 700;
+  color: #1a1a2e;
+}
+.case-number {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: #888;
+  margin-top: 15px;
+  letter-spacing: 1px;
+}
+.logos {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin-top: 25px;
+  opacity: 0.6;
+}
+.fake-logo {
+  width: 50px;
+  height: 50px;
+  border: 2px solid #ccc;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #999;
+  font-weight: 700;
+}
+.stripe {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  height: 8px;
+  background: repeating-linear-gradient(90deg, #c41e3a 0, #c41e3a 20px, #fff 20px, #fff 40px, #1a1a2e 40px, #1a1a2e 60px);
+}
+/* Glitch layers */
+.glitch-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 200;
+  opacity: 0;
+  mix-blend-mode: difference;
+}
+.scanline {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 150;
+  opacity: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+}
+.truth {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: clamp(30px, 8vw, 80px);
+  font-weight: 900;
+  color: transparent;
+  z-index: 300;
+  pointer-events: none;
+  letter-spacing: 5px;
+  text-align: center;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.footer {
+  position: fixed;
+  bottom: 20px;
+  left: 0; right: 0;
+  text-align: center;
+  z-index: 400;
+  opacity: 0;
+  transition: opacity 1s;
+}
+.footer a {
+  color: rgba(255,255,255,0.4);
+  text-decoration: none;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+.footer a:hover { color: rgba(255,255,255,0.7); }
+.footer .credit {
+  color: rgba(255,255,255,0.15);
+  font-family: 'Courier New', monospace;
+  font-size: 9px;
+  margin-top: 6px;
+  letter-spacing: 0.5px;
+}
+canvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 250;
+  pointer-events: none;
+  opacity: 0;
+}
+</style>
+</head>
+<body>
+
+<div class="seized-banner" id="banner">⚠ OFFICIAL NOTICE ⚠</div>
+
+<div class="container" id="container">
+  <div class="seal">
+    <div class="seal-circle">
+      <div class="seal-inner">⚖️</div>
+      <div class="seal-text" id="sealText"></div>
+    </div>
+  </div>
+  
+  <h1 id="headline">This Domain Has Been Seized</h1>
+  
+  <p class="notice">
+    This domain name has been seized by the <span class="agency">Federal Bureau of Aesthetic Crimes</span> 
+    (FBAC) in accordance with a seizure warrant issued pursuant to 
+    <span class="agency">18 U.S.C. §§ 2323</span> — Unauthorized Distribution of Daily Art — 
+    as part of a joint law enforcement action by:
+  </p>
+  
+  <div class="logos">
+    <div class="fake-logo">FBAC</div>
+    <div class="fake-logo">DCA</div>
+    <div class="fake-logo">ICE<br>ART</div>
+  </div>
+  
+  <div class="case-number" id="caseNum">Case No. 2026-AF-0401 | Docket: AAPPLE-∞</div>
+</div>
+
+<div class="stripe" id="stripe"></div>
+<div class="glitch-overlay" id="glitchOverlay"></div>
+<div class="scanline" id="scanline"></div>
+<div class="truth" id="truth"></div>
+<canvas id="canvas"></canvas>
+
+<div class="footer" id="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+
+<script>
+(() => {
+  const startTime = Date.now();
+  const banner = document.getElementById('banner');
+  const container = document.getElementById('container');
+  const headline = document.getElementById('headline');
+  const caseNum = document.getElementById('caseNum');
+  const glitchOverlay = document.getElementById('glitchOverlay');
+  const scanline = document.getElementById('scanline');
+  const truth = document.getElementById('truth');
+  const stripe = document.getElementById('stripe');
+  const footer = document.getElementById('footer');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  // Seal text
+  const sealLabel = "FEDERAL BUREAU OF AESTHETIC CRIMES • EST. 2026 • ";
+  const sealText = document.getElementById('sealText');
+  sealLabel.split('').forEach((ch, i) => {
+    const span = document.createElement('span');
+    span.textContent = ch;
+    span.style.transform = `rotate(${i * (360 / sealLabel.length)}deg)`;
+    sealText.appendChild(span);
+  });
+  
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  });
+  
+  // Phases (in seconds from page load)
+  // 0-8s: looks totally legit
+  // 8-15s: subtle glitches begin
+  // 15-25s: things fall apart
+  // 25s+: full reveal — April Fools
+  
+  const glitchChars = '█▓▒░╔╗╚╝║═╬╣╠╩╦┼─│┌┐└┘';
+  
+  function glitchText(original, intensity) {
+    return original.split('').map(ch => {
+      if (Math.random() < intensity && ch !== ' ') {
+        return glitchChars[Math.floor(Math.random() * glitchChars.length)];
+      }
+      return ch;
+    }).join('');
+  }
+  
+  let phase = 0;
+  let particles = [];
+  let confetti = [];
+  let revealed = false;
+  
+  // Confetti particle
+  function spawnConfetti() {
+    for (let i = 0; i < 150; i++) {
+      confetti.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * -canvas.height,
+        w: Math.random() * 10 + 4,
+        h: Math.random() * 6 + 2,
+        color: ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#ff6eb4','#a855f7'][Math.floor(Math.random()*6)],
+        vy: Math.random() * 3 + 1.5,
+        vx: (Math.random() - 0.5) * 2,
+        rot: Math.random() * Math.PI * 2,
+        vr: (Math.random() - 0.5) * 0.15,
+        wobble: Math.random() * Math.PI * 2,
+      });
+    }
+  }
+  
+  function drawConfetti() {
+    confetti.forEach(p => {
+      p.y += p.vy;
+      p.x += p.vx + Math.sin(p.wobble) * 0.5;
+      p.rot += p.vr;
+      p.wobble += 0.03;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+      ctx.restore();
+    });
+    confetti = confetti.filter(p => p.y < canvas.height + 20);
+  }
+  
+  function tick() {
+    const elapsed = (Date.now() - startTime) / 1000;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Phase 1: Legit (0-8s)
+    if (elapsed < 8) {
+      // Nothing — looks real
+    }
+    
+    // Phase 2: Subtle glitches (8-15s)
+    if (elapsed > 8 && elapsed < 15) {
+      const intensity = (elapsed - 8) / 70; // very subtle
+      if (Math.random() < 0.05) {
+        headline.textContent = glitchText('This Domain Has Been Seized', intensity);
+        setTimeout(() => headline.textContent = 'This Domain Has Been Seized', 100);
+      }
+      scanline.style.opacity = Math.min((elapsed - 8) / 20, 0.3);
+      
+      // Occasional screen shake
+      if (Math.random() < 0.02) {
+        const dx = (Math.random() - 0.5) * 4;
+        const dy = (Math.random() - 0.5) * 4;
+        document.body.style.transform = `translate(${dx}px, ${dy}px)`;
+        setTimeout(() => document.body.style.transform = '', 80);
+      }
+    }
+    
+    // Phase 3: Falling apart (15-25s)
+    if (elapsed > 15 && elapsed < 25) {
+      const t = (elapsed - 15) / 10;
+      const intensity = t * 0.4;
+      
+      // Glitch text more aggressively
+      if (Math.random() < 0.15) {
+        headline.textContent = glitchText('This Domain Has Been Seized', intensity);
+      }
+      if (Math.random() < 0.1) {
+        caseNum.textContent = glitchText('Case No. 2026-AF-0401 | Docket: AAPPLE-∞', intensity);
+      }
+      
+      // Red/blue chromatic shift
+      glitchOverlay.style.opacity = t * 0.3;
+      glitchOverlay.style.background = `linear-gradient(${Math.random()*360}deg, 
+        rgba(255,0,0,0.1), rgba(0,0,255,0.1))`;
+      
+      scanline.style.opacity = 0.3 + t * 0.3;
+      
+      // Elements start drifting
+      container.style.transform = `rotate(${Math.sin(elapsed) * t * 2}deg) scale(${1 - t * 0.1})`;
+      banner.style.transform = `translateX(${Math.sin(elapsed * 3) * t * 30}px)`;
+      
+      // Screen shake
+      if (Math.random() < 0.1) {
+        const dx = (Math.random() - 0.5) * 10 * t;
+        const dy = (Math.random() - 0.5) * 10 * t;
+        document.body.style.transform = `translate(${dx}px, ${dy}px)`;
+        setTimeout(() => document.body.style.transform = '', 60);
+      }
+      
+      // Background color shifts
+      const hue = (elapsed * 20) % 360;
+      document.body.style.background = `hsl(${hue}, ${t * 5}%, ${100 - t * 30}%)`;
+      
+      // Stripe goes wild
+      stripe.style.height = `${8 + t * 40}px`;
+    }
+    
+    // Phase 4: Full reveal (25s+)
+    if (elapsed > 25 && !revealed) {
+      revealed = true;
+      
+      // Snap to black
+      document.body.style.transition = 'background 0.5s';
+      document.body.style.background = '#0a0a0a';
+      
+      // Hide seizure content
+      container.style.transition = 'opacity 0.5s';
+      container.style.opacity = '0';
+      banner.style.transition = 'opacity 0.5s';
+      banner.style.opacity = '0';
+      stripe.style.transition = 'opacity 0.5s';
+      stripe.style.opacity = '0';
+      scanline.style.opacity = '0';
+      glitchOverlay.style.opacity = '0';
+      
+      // Show the truth
+      setTimeout(() => {
+        truth.style.color = '#fff';
+        truth.style.transition = 'color 1s';
+        truth.innerHTML = 'APRIL FOOLS 🍎';
+        
+        canvas.style.opacity = '1';
+        spawnConfetti();
+        
+        footer.style.opacity = '1';
+      }, 600);
+      
+      // Cycle fun messages
+      const msgs = [
+        'APRIL FOOLS 🍎',
+        'YOU GOT GOT',
+        'NO LAWS WERE BROKEN',
+        'ART IS NOT A CRIME',
+        '(OR IS IT?)',
+        'HAPPY APRIL 1ST',
+        '🎉🎉🎉',
+        'THE INTERNET IS LIES',
+        'APRIL FOOLS 🍎',
+      ];
+      let msgIdx = 0;
+      setInterval(() => {
+        msgIdx = (msgIdx + 1) % msgs.length;
+        truth.style.transition = 'none';
+        truth.style.opacity = '0';
+        setTimeout(() => {
+          truth.innerHTML = msgs[msgIdx];
+          truth.style.transition = 'opacity 0.5s';
+          truth.style.opacity = '1';
+        }, 200);
+      }, 2500);
+    }
+    
+    // Draw confetti after reveal
+    if (revealed) {
+      drawConfetti();
+      // Keep spawning confetti occasionally
+      if (confetti.length < 50 && Math.random() < 0.1) {
+        for (let i = 0; i < 5; i++) {
+          confetti.push({
+            x: Math.random() * canvas.width,
+            y: -10,
+            w: Math.random() * 10 + 4,
+            h: Math.random() * 6 + 2,
+            color: ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#ff6eb4','#a855f7'][Math.floor(Math.random()*6)],
+            vy: Math.random() * 3 + 1.5,
+            vx: (Math.random() - 0.5) * 2,
+            rot: Math.random() * Math.PI * 2,
+            vr: (Math.random() - 0.5) * 0.15,
+            wobble: Math.random() * Math.PI * 2,
+          });
+        }
+      }
+    }
+    
+    requestAnimationFrame(tick);
+  }
+  
+  // Click to skip to reveal
+  let clickCount = 0;
+  document.addEventListener('click', () => {
+    clickCount++;
+    if (clickCount >= 3 && !revealed) {
+      // Fast forward
+      Object.defineProperty(window, '_startOverride', { value: Date.now() - 26000 });
+      revealed = false; // let the tick handle it
+      // Hack: just set startTime back
+    }
+  });
+  
+  // Touch support
+  document.addEventListener('touchstart', () => {
+    clickCount++;
+  });
+  
+  tick();
+})();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
