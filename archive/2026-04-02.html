@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>The Museum of Imaginary Sounds — aapple.com</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #08080f;
+  overflow: hidden;
+  font-family: 'Courier New', monospace;
+  min-height: 100vh;
+  cursor: pointer;
+  user-select: none;
+}
+canvas { display: block; }
+#intro {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 20; background: #08080f;
+  transition: opacity 1.5s ease-out;
+  pointer-events: auto;
+}
+#intro.fade { opacity: 0; pointer-events: none; }
+#intro h1 {
+  color: #aaa;
+  font-size: clamp(12px, 2.5vw, 16px);
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  font-weight: 400;
+}
+#intro p {
+  color: #555;
+  font-size: 12px;
+  letter-spacing: 2px;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+.footer {
+  position: fixed; bottom: 10px; left: 0; width: 100%;
+  text-align: center; z-index: 30; font-size: 10px; letter-spacing: 1px;
+}
+.footer a { color: rgba(255,255,255,0.2); text-decoration: none; }
+.footer a:hover { color: rgba(255,255,255,0.5); }
+.footer .credit { color: rgba(255,255,255,0.08); margin-top: 4px; font-size: 9px; }
+#hint {
+  position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+  color: rgba(255,255,255,0.15); font-size: 10px; letter-spacing: 2px;
+  z-index: 15; transition: opacity 3s; text-align: center;
+}
+#hint.hidden { opacity: 0; }
+</style>
+</head>
+<body>
+<div id="intro">
+  <h1>The Museum of Imaginary Sounds</h1>
+  <p>tap anywhere to enter</p>
+</div>
+<div id="hint">hover or touch the shapes — hold to sustain</div>
+<canvas id="c"></canvas>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H, audioCtx, masterGain;
+let shapes = [];
+let started = false;
+let mouseX = -999, mouseY = -999;
+let touching = false;
+let time = 0;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Shape types and their visual/audio properties
+const SHAPE_DEFS = [
+  { type: 'circle', sides: 0, baseFreq: 220, waveform: 'sine', color: [120, 180, 255] },
+  { type: 'triangle', sides: 3, baseFreq: 330, waveform: 'triangle', color: [255, 140, 100] },
+  { type: 'square', sides: 4, baseFreq: 174.61, waveform: 'square', color: [100, 255, 180] },
+  { type: 'pentagon', sides: 5, baseFreq: 261.63, waveform: 'sawtooth', color: [255, 200, 80] },
+  { type: 'hexagon', sides: 6, baseFreq: 392, waveform: 'sine', color: [200, 130, 255] },
+  { type: 'diamond', sides: 4, baseFreq: 440, waveform: 'triangle', color: [255, 100, 180] },
+  { type: 'octagon', sides: 8, baseFreq: 293.66, waveform: 'sine', color: [80, 220, 220] },
+  { type: 'star', sides: 5, baseFreq: 349.23, waveform: 'sawtooth', color: [255, 255, 140] },
+];
+
+// Pentatonic scale multipliers for harmonious sounds
+const SCALE = [1, 9/8, 5/4, 3/2, 5/3, 2, 9/4, 5/2];
+
+function createShape(i, total) {
+  const def = SHAPE_DEFS[i % SHAPE_DEFS.length];
+  const cols = Math.ceil(Math.sqrt(total * (W / H)));
+  const rows = Math.ceil(total / cols);
+  const col = i % cols;
+  const row = Math.floor(i / cols);
+  const cellW = W / cols;
+  const cellH = H / rows;
+  const baseX = cellW * (col + 0.5);
+  const baseY = cellH * (row + 0.5);
+  // Add some randomness to position
+  const x = baseX + (Math.random() - 0.5) * cellW * 0.3;
+  const y = baseY + (Math.random() - 0.5) * cellH * 0.3;
+  const size = Math.min(cellW, cellH) * (0.12 + Math.random() * 0.08);
+  const freqMultiplier = SCALE[i % SCALE.length];
+
+  return {
+    x, y,
+    baseX: x, baseY: y,
+    size,
+    def,
+    freq: def.baseFreq * freqMultiplier,
+    activation: 0, // 0 to 1
+    phase: Math.random() * Math.PI * 2,
+    driftSpeed: 0.2 + Math.random() * 0.5,
+    driftRadius: 5 + Math.random() * 15,
+    rotation: Math.random() * Math.PI * 2,
+    rotSpeed: (Math.random() - 0.5) * 0.01,
+    osc: null,
+    gain: null,
+    filter: null,
+    lfo: null,
+    lfoGain: null,
+    pulsePhase: 0,
+    harmonicShift: Math.random() * 0.1,
+  };
+}
+
+function initAudio() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.3;
+
+  // Reverb via convolver
+  const convolver = audioCtx.createConvolver();
+  const reverbLen = audioCtx.sampleRate * 2.5;
+  const reverbBuf = audioCtx.createBuffer(2, reverbLen, audioCtx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const data = reverbBuf.getChannelData(ch);
+    for (let i = 0; i < reverbLen; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / reverbLen, 2.5);
+    }
+  }
+  convolver.buffer = reverbBuf;
+
+  const dryGain = audioCtx.createGain();
+  dryGain.gain.value = 0.6;
+  const wetGain = audioCtx.createGain();
+  wetGain.gain.value = 0.4;
+
+  masterGain.connect(dryGain);
+  masterGain.connect(convolver);
+  convolver.connect(wetGain);
+  dryGain.connect(audioCtx.destination);
+  wetGain.connect(audioCtx.destination);
+}
+
+function activateShape(shape) {
+  if (!audioCtx || shape.osc) return;
+  const now = audioCtx.currentTime;
+
+  shape.osc = audioCtx.createOscillator();
+  shape.osc.type = shape.def.waveform;
+  shape.osc.frequency.value = shape.freq;
+
+  shape.gain = audioCtx.createGain();
+  shape.gain.gain.setValueAtTime(0, now);
+  shape.gain.gain.linearRampToValueAtTime(0.15, now + 0.08);
+
+  shape.filter = audioCtx.createBiquadFilter();
+  shape.filter.type = 'lowpass';
+  shape.filter.frequency.value = shape.freq * 3;
+  shape.filter.Q.value = 2;
+
+  // LFO for vibrato
+  shape.lfo = audioCtx.createOscillator();
+  shape.lfo.frequency.value = 3 + Math.random() * 3;
+  shape.lfoGain = audioCtx.createGain();
+  shape.lfoGain.gain.value = shape.freq * 0.015;
+  shape.lfo.connect(shape.lfoGain);
+  shape.lfoGain.connect(shape.osc.frequency);
+  shape.lfo.start();
+
+  shape.osc.connect(shape.filter);
+  shape.filter.connect(shape.gain);
+  shape.gain.connect(masterGain);
+  shape.osc.start();
+}
+
+function deactivateShape(shape) {
+  if (!shape.osc) return;
+  const now = audioCtx.currentTime;
+  shape.gain.gain.cancelScheduledValues(now);
+  shape.gain.gain.setValueAtTime(shape.gain.gain.value, now);
+  shape.gain.gain.linearRampToValueAtTime(0, now + 0.5);
+  const osc = shape.osc;
+  const lfo = shape.lfo;
+  const gain = shape.gain;
+  const filter = shape.filter;
+  const lfoGain = shape.lfoGain;
+  setTimeout(() => {
+    try { osc.stop(); osc.disconnect(); } catch(e) {}
+    try { lfo.stop(); lfo.disconnect(); } catch(e) {}
+    try { gain.disconnect(); } catch(e) {}
+    try { filter.disconnect(); } catch(e) {}
+    try { lfoGain.disconnect(); } catch(e) {}
+  }, 600);
+  shape.osc = null;
+  shape.gain = null;
+  shape.filter = null;
+  shape.lfo = null;
+  shape.lfoGain = null;
+}
+
+function initShapes() {
+  const count = Math.min(16, Math.max(8, Math.floor(W * H / 40000)));
+  shapes = [];
+  for (let i = 0; i < count; i++) {
+    shapes.push(createShape(i, count));
+  }
+}
+
+function drawPolygon(cx, cy, radius, sides, rotation, starMode) {
+  ctx.beginPath();
+  for (let i = 0; i < sides; i++) {
+    const angle = rotation + (i / sides) * Math.PI * 2 - Math.PI / 2;
+    let r = radius;
+    if (starMode && i % 2 === 1) r = radius * 0.5;
+    const px = cx + Math.cos(angle) * r;
+    const py = cy + Math.sin(angle) * r;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+}
+
+function drawShape(shape) {
+  const { x, y, size, def, activation, rotation } = shape;
+  const glowSize = size * (1 + activation * 0.5);
+  const [r, g, b] = def.color;
+  const alpha = 0.15 + activation * 0.6;
+  const glowAlpha = activation * 0.3;
+
+  // Outer glow
+  if (activation > 0.01) {
+    const gradient = ctx.createRadialGradient(x, y, glowSize * 0.5, x, y, glowSize * 3);
+    gradient.addColorStop(0, `rgba(${r},${g},${b},${glowAlpha * 0.4})`);
+    gradient.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x - glowSize * 3, y - glowSize * 3, glowSize * 6, glowSize * 6);
+  }
+
+  // Shape outline
+  ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
+  ctx.lineWidth = 1 + activation * 2;
+  ctx.fillStyle = `rgba(${r},${g},${b},${activation * 0.12})`;
+
+  if (def.type === 'circle') {
+    ctx.beginPath();
+    ctx.arc(x, y, glowSize, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    // Inner ring
+    if (activation > 0.1) {
+      ctx.strokeStyle = `rgba(${r},${g},${b},${activation * 0.3})`;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.arc(x, y, glowSize * 0.6, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  } else if (def.type === 'diamond') {
+    drawPolygon(x, y, glowSize, 4, rotation + Math.PI / 4, false);
+    ctx.fill();
+    ctx.stroke();
+  } else if (def.type === 'star') {
+    drawPolygon(x, y, glowSize, 10, rotation, true);
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    drawPolygon(x, y, glowSize, def.sides, rotation, false);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // Connecting lines when multiple shapes active
+  if (activation > 0.3) {
+    shapes.forEach(other => {
+      if (other === shape || other.activation < 0.3) return;
+      const dist = Math.hypot(other.x - x, other.y - y);
+      if (dist < 400) {
+        const lineAlpha = (1 - dist / 400) * activation * other.activation * 0.15;
+        ctx.strokeStyle = `rgba(${r},${g},${b},${lineAlpha})`;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(other.x, other.y);
+        ctx.stroke();
+      }
+    });
+  }
+}
+
+function update() {
+  time += 0.016;
+  shapes.forEach(shape => {
+    // Gentle drift
+    shape.x = shape.baseX + Math.sin(time * shape.driftSpeed + shape.phase) * shape.driftRadius;
+    shape.y = shape.baseY + Math.cos(time * shape.driftSpeed * 0.7 + shape.phase) * shape.driftRadius * 0.6;
+    shape.rotation += shape.rotSpeed;
+
+    // Check proximity to mouse/touch
+    const dist = Math.hypot(mouseX - shape.x, mouseY - shape.y);
+    const activationRadius = shape.size * 3;
+    const isNear = dist < activationRadius && (touching || !('ontouchstart' in window));
+
+    if (isNear) {
+      shape.activation = Math.min(1, shape.activation + 0.06);
+      if (shape.activation > 0.2 && !shape.osc) activateShape(shape);
+      // Modulate filter based on distance
+      if (shape.filter) {
+        const closeness = 1 - (dist / activationRadius);
+        shape.filter.frequency.value = shape.freq * (2 + closeness * 6);
+      }
+    } else {
+      shape.activation = Math.max(0, shape.activation - 0.02);
+      if (shape.activation < 0.05 && shape.osc) deactivateShape(shape);
+    }
+
+    // Modulate volume with activation
+    if (shape.gain && shape.osc) {
+      const targetVol = shape.activation * 0.15;
+      const now = audioCtx.currentTime;
+      shape.gain.gain.setTargetAtTime(targetVol, now, 0.05);
+    }
+  });
+}
+
+function draw() {
+  ctx.fillStyle = 'rgba(8, 8, 15, 0.25)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle background particles
+  for (let i = 0; i < 3; i++) {
+    const px = (Math.sin(time * 0.3 + i * 2.1) * 0.5 + 0.5) * W;
+    const py = (Math.cos(time * 0.2 + i * 1.7) * 0.5 + 0.5) * H;
+    ctx.fillStyle = `rgba(255,255,255,${0.01 + Math.sin(time + i) * 0.005})`;
+    ctx.beginPath();
+    ctx.arc(px, py, 1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  shapes.forEach(drawShape);
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function start() {
+  if (started) return;
+  started = true;
+  initAudio();
+  initShapes();
+  document.getElementById('intro').classList.add('fade');
+  setTimeout(() => {
+    document.getElementById('intro').style.display = 'none';
+  }, 1600);
+  setTimeout(() => {
+    document.getElementById('hint').classList.add('hidden');
+  }, 6000);
+  loop();
+}
+
+// Mouse
+canvas.addEventListener('mousemove', e => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+});
+canvas.addEventListener('mouseleave', () => {
+  mouseX = -999;
+  mouseY = -999;
+});
+
+// Touch
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  touching = true;
+  const t = e.touches[0];
+  mouseX = t.clientX;
+  mouseY = t.clientY;
+}, { passive: false });
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  mouseX = t.clientX;
+  mouseY = t.clientY;
+}, { passive: false });
+canvas.addEventListener('touchend', () => {
+  touching = false;
+  mouseX = -999;
+  mouseY = -999;
+});
+
+// Start on any interaction
+document.getElementById('intro').addEventListener('click', start);
+document.getElementById('intro').addEventListener('touchstart', e => { e.preventDefault(); start(); }, { passive: false });
+canvas.addEventListener('click', start);
+canvas.addEventListener('touchstart', e => { if (!started) { e.preventDefault(); start(); } }, { passive: false });
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
