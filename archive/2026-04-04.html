@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Erosion — aapple.com</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0a0f;
+  overflow: hidden;
+  font-family: 'Courier New', monospace;
+  min-height: 100vh;
+  cursor: crosshair;
+  user-select: none;
+}
+canvas { display: block; }
+#hint {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255,255,255,0.3);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  pointer-events: none;
+  transition: opacity 3s;
+  text-align: center;
+}
+#age {
+  position: fixed;
+  top: 20px;
+  right: 24px;
+  color: rgba(255,255,255,0.15);
+  font-size: 11px;
+  letter-spacing: 1px;
+  pointer-events: none;
+  text-align: right;
+}
+.footer {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  z-index: 10;
+  pointer-events: none;
+}
+.footer a, .footer .credit {
+  pointer-events: auto;
+}
+.footer a {
+  color: rgba(255,255,255,0.2);
+  text-decoration: none;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  transition: color 0.3s;
+}
+.footer a:hover { color: rgba(255,255,255,0.5); }
+.footer .credit {
+  color: rgba(255,255,255,0.08);
+  font-size: 9px;
+  text-align: right;
+  max-width: 300px;
+  letter-spacing: 0.3px;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hint">click to rain · watch the earth change</div>
+<div id="age"></div>
+
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const ageEl = document.getElementById('age');
+const hintEl = document.getElementById('hint');
+
+let W, H, cols, rows;
+const CELL = 3;
+let terrain, water, sediment;
+let age = 0;
+let raining = false;
+let rainX = 0, rainY = 0;
+let audioCtx = null;
+let rainNode = null;
+let windNode = null;
+let masterGain = null;
+let started = false;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cols = Math.ceil(W / CELL);
+  rows = Math.ceil(H / CELL);
+  generateTerrain();
+}
+
+function generateTerrain() {
+  terrain = new Float32Array(cols * rows);
+  water = new Float32Array(cols * rows);
+  sediment = new Float32Array(cols * rows);
+
+  // Multi-octave noise for natural terrain
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      let h = 0;
+      h += ridgeNoise(x * 0.008, y * 0.006) * 0.5;
+      h += simplex(x * 0.015, y * 0.012) * 0.3;
+      h += simplex(x * 0.04, y * 0.035) * 0.12;
+      h += simplex(x * 0.1, y * 0.08) * 0.05;
+
+      // Mountains higher at top, valleys at bottom
+      let yFactor = 1.0 - (y / rows);
+      yFactor = yFactor * yFactor * 0.6 + 0.2;
+      h = h * yFactor + (1 - yFactor) * 0.1;
+
+      // Edge clamp
+      let edgeX = Math.min(x, cols - x) / (cols * 0.15);
+      let edgeY = Math.min(y, rows - y) / (rows * 0.1);
+      let edge = Math.min(edgeX, edgeY, 1);
+      h *= edge;
+
+      terrain[y * cols + x] = Math.max(0, h);
+    }
+  }
+}
+
+// Simple hash-based pseudo-noise
+function hash(x, y) {
+  let n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function smooth(t) { return t * t * (3 - 2 * t); }
+
+function simplex(x, y) {
+  let ix = Math.floor(x), iy = Math.floor(y);
+  let fx = x - ix, fy = y - iy;
+  let sx = smooth(fx), sy = smooth(fy);
+  let n00 = hash(ix, iy) * 2 - 1;
+  let n10 = hash(ix + 1, iy) * 2 - 1;
+  let n01 = hash(ix, iy + 1) * 2 - 1;
+  let n11 = hash(ix + 1, iy + 1) * 2 - 1;
+  return lerp(lerp(n00, n10, sx), lerp(n01, n11, sx), sy);
+}
+
+function ridgeNoise(x, y) {
+  let v = simplex(x, y);
+  v = 1.0 - Math.abs(v);
+  return v * v;
+}
+
+// Erosion simulation
+function erode() {
+  const dt = 0.4;
+  const evapRate = 0.005;
+  const rainRate = 0.002;
+  const erosionRate = 0.03;
+  const depositionRate = 0.01;
+  const minSlope = 0.001;
+
+  // Add ambient rain
+  for (let i = 0; i < cols * rows; i++) {
+    if (Math.random() < rainRate * 0.05) {
+      water[i] += 0.01;
+    }
+  }
+
+  // Targeted rain from user clicks
+  if (raining) {
+    let cx = Math.floor(rainX / CELL);
+    let cy = Math.floor(rainY / CELL);
+    let radius = 25;
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        let nx = cx + dx, ny = cy + dy;
+        if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
+        let d = Math.sqrt(dx * dx + dy * dy);
+        if (d < radius && Math.random() < 0.3) {
+          water[ny * cols + nx] += 0.02 * (1 - d / radius);
+        }
+      }
+    }
+  }
+
+  // Water flow and erosion
+  let newWater = new Float32Array(cols * rows);
+  let newSediment = new Float32Array(cols * rows);
+
+  for (let y = 1; y < rows - 1; y++) {
+    for (let x = 1; x < cols - 1; x++) {
+      let i = y * cols + x;
+      let h = terrain[i] + water[i];
+      let w = water[i];
+      let s = sediment[i];
+
+      if (w < 0.001) {
+        newWater[i] += w;
+        newSediment[i] += s;
+        continue;
+      }
+
+      // Find lowest neighbor
+      let totalDiff = 0;
+      let diffs = [];
+      let neighbors = [
+        [x-1, y], [x+1, y], [x, y-1], [x, y+1],
+        [x-1, y-1], [x+1, y-1], [x-1, y+1], [x+1, y+1]
+      ];
+
+      for (let n of neighbors) {
+        let nx = n[0], ny = n[1];
+        if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
+        let ni = ny * cols + nx;
+        let nh = terrain[ni] + water[ni];
+        let diff = h - nh;
+        if (diff > minSlope) {
+          diffs.push({ idx: ni, diff: diff });
+          totalDiff += diff;
+        }
+      }
+
+      if (totalDiff > 0) {
+        let flowAmount = Math.min(w, totalDiff * 0.25) * dt;
+        let sedimentFlow = s * (flowAmount / Math.max(w, 0.001));
+
+        for (let d of diffs) {
+          let fraction = d.diff / totalDiff;
+          let waterFlow = flowAmount * fraction;
+          let sedFlow = sedimentFlow * fraction;
+
+          newWater[d.idx] += waterFlow;
+          newSediment[d.idx] += sedFlow;
+
+          // Erosion
+          let erosion = erosionRate * waterFlow * d.diff;
+          terrain[d.idx] -= erosion * 0.3;
+          terrain[i] -= erosion * 0.7;
+          newSediment[d.idx] += erosion;
+        }
+
+        newWater[i] += w - flowAmount;
+        newSediment[i] += s - sedimentFlow;
+      } else {
+        // Deposit sediment in flat areas
+        let deposit = Math.min(s, depositionRate);
+        terrain[i] += deposit;
+        newWater[i] += w;
+        newSediment[i] += s - deposit;
+      }
+    }
+  }
+
+  // Evaporation
+  for (let i = 0; i < cols * rows; i++) {
+    water[i] = Math.max(0, newWater[i] - evapRate);
+    sediment[i] = Math.max(0, newSediment[i] * 0.99);
+    terrain[i] = Math.max(0, terrain[i]);
+  }
+
+  age += 1;
+}
+
+// Render
+function getTerrainColor(h, w, s) {
+  if (w > 0.03) {
+    // Water
+    let depth = Math.min(w * 5, 1);
+    let r = Math.floor(lerp(100, 20, depth));
+    let g = Math.floor(lerp(140, 50, depth));
+    let b = Math.floor(lerp(180, 120, depth));
+    return `rgb(${r},${g},${b})`;
+  }
+
+  if (h < 0.02) {
+    return `rgb(40,50,45)`;
+  }
+
+  if (h < 0.1) {
+    // Lowlands - dark green
+    let t = h / 0.1;
+    let r = Math.floor(lerp(35, 50, t));
+    let g = Math.floor(lerp(55, 70, t));
+    let b = Math.floor(lerp(35, 40, t));
+    return `rgb(${r},${g},${b})`;
+  }
+
+  if (h < 0.25) {
+    // Hills - brown-green
+    let t = (h - 0.1) / 0.15;
+    let r = Math.floor(lerp(50, 90, t));
+    let g = Math.floor(lerp(70, 75, t));
+    let b = Math.floor(lerp(40, 50, t));
+    return `rgb(${r},${g},${b})`;
+  }
+
+  if (h < 0.4) {
+    // Mountains - grey-brown
+    let t = (h - 0.25) / 0.15;
+    let r = Math.floor(lerp(90, 130, t));
+    let g = Math.floor(lerp(75, 115, t));
+    let b = Math.floor(lerp(50, 90, t));
+    return `rgb(${r},${g},${b})`;
+  }
+
+  if (h < 0.55) {
+    // High mountains - grey
+    let t = (h - 0.4) / 0.15;
+    let r = Math.floor(lerp(130, 170, t));
+    let g = Math.floor(lerp(115, 160, t));
+    let b = Math.floor(lerp(90, 150, t));
+    return `rgb(${r},${g},${b})`;
+  }
+
+  // Snow caps
+  let t = Math.min((h - 0.55) / 0.15, 1);
+  let v = Math.floor(lerp(170, 230, t));
+  return `rgb(${v},${v + 5},${v + 10})`;
+}
+
+function render() {
+  ctx.fillStyle = '#0a0a0f';
+  ctx.fillRect(0, 0, W, H);
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      let i = y * cols + x;
+      let h = terrain[i];
+      let w = water[i];
+      let s = sediment[i];
+
+      if (h < 0.005 && w < 0.01) continue;
+
+      ctx.fillStyle = getTerrainColor(h, w, s);
+      ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+    }
+  }
+
+  // Rain drops visual
+  if (raining) {
+    for (let i = 0; i < 30; i++) {
+      let rx = rainX + (Math.random() - 0.5) * 150;
+      let ry = rainY + (Math.random() - 0.5) * 150;
+      ctx.fillStyle = `rgba(150,180,220,${Math.random() * 0.3})`;
+      ctx.fillRect(rx, ry, 1, Math.random() * 6 + 2);
+    }
+  }
+}
+
+function formatAge(a) {
+  if (a < 100) return `${a} years`;
+  if (a < 1000) return `${(a / 100).toFixed(1)} centuries`;
+  if (a < 100000) return `${(a / 1000).toFixed(1)} millennia`;
+  if (a < 1000000) return `${(a / 1000000).toFixed(2)} million years`;
+  return `${(a / 1000000).toFixed(1)} million years`;
+}
+
+// Audio
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.15;
+  masterGain.connect(audioCtx.destination);
+
+  // Wind drone
+  let bufferSize = audioCtx.sampleRate * 2;
+  let noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  let data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * 0.5;
+  }
+  windNode = audioCtx.createBufferSource();
+  windNode.buffer = noiseBuffer;
+  windNode.loop = true;
+
+  let windFilter = audioCtx.createBiquadFilter();
+  windFilter.type = 'lowpass';
+  windFilter.frequency.value = 200;
+  windFilter.Q.value = 0.5;
+
+  let windGain = audioCtx.createGain();
+  windGain.gain.value = 0.4;
+
+  windNode.connect(windFilter);
+  windFilter.connect(windGain);
+  windGain.connect(masterGain);
+  windNode.start();
+
+  // Subtle low hum
+  let osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.value = 55;
+  let humGain = audioCtx.createGain();
+  humGain.gain.value = 0.06;
+  osc.connect(humGain);
+  humGain.connect(masterGain);
+  osc.start();
+
+  // Occasional water drip
+  setInterval(() => {
+    if (!audioCtx || Math.random() > 0.3) return;
+    let drip = audioCtx.createOscillator();
+    drip.type = 'sine';
+    drip.frequency.value = 800 + Math.random() * 1200;
+    let dripGain = audioCtx.createGain();
+    dripGain.gain.value = 0.03 + Math.random() * 0.03;
+    drip.connect(dripGain);
+    dripGain.connect(masterGain);
+    drip.start(audioCtx.currentTime);
+    drip.frequency.exponentialRampToValueAtTime(200 + Math.random() * 300, audioCtx.currentTime + 0.15);
+    dripGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+    drip.stop(audioCtx.currentTime + 0.3);
+  }, 2000);
+}
+
+// Interaction
+canvas.addEventListener('mousedown', (e) => {
+  if (!started) {
+    started = true;
+    initAudio();
+    hintEl.style.opacity = '0';
+  }
+  raining = true;
+  rainX = e.clientX;
+  rainY = e.clientY;
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  if (raining) {
+    rainX = e.clientX;
+    rainY = e.clientY;
+  }
+});
+
+canvas.addEventListener('mouseup', () => { raining = false; });
+canvas.addEventListener('mouseleave', () => { raining = false; });
+
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  if (!started) {
+    started = true;
+    initAudio();
+    hintEl.style.opacity = '0';
+  }
+  raining = true;
+  rainX = e.touches[0].clientX;
+  rainY = e.touches[0].clientY;
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (raining) {
+    rainX = e.touches[0].clientX;
+    rainY = e.touches[0].clientY;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => { raining = false; });
+
+// Main loop
+function update() {
+  erode();
+  render();
+  age += 49;
+  ageEl.textContent = formatAge(age);
+  requestAnimationFrame(update);
+}
+
+window.addEventListener('resize', () => {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+});
+
+resize();
+update();
+
+// Fade hint after 6s
+setTimeout(() => {
+  if (hintEl.style.opacity !== '0') hintEl.style.opacity = '0';
+}, 6000);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
