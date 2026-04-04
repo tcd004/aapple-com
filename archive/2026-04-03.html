@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Afterimage Orchard — aapple.com</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: radial-gradient(circle at center, #120814 0%, #09050b 45%, #020203 100%);
+  font-family: Georgia, serif;
+}
+canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+#title {
+  position: fixed;
+  top: 20px;
+  left: 24px;
+  color: rgba(255,255,255,0.18);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  font-size: 11px;
+  pointer-events: none;
+}
+#hint {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(255,255,255,0.22);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  text-align: center;
+  pointer-events: none;
+  transition: opacity 1.4s ease;
+  max-width: 80vw;
+}
+#whisper {
+  position: fixed;
+  right: 24px;
+  top: 22px;
+  color: rgba(255,255,255,0.1);
+  font-size: 11px;
+  text-align: right;
+  line-height: 1.5;
+  pointer-events: none;
+  max-width: 260px;
+}
+.footer {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  z-index: 10;
+}
+.footer a {
+  color: rgba(255,255,255,0.22);
+  text-decoration: none;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.footer a:hover { color: rgba(255,255,255,0.5); }
+.footer .credit {
+  color: rgba(255,255,255,0.09);
+  font-size: 9px;
+  text-align: right;
+  max-width: 320px;
+  line-height: 1.35;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Afterimage Orchard</div>
+<div id="hint">touch or move the cursor<br>the apples remember where you were</div>
+<div id="whisper">no fruit stays still<br>long enough to be known</div>
+
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hint = document.getElementById('hint');
+const whisper = document.getElementById('whisper');
+let W, H, DPR;
+let nodes = [];
+let echoes = [];
+let pointer = { x: 0, y: 0, active: false, vx: 0, vy: 0 };
+let t = 0;
+let audioStarted = false;
+let audioCtx, master, droneGain;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W * DPR;
+  canvas.height = H * DPR;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  buildOrchard();
+}
+
+function buildOrchard() {
+  nodes = [];
+  const cols = Math.max(5, Math.floor(W / 160));
+  const rows = Math.max(4, Math.floor(H / 150));
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const px = ((x + 0.5) / cols) * W + (Math.random() - 0.5) * 40;
+      const py = ((y + 0.55) / rows) * H + (Math.random() - 0.5) * 40;
+      const r = 10 + Math.random() * 26;
+      const hue = 350 + Math.random() * 30;
+      nodes.push({
+        x: px, y: py, ox: px, oy: py,
+        r, hue,
+        phase: Math.random() * Math.PI * 2,
+        sway: 10 + Math.random() * 28,
+        memory: 0,
+        lastHit: 0
+      });
+    }
+  }
+}
+
+function initAudio() {
+  if (audioStarted) return;
+  audioStarted = true;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  master = audioCtx.createGain();
+  master.gain.value = 0.08;
+  master.connect(audioCtx.destination);
+
+  const drone = audioCtx.createOscillator();
+  drone.type = 'sine';
+  drone.frequency.value = 146.83;
+  droneGain = audioCtx.createGain();
+  droneGain.gain.value = 0.03;
+  drone.connect(droneGain);
+  droneGain.connect(master);
+  drone.start();
+
+  const beat = audioCtx.createOscillator();
+  beat.type = 'triangle';
+  beat.frequency.value = 220;
+  const beatGain = audioCtx.createGain();
+  beatGain.gain.value = 0.0;
+  beat.connect(beatGain);
+  beatGain.connect(master);
+  beat.start();
+
+  setInterval(() => {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    beatGain.gain.cancelScheduledValues(now);
+    beatGain.gain.setValueAtTime(0.0001, now);
+    beatGain.gain.exponentialRampToValueAtTime(0.012, now + 0.02);
+    beatGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
+  }, 2300);
+}
+
+function ping(freq = 440, len = 0.5, vol = 0.025) {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  osc.connect(gain);
+  gain.connect(master);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(vol, now + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + len);
+  osc.frequency.exponentialRampToValueAtTime(freq * 0.5, now + len);
+  osc.start(now);
+  osc.stop(now + len + 0.02);
+}
+
+function spawnEcho(x, y, hue) {
+  echoes.push({ x, y, r: 6, a: 0.35, hue });
+  if (echoes.length > 80) echoes.shift();
+}
+
+function interact(x, y, intensity = 1) {
+  if (!audioStarted) initAudio();
+  hint.style.opacity = '0';
+  pointer.active = true;
+  pointer.x = x;
+  pointer.y = y;
+  for (const n of nodes) {
+    const dx = n.x - x;
+    const dy = n.y - y;
+    const d = Math.hypot(dx, dy);
+    if (d < 140) {
+      n.memory = Math.min(1.6, n.memory + (1 - d / 140) * 0.13 * intensity);
+      n.lastHit = t;
+      spawnEcho(n.x, n.y, n.hue);
+      if (Math.random() < 0.08) {
+        ping(220 + (n.hue - 340) * 3 + Math.random() * 60, 0.7, 0.018);
+      }
+    }
+  }
+}
+
+function drawApple(n) {
+  const glow = n.memory;
+  const x = n.x + Math.sin(t * 0.0012 + n.phase) * n.sway;
+  const y = n.y + Math.cos(t * 0.0015 + n.phase * 1.4) * n.sway * 0.35 - glow * 18;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(1 + glow * 0.18, 1 + glow * 0.18);
+
+  const grad = ctx.createRadialGradient(-n.r * 0.28, -n.r * 0.35, n.r * 0.2, 0, 0, n.r * 1.4);
+  grad.addColorStop(0, `hsla(${n.hue}, 85%, ${58 + glow * 14}%, ${0.95})`);
+  grad.addColorStop(0.55, `hsla(${n.hue - 6}, 78%, ${36 + glow * 12}%, 0.9)`);
+  grad.addColorStop(1, `hsla(${n.hue - 18}, 72%, ${14 + glow * 6}%, 0.65)`);
+
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(0, -n.r * 1.05);
+  ctx.bezierCurveTo(n.r, -n.r * 1.2, n.r * 1.28, -n.r * 0.08, n.r * 0.7, n.r * 0.82);
+  ctx.bezierCurveTo(n.r * 0.18, n.r * 1.35, -n.r * 0.18, n.r * 1.35, -n.r * 0.7, n.r * 0.82);
+  ctx.bezierCurveTo(-n.r * 1.28, -n.r * 0.08, -n.r, -n.r * 1.2, 0, -n.r * 1.05);
+  ctx.fill();
+
+  ctx.strokeStyle = `rgba(255,255,255,${0.04 + glow * 0.12})`;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.strokeStyle = `rgba(97,72,42,0.65)`;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, -n.r * 0.9);
+  ctx.quadraticCurveTo(1, -n.r * 1.35, 4, -n.r * 1.55);
+  ctx.stroke();
+
+  ctx.fillStyle = `hsla(${100 + glow * 20}, 40%, ${22 + glow * 16}%, 0.7)`;
+  ctx.beginPath();
+  ctx.ellipse(n.r * 0.36, -n.r * 1.28, n.r * 0.5, n.r * 0.22, -0.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (glow > 0.05) {
+    ctx.strokeStyle = `hsla(${n.hue + 20}, 100%, 72%, ${glow * 0.35})`;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(0, 0, n.r * (1.55 + glow * 1.3), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+
+  if (glow > 0.02) {
+    const ghostOffset = 10 + glow * 24;
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.translate(x - ghostOffset, y + 2 + glow * 3);
+    ctx.scale(1 + glow * 0.08, 1 + glow * 0.08);
+    ctx.fillStyle = `hsla(${n.hue + 35}, 100%, 70%, ${glow * 0.08})`;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, n.r * 1.05, n.r * 1.12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function frame() {
+  t++;
+  ctx.fillStyle = 'rgba(5,4,8,0.12)';
+  ctx.fillRect(0, 0, W, H);
+
+  const vignette = ctx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.08, W/2, H/2, Math.max(W,H)*0.7);
+  vignette.addColorStop(0, 'rgba(45,20,48,0.04)');
+  vignette.addColorStop(1, 'rgba(0,0,0,0.32)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, W, H);
+
+  for (const e of echoes) {
+    ctx.strokeStyle = `hsla(${e.hue}, 100%, 70%, ${e.a})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+    ctx.stroke();
+    e.r += 1.8;
+    e.a *= 0.97;
+  }
+  echoes = echoes.filter(e => e.a > 0.015);
+
+  for (const n of nodes) {
+    const dx = pointer.x - n.x;
+    const dy = pointer.y - n.y;
+    const dist = Math.hypot(dx, dy);
+    if (pointer.active && dist < 180) {
+      n.memory = Math.min(1.8, n.memory + (1 - dist / 180) * 0.01);
+    }
+    n.memory *= 0.992;
+    drawApple(n);
+  }
+
+  if (audioCtx && droneGain) {
+    const avg = nodes.reduce((s, n) => s + n.memory, 0) / Math.max(nodes.length, 1);
+    droneGain.gain.value = 0.02 + avg * 0.03;
+    whisper.style.opacity = String(0.45 + Math.min(avg * 0.6, 0.45));
+  }
+
+  pointer.active = false;
+  requestAnimationFrame(frame);
+}
+
+window.addEventListener('mousemove', e => interact(e.clientX, e.clientY, 0.7));
+window.addEventListener('touchstart', e => {
+  const touch = e.touches[0];
+  interact(touch.clientX, touch.clientY, 1.2);
+}, { passive: true });
+window.addEventListener('touchmove', e => {
+  const touch = e.touches[0];
+  interact(touch.clientX, touch.clientY, 0.8);
+}, { passive: true });
+window.addEventListener('click', e => interact(e.clientX, e.clientY, 1.8));
+window.addEventListener('resize', resize);
+
+resize();
+ctx.fillStyle = '#050408';
+ctx.fillRect(0, 0, W, H);
+frame();
+
+setTimeout(() => hint.style.opacity = '0', 7000);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
