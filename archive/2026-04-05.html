@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Instructions for the Moon to Peel Itself — aapple.com</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:radial-gradient(circle at 50% 42%,#1f1a2b 0%,#0b0912 52%,#020204 100%);font-family:Georgia,serif;color:#f1eadf}
+canvas{display:block;width:100vw;height:100vh;touch-action:none}
+#title,#hint,#phase,#poem{position:fixed;pointer-events:none;mix-blend-mode:screen}
+#title{top:20px;left:22px;font-size:11px;letter-spacing:.34em;text-transform:uppercase;color:rgba(255,240,220,.34)}
+#phase{top:20px;right:22px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;text-align:right;color:rgba(255,240,220,.22);line-height:1.45}
+#hint{left:50%;top:50%;transform:translate(-50%,-50%);font-size:12px;letter-spacing:.24em;text-transform:uppercase;text-align:center;color:rgba(255,240,220,.22);transition:opacity 1.2s;max-width:82vw}
+#poem{left:50%;bottom:74px;transform:translateX(-50%);font-size:12px;letter-spacing:.1em;text-align:center;color:rgba(255,240,220,.3);max-width:min(86vw,620px);line-height:1.5}
+.footer{position:fixed;bottom:0;width:100%;padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-end;z-index:10}
+.footer a{color:rgba(255,255,255,.22);text-decoration:none;font-size:10px;letter-spacing:2px;text-transform:uppercase}
+.footer a:hover{color:rgba(255,255,255,.5)}
+.footer .credit{color:rgba(255,255,255,.09);font-size:9px;text-align:right;max-width:320px;line-height:1.35}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Instructions for the Moon to Peel Itself</div>
+<div id="phase">phase: unreadable<br>touch / drag to bruise the night</div>
+<div id="hint">hold the sky and rotate<br>the fruit will confess its light</div>
+<div id="poem">the moon keeps trying to become an apple. help or hinder it.</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const hint=document.getElementById('hint'),phaseEl=document.getElementById('phase'),poem=document.getElementById('poem');
+let W,H,DPR,t=0,last=0,drag=false,audioReady=false,moonPhase=0.08,tilt=0,targetTilt=0;
+let pointer={x:0,y:0,down:false},stars=[],petals=[],rings=[],phrases=[
+ 'too round to trust','sweetness is a crater','the bruise is the doorway','gravity tastes red',
+ 'someone bit the eclipse','waxing toward ripeness','night folded into skin','orbit by appetite'
+];
+let audioCtx,master,drone,lfo;
+function resize(){DPR=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=W*DPR;canvas.height=H*DPR;canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(DPR,0,0,DPR,0,0);seedStars();}
+function seedStars(){stars=[];const count=Math.min(180,Math.floor(W*H/9000));for(let i=0;i<count;i++)stars.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.8+.3,a:Math.random(),s:Math.random()*.6+.1});}
+function initAudio(){if(audioReady)return;audioReady=true;audioCtx=new (window.AudioContext||window.webkitAudioContext)();master=audioCtx.createGain();master.gain.value=.07;master.connect(audioCtx.destination);drone=audioCtx.createOscillator();drone.type='triangle';drone.frequency.value=110;const dg=audioCtx.createGain();dg.gain.value=.022;drone.connect(dg);dg.connect(master);drone.start();lfo=audioCtx.createOscillator();const lfoGain=audioCtx.createGain();lfo.frequency.value=.07;lfoGain.gain.value=18;lfo.connect(lfoGain);lfoGain.connect(drone.frequency);lfo.start();}
+function ping(freq,dur=.8,vol=.02){if(!audioCtx)return;const now=audioCtx.currentTime,o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.setValueAtTime(freq,now);o.frequency.exponentialRampToValueAtTime(Math.max(60,freq*.55),now+dur);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(vol,now+.03);g.gain.exponentialRampToValueAtTime(.0001,now+dur);o.connect(g);g.connect(master);o.start(now);o.stop(now+dur+.03);}
+function bloom(x,y){hint.style.opacity=0;moonPhase=Math.max(.03,Math.min(.97,moonPhase+(Math.random()-.5)*.18));const hue=10+Math.random()*40;for(let i=0;i<12;i++)petals.push({x,y,a:Math.random()*Math.PI*2,v:1+Math.random()*2.8,life:1,size:4+Math.random()*12,h:hue});rings.push({x,y,r:12,a:.22,text:phrases[(Math.random()*phrases.length)|0]});if(rings.length>9)rings.shift();if(audioReady)ping(180+moonPhase*320+Math.random()*90,.9,.025);poem.textContent=phrases[(Math.random()*phrases.length)|0];}
+function moon(cx,cy,r){
+ ctx.save();ctx.translate(cx,cy);ctx.rotate(tilt*.35);
+ const glow=ctx.createRadialGradient(0,0,r*.2,0,0,r*1.6);glow.addColorStop(0,'rgba(255,230,185,.3)');glow.addColorStop(.4,'rgba(255,170,90,.08)');glow.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=glow;ctx.beginPath();ctx.arc(0,0,r*1.7,0,Math.PI*2);ctx.fill();
+ const g=ctx.createRadialGradient(-r*.25,-r*.3,r*.08,0,0,r);g.addColorStop(0,'#fff6d8');g.addColorStop(.55,'#f2d28e');g.addColorStop(.78,'#d9804f');g.addColorStop(1,'#60251c');ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();
+ for(let i=0;i<6;i++){const ang=i*1.04+t*.0001*(i%2?1:-1),rr=r*(.26+.1*i/6),x=Math.cos(ang)*rr*.55,y=Math.sin(ang*1.4)*rr*.6;ctx.fillStyle=`rgba(110,32,24,${.08+.04*i})`;ctx.beginPath();ctx.ellipse(x,y,r*(.18-.015*i),r*(.1-.008*i),ang,0,Math.PI*2);ctx.fill();}
+ ctx.globalCompositeOperation='destination-out';ctx.beginPath();const biteX=r*(.78-.62*moonPhase),biteY=-r*.06;ctx.arc(biteX,biteY,r*.96,0,Math.PI*2);ctx.fill();ctx.globalCompositeOperation='source-over';
+ ctx.strokeStyle='rgba(255,248,220,.1)';ctx.lineWidth=1.1;ctx.beginPath();ctx.arc(0,0,r*.99,-.9,.8);ctx.stroke();
+ ctx.restore();
+}
+function draw(){ctx.clearRect(0,0,W,H);const bg=ctx.createLinearGradient(0,0,0,H);bg.addColorStop(0,'rgba(24,18,36,.15)');bg.addColorStop(1,'rgba(2,2,4,.45)');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+ for(const s of stars){const tw=.45+.55*Math.sin(t*.001*s.s+s.x);ctx.fillStyle=`rgba(255,255,255,${(.18+.6*s.a*tw).toFixed(3)})`;ctx.beginPath();ctx.arc(s.x+Math.sin(t*.0002+s.y)*3,s.y,s.r,0,Math.PI*2);ctx.fill();}
+ const cx=W*.5+Math.cos(t*.00022)*W*.08,cy=H*.46+Math.sin(t*.00031)*H*.03;
+ for(let i=0;i<5;i++){ctx.strokeStyle=`rgba(255,220,180,${.03+i*.015})`;ctx.lineWidth=1+i*.6;ctx.beginPath();ctx.arc(cx,cy,110+i*22+Math.sin(t*.0007+i)*4,0,Math.PI*2);ctx.stroke();}
+ moon(cx,cy,Math.min(W,H)*.19);
+ for(const p of petals){p.life-=.014;p.x+=Math.cos(p.a+tilt)*p.v;p.y+=Math.sin(p.a+tilt)*p.v + .1;ctx.fillStyle=`hsla(${p.h} 85% 66% / ${p.life*.35})`;ctx.beginPath();ctx.ellipse(p.x,p.y,p.size,p.size*.62,p.a+t*.01,0,Math.PI*2);ctx.fill();}
+ petals=petals.filter(p=>p.life>0);
+ ctx.textAlign='center';ctx.font='12px Georgia';
+ for(const r of rings){r.r+=.85;r.a*=.988;ctx.strokeStyle=`rgba(255,210,170,${r.a})`;ctx.beginPath();ctx.arc(r.x,r.y,r.r,0,Math.PI*2);ctx.stroke();ctx.fillStyle=`rgba(255,235,210,${r.a*.85})`;ctx.fillText(r.text,r.x,r.y-r.r-10);}
+ rings=rings.filter(r=>r.a>.02&&r.r<Math.max(W,H));
+ if(pointer.down){ctx.strokeStyle='rgba(255,245,220,.16)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(pointer.x,pointer.y,24+Math.sin(t*.01)*4,0,Math.PI*2);ctx.stroke();}
+ phaseEl.innerHTML=`phase: ${['gnawed','hesitating','ripening','nearly convinced','impossible'][Math.floor(moonPhase*4.99)]}<br>${Math.round(moonPhase*100)}% apple`;
+}
+function tick(ts){if(!last)last=ts;const dt=Math.min(32,ts-last);last=ts;t+=dt;targetTilt+=(pointer.down?0.0008:0.00012)*dt;tilt+=(targetTilt-tilt)*.05;draw();requestAnimationFrame(tick);}
+function pos(e){const p=e.touches?e.touches[0]:e;return{x:p.clientX,y:p.clientY};}
+ function start(e){const p=pos(e);pointer.x=p.x;pointer.y=p.y;pointer.down=true;drag=true;initAudio();bloom(p.x,p.y);} 
+function move(e){const p=pos(e);if(pointer.down){targetTilt+=(p.x-pointer.x)*.0002;bloom(p.x,p.y);}pointer.x=p.x;pointer.y=p.y;}
+function end(){pointer.down=false;drag=false;}
+addEventListener('pointerdown',start,{passive:true});addEventListener('pointermove',move,{passive:true});addEventListener('pointerup',end,{passive:true});addEventListener('pointercancel',end,{passive:true});
+addEventListener('resize',resize);
+resize();requestAnimationFrame(tick);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
