@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Complaint Department for Gravity — aapple.com</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#08070b;color:#efe7da;font-family:Georgia,serif}
+canvas{display:block;width:100vw;height:100vh;touch-action:none}
+#title,#subtitle,#hint,#status{position:fixed;left:0;width:100%;text-align:center;pointer-events:none}
+#title{top:18px;font-size:11px;letter-spacing:.42em;text-transform:uppercase;color:rgba(255,244,228,.38)}
+#subtitle{top:38px;font-size:12px;letter-spacing:.08em;color:rgba(255,244,228,.25)}
+#hint{bottom:68px;font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:rgba(255,244,228,.22);line-height:1.5;padding:0 18px}
+#status{top:72px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,220,180,.18)}
+.footer{position:fixed;bottom:0;width:100%;padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-end;z-index:10}
+.footer a{color:rgba(255,255,255,.22);text-decoration:none;font-size:10px;letter-spacing:2px;text-transform:uppercase}
+.footer a:hover{color:rgba(255,255,255,.5)}
+.footer .credit{color:rgba(255,255,255,.09);font-size:9px;text-align:right;max-width:320px;line-height:1.35}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Complaint Department for Gravity</div>
+<div id="subtitle">every falling apple may file an appeal</div>
+<div id="status">pending cases: 0</div>
+<div id="hint">drag to stir the paperwork / tap to issue a new complaint / sound wakes on first touch</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const statusEl=document.getElementById('status'),hint=document.getElementById('hint');
+let W,H,DPR,t=0,last=0; const pointer={x:0,y:0,down:false,vx:0,vy:0,lastX:0,lastY:0};
+let slips=[],dust=[],stamps=[],audioReady=false,audioCtx,master;
+const complaints=[
+ ['Dear Gravity,','I was descending with dignity until the ground got involved.'],
+ ['Formal Objection:','Downward is an overused dramatic choice.'],
+ ['To Whom It Pulls,','Please stop mistaking ripeness for surrender.'],
+ ['Incident Report:','Branch released me without adequate ceremony.'],
+ ['Appeal #','Requesting one elegant hover before impact.'],
+ ['Notice of Discomfort:','The apple denies all knowledge of Newton.'],
+ ['Public Comment:','Falling feels suspiciously compulsory.'],
+ ['Tiny Red Memo:','The earth keeps arriving uninvited.']
+];
+function resize(){DPR=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=W*DPR;canvas.height=H*DPR;canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(DPR,0,0,DPR,0,0);} 
+function initScene(){slips=[];for(let i=0;i<8;i++)spawnSlip(Math.random()*W, H+Math.random()*H*.6, true);} 
+function spawnSlip(x,y,quiet=false){
+ const pick=complaints[(Math.random()*complaints.length)|0], apple=Math.random()<.4;
+ slips.push({x,y,w:140+Math.random()*60,h:82+Math.random()*26,vx:(Math.random()-.5)*.35,vy:-(.5+Math.random()*1.0),rot:(Math.random()-.5)*.16,vr:(Math.random()-.5)*.002,age:0,alpha:0,stamp:0,apple,lines:[pick[0]+(pick[0].endsWith('#')?String((Math.random()*999|0)+1):''),pick[1]],tone:Math.random()});
+ if(!quiet && audioReady)ping(260+Math.random()*140,.6,.02);
+ statusEl.textContent='pending cases: '+slips.length;
+}
+function initAudio(){if(audioReady)return;audioReady=true;audioCtx=new (window.AudioContext||window.webkitAudioContext)();master=audioCtx.createGain();master.gain.value=.08;master.connect(audioCtx.destination);} 
+function ping(freq,dur=.4,vol=.02){const now=audioCtx.currentTime,o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='triangle';o.frequency.setValueAtTime(freq,now);o.frequency.exponentialRampToValueAtTime(Math.max(90,freq*.6),now+dur);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(vol,now+.02);g.gain.exponentialRampToValueAtTime(.0001,now+dur);o.connect(g);g.connect(master);o.start(now);o.stop(now+dur+.05);} 
+function rustle(){if(!audioReady)return;ping(180+Math.random()*90,.18,.012);} 
+function addDust(x,y,n=10){for(let i=0;i<n;i++)dust.push({x,y,vx:(Math.random()-.5)*2.5,vy:(Math.random()-.5)*2.5,life:1,r:1+Math.random()*3,h:18+Math.random()*35});}
+function stampAt(x,y){stamps.push({x,y,r:20,a:.35,text:['DENIED','DEFERRED','STRUCK UPWARD','PENDING'][Math.random()*4|0]}); if(stamps.length>12)stamps.shift(); addDust(x,y,14); if(audioReady)ping(420+Math.random()*120,.22,.025);} 
+function drawBackground(){const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#120f18');g.addColorStop(.45,'#09080d');g.addColorStop(1,'#050407');ctx.fillStyle=g;ctx.fillRect(0,0,W,H); for(let i=0;i<7;i++){ctx.strokeStyle=`rgba(255,210,170,${0.018+i*0.004})`;ctx.beginPath();ctx.moveTo(0,H*(.12+i*.12)+Math.sin(t*.0004+i)*8);ctx.bezierCurveTo(W*.28,H*(.08+i*.12),W*.72,H*(.16+i*.12),W,H*(.1+i*.12)+Math.cos(t*.0003+i)*8);ctx.stroke();}}
+function drawSlip(s){
+ ctx.save();ctx.translate(s.x,s.y);ctx.rotate(s.rot);
+ ctx.globalAlpha=Math.min(1,s.alpha);
+ const paper=ctx.createLinearGradient(-s.w/2,-s.h/2,s.w/2,s.h/2);paper.addColorStop(0,'#f4ebd9');paper.addColorStop(1,'#d7ccb8');
+ ctx.fillStyle='rgba(0,0,0,.18)';ctx.fillRect(-s.w/2+4,-s.h/2+6,s.w,s.h);
+ ctx.fillStyle=paper;ctx.strokeStyle='rgba(90,68,52,.25)';ctx.lineWidth=1;ctx.beginPath();ctx.rect(-s.w/2,-s.h/2,s.w,s.h);ctx.fill();ctx.stroke();
+ ctx.fillStyle='rgba(80,52,36,.78)';ctx.font='bold 11px Georgia';ctx.fillText(s.lines[0],-s.w/2+12,-s.h/2+18);
+ ctx.font='10px Georgia';wrapText(s.lines[1],-s.w/2+12,-s.h/2+38,s.w-24,13);
+ ctx.strokeStyle='rgba(125,95,75,.24)';ctx.beginPath();for(let y=-s.h/2+46;y<s.h/2-12;y+=12){ctx.moveTo(-s.w/2+12,y);ctx.lineTo(s.w/2-12,y);}ctx.stroke();
+ if(s.apple){ctx.save();ctx.translate(s.w/2-26,-s.h/2+24); const rg=ctx.createRadialGradient(-4,-4,2,0,0,16); rg.addColorStop(0,'#ffd5b0'); rg.addColorStop(.45,'#ff7a53'); rg.addColorStop(1,'#6d1f1c'); ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(0,0,13,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='rgba(74,39,20,.8)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(0,-11); ctx.quadraticCurveTo(1,-18,5,-19); ctx.stroke(); ctx.strokeStyle='rgba(120,160,90,.75)'; ctx.beginPath(); ctx.ellipse(7,-17,6,3,.3,0,Math.PI*2); ctx.stroke(); ctx.restore(); }
+ if(s.stamp>0){ctx.globalAlpha=s.stamp*.8;ctx.strokeStyle='rgba(170,34,38,.75)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,26,0,Math.PI*2);ctx.stroke();ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.fillStyle='rgba(170,34,38,.65)';ctx.fillText('APPEAL FILED',0,3);} 
+ ctx.restore();
+}
+function wrapText(text,x,y,maxWidth,lineHeight){const words=text.split(' ');let line='';for(let n=0;n<words.length;n++){const test=line+words[n]+' '; if(ctx.measureText(test).width>maxWidth&&n>0){ctx.fillText(line,x,y); line=words[n]+' '; y+=lineHeight;} else line=test;} ctx.fillText(line,x,y);} 
+function update(dt){
+ const windX=pointer.down?pointer.vx*0.015:Math.sin(t*.0003)*.08;
+ const windY=pointer.down?pointer.vy*0.008:Math.cos(t*.00023)*.03;
+ if(pointer.down && Math.random()<.35) addDust(pointer.x,pointer.y,1);
+ for(const s of slips){
+  s.age+=dt; s.alpha=Math.min(1,s.alpha+.02); s.vx+=windX*.04; s.vy+=(-0.004)+(windY*.02); s.vx*=.995; s.vy*=.999; s.rot+=s.vr + windX*.002;
+  const dx=s.x-pointer.x, dy=s.y-pointer.y, dist=Math.hypot(dx,dy)||1;
+  if(pointer.down && dist<170){ const f=(170-dist)/170; s.vx += (dx/dist)*f*0.22; s.vy += (dy/dist)*f*0.1 - f*0.08; s.stamp=Math.min(1,s.stamp+.014);} else s.stamp*=.992;
+  s.x+=s.vx*dt*.06; s.y+=s.vy*dt*.06;
+  if(s.x<-180) s.x=W+180; if(s.x>W+180) s.x=-180;
+  if(s.y<-140){ s.y=H+80; s.x=Math.random()*W; s.vy=-(.45+Math.random()); s.alpha=.2; s.stamp=0; }
+ }
+ for(const d of dust){d.x+=d.vx; d.y+=d.vy; d.life-=.02; d.vx*=.98; d.vy*=.98;} dust=dust.filter(d=>d.life>0);
+ for(const s of stamps){s.r+=.65; s.a*=.985;} stamps=stamps.filter(s=>s.a>.03);
+ statusEl.textContent='pending cases: '+slips.length;
+}
+function render(){
+ drawBackground();
+ for(const d of dust){ctx.fillStyle=`hsla(${d.h} 85% 70% / ${d.life*.32})`;ctx.beginPath();ctx.arc(d.x,d.y,d.r,0,Math.PI*2);ctx.fill();}
+ ctx.strokeStyle='rgba(255,200,160,.06)'; for(let i=0;i<5;i++){ctx.beginPath();ctx.arc(W*(.15+i*.18),H*.82+Math.sin(t*.0005+i)*6,40+i*12,Math.PI,0);ctx.stroke();}
+ slips.sort((a,b)=>a.y-b.y); for(const s of slips) drawSlip(s);
+ ctx.textAlign='center';
+ for(const s of stamps){ctx.globalAlpha=s.a; ctx.strokeStyle='rgba(200,54,56,.5)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.stroke(); ctx.fillStyle='rgba(200,54,56,.38)'; ctx.font='bold 10px Arial'; ctx.fillText(s.text,s.x,s.y+3);} ctx.globalAlpha=1;
+ if(pointer.down){ctx.strokeStyle='rgba(255,241,220,.12)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(pointer.x,pointer.y,28+Math.sin(t*.02)*4,0,Math.PI*2);ctx.stroke();}
+}
+function tick(ts){if(!last)last=ts; const dt=Math.min(32,ts-last); last=ts; t+=dt; update(dt); render(); requestAnimationFrame(tick);} 
+function setPointer(e){const p=e.touches?e.touches[0]:e; const x=p.clientX,y=p.clientY; pointer.vx=x-pointer.lastX; pointer.vy=y-pointer.lastY; pointer.lastX=x; pointer.lastY=y; pointer.x=x; pointer.y=y;}
+function down(e){setPointer(e); pointer.down=true; hint.style.opacity=.15; initAudio(); if(Math.random()<.75) rustle(); if(Math.random()<.55) spawnSlip(pointer.x+(Math.random()-.5)*30,H+20); stampAt(pointer.x,pointer.y);} 
+function move(e){setPointer(e); if(pointer.down && Math.random()<.16) rustle();}
+function up(){pointer.down=false; pointer.vx*=.3; pointer.vy*=.3;}
+addEventListener('pointerdown',down,{passive:true}); addEventListener('pointermove',move,{passive:true}); addEventListener('pointerup',up,{passive:true}); addEventListener('pointercancel',up,{passive:true});
+addEventListener('touchstart',down,{passive:true}); addEventListener('touchmove',move,{passive:true}); addEventListener('touchend',up,{passive:true});
+addEventListener('dblclick',e=>{setPointer(e); spawnSlip(pointer.x,H+20); stampAt(pointer.x,pointer.y);});
+addEventListener('resize',()=>{resize();});
+resize(); initScene(); requestAnimationFrame(tick);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
