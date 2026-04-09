@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Nocturne for Unripe Planets — aapple.com</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#04070d;color:#f2eee7;font-family:Georgia,serif}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#ui,#caption,#hint{position:fixed;left:0;width:100%;text-align:center;pointer-events:none;padding:0 16px}
+#ui{top:16px}
+#kicker{font:10px/1.2 Arial,sans-serif;letter-spacing:.45em;text-transform:uppercase;color:rgba(255,255,255,.35)}
+#title{margin-top:8px;font-size:clamp(28px,5vw,52px);font-weight:normal;letter-spacing:.03em}
+#caption{top:98px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.42)}
+#hint{bottom:64px;font:11px/1.5 Arial,sans-serif;letter-spacing:.24em;text-transform:uppercase;color:rgba(255,255,255,.28)}
+.footer{position:fixed;bottom:0;left:0;width:100%;padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-end;z-index:3}
+.footer a{color:rgba(255,255,255,.22);text-decoration:none;font-size:10px;letter-spacing:2px;text-transform:uppercase}
+.footer a:hover{color:rgba(255,255,255,.52)}
+.footer .credit{color:rgba(255,255,255,.1);font-size:9px;line-height:1.35;text-align:right;max-width:320px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div id="kicker">midnight orchard observatory</div>
+  <div id="title">Nocturne for Unripe Planets</div>
+</div>
+<div id="caption">drag to bend the sky • tap to release a small green world • sound wakes on first touch</div>
+<div id="hint">nothing here is ripe enough to fall</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');
+const hint=document.getElementById('hint');
+let w=0,h=0,dpr=1,t=0,last=0,audioReady=false,ac,master;
+const pointer={x:0,y:0,down:false,dx:0,dy:0,px:0,py:0};
+const planets=[],dust=[],rings=[];
+const palette=['#9cff57','#d3ff82','#c8ffa1','#f1ffcf','#86ff84'];
+const whispers=['still green','not yet','hold orbit','bruise softly','nearly edible','cosmic tartness','refuse gravity'];
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;c.width=w*dpr;c.height=h*dpr;c.style.width=w+'px';c.style.height=h+'px';x.setTransform(dpr,0,0,dpr,0,0)}
+function rand(a,b){return a+Math.random()*(b-a)}
+function pick(a){return a[(Math.random()*a.length)|0]}
+function spawn(px=Math.random()*w,py=Math.random()*h,seed=false){
+  const r=seed?rand(26,58):rand(12,26), ang=Math.random()*Math.PI*2, sp=seed?rand(.05,.2):rand(.4,1.2);
+  planets.push({x:px,y:py,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,r,hue:rand(82,112),tint:pick(palette),label:pick(whispers),glow:Math.random(),crater:Math.random(),stem:Math.random()<.8,phase:Math.random()*6.28});
+}
+for(let i=0;i<7;i++)spawn(rand(.15, .85)*innerWidth,rand(.18,.82)*innerHeight,true);
+function initAudio(){if(audioReady)return;audioReady=true;ac=new(window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.gain.value=.07;master.connect(ac.destination)}
+function plink(freq=220,pan=0){if(!audioReady)return;const now=ac.currentTime,o=ac.createOscillator(),g=ac.createGain(),p=ac.createStereoPanner();o.type='sine';o.frequency.setValueAtTime(freq,now);o.frequency.exponentialRampToValueAtTime(freq*.45,now+.8);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(.02,now+.03);g.gain.exponentialRampToValueAtTime(.0001,now+.8);p.pan.value=Math.max(-1,Math.min(1,pan));o.connect(g);g.connect(p);p.connect(master);o.start(now);o.stop(now+.85)}
+function hush(freq=140){if(!audioReady)return;const now=ac.currentTime,o=ac.createOscillator(),g=ac.createGain();o.type='triangle';o.frequency.setValueAtTime(freq,now);o.frequency.linearRampToValueAtTime(freq*0.7,now+1.6);g.gain.setValueAtTime(.0001,now);g.gain.linearRampToValueAtTime(.015,now+.2);g.gain.linearRampToValueAtTime(.0001,now+1.6);o.connect(g);g.connect(master);o.start(now);o.stop(now+1.7)}
+function addDust(px,py,n=12){for(let i=0;i<n;i++)dust.push({x:px,y:py,vx:rand(-1.8,1.8),vy:rand(-1.8,1.8),r:rand(1,3),a:rand(.3,.9),h:rand(70,120)})}
+function addRing(px,py,r){rings.push({x:px,y:py,r,a:.45})}
+function starfield(){
+  const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,'#06111d');g.addColorStop(.45,'#090612');g.addColorStop(1,'#020304');x.fillStyle=g;x.fillRect(0,0,w,h);
+  for(let i=0;i<90;i++){
+    const sx=(i*97+t*.004)%w,sy=(i*53+t*.007+i*i)%h,tw=1+Math.sin(t*.002+i)*.5;
+    x.fillStyle=`rgba(255,255,255,${0.06+tw*0.1})`;x.fillRect(sx,sy,tw,tw);
+  }
+  for(let i=0;i<4;i++){
+    x.strokeStyle=`rgba(120,255,170,${0.035-i*0.006})`;x.lineWidth=1;
+    x.beginPath();
+    for(let xx=0;xx<=w;xx+=16){const yy=h*(.2+i*.18)+Math.sin(xx*.007+t*.00035+i*1.7)*14+Math.cos(xx*.003-t*.0002)*8;x.lineTo(xx,yy)}
+    x.stroke();
+  }
+}
+function drawPlanet(p){
+  x.save();x.translate(p.x,p.y);const rg=x.createRadialGradient(-p.r*.35,-p.r*.4,2,0,0,p.r*1.5);rg.addColorStop(0,'rgba(255,255,240,.95)');rg.addColorStop(.2,p.tint);rg.addColorStop(.7,`hsl(${p.hue} 70% 36%)`);rg.addColorStop(1,'rgba(7,16,11,.95)');
+  x.shadowBlur=24+p.glow*18;x.shadowColor=`hsla(${p.hue} 100% 65% / .22)`;x.fillStyle=rg;x.beginPath();x.arc(0,0,p.r,0,Math.PI*2);x.fill();
+  x.shadowBlur=0;
+  x.strokeStyle='rgba(255,255,255,.18)';x.lineWidth=1;x.beginPath();x.ellipse(0,0,p.r*1.35,p.r*.42,Math.sin(t*.00015+p.phase)*.7,0,Math.PI*2);x.stroke();
+  x.fillStyle='rgba(12,30,10,.22)';x.beginPath();x.arc(p.r*.18,-p.r*.12,p.r*(.18+p.crater*.1),0,Math.PI*2);x.fill();
+  x.beginPath();x.arc(-p.r*.28,p.r*.24,p.r*.11,0,Math.PI*2);x.fill();
+  if(p.stem){x.strokeStyle='rgba(93,63,37,.9)';x.lineWidth=Math.max(1,p.r*.06);x.beginPath();x.moveTo(0,-p.r*.8);x.quadraticCurveTo(p.r*.04,-p.r*1.15,p.r*.22,-p.r*1.1);x.stroke();x.strokeStyle='rgba(127,187,91,.82)';x.lineWidth=Math.max(1,p.r*.05);x.beginPath();x.ellipse(p.r*.28,-p.r*1.03,p.r*.22,p.r*.11,.45,0,Math.PI*2);x.stroke();}
+  x.fillStyle='rgba(255,255,255,.5)';x.font=`${Math.max(9,p.r*.28)}px Arial`;x.textAlign='center';x.fillText(p.label,0,p.r+16);
+  x.restore();
+}
+function physics(){
+  const mx=pointer.x||w*.5,my=pointer.y||h*.5;
+  for(const p of planets){
+    const dx=mx-p.x,dy=my-p.y,dist=Math.hypot(dx,dy)||1, pull=pointer.down?22000/(dist*dist+300):800/(dist*dist+600);
+    p.vx+=dx/dist*pull*.012; p.vy+=dy/dist*pull*.012;
+    for(const q of planets){if(p===q)continue; const ax=q.x-p.x,ay=q.y-p.y,d=Math.hypot(ax,ay)||1; if(d<(p.r+q.r)*1.1){const push=((p.r+q.r)*1.1-d)*.003; p.vx-=ax/d*push; p.vy-=ay/d*push;}}
+    p.vx*=.998;p.vy*=.998;p.x+=p.vx;p.y+=p.vy;
+    if(p.x<-100)p.x=w+100; if(p.x>w+100)p.x=-100; if(p.y<-100)p.y=h+100; if(p.y>h+100)p.y=-100;
+  }
+  for(let i=0;i<planets.length;i++) for(let j=i+1;j<planets.length;j++){
+    const a=planets[i],b=planets[j],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1;
+    if(d<a.r+b.r){const nx=dx/d,ny=dy/d,over=(a.r+b.r-d)*.5;a.x-=nx*over;a.y-=ny*over;b.x+=nx*over;b.y+=ny*over;const avx=a.vx,bvx=b.vx,avy=a.vy,bvy=b.vy;a.vx=bvx*.96;a.vy=bvy*.96;b.vx=avx*.96;b.vy=avy*.96;addRing((a.x+b.x)/2,(a.y+b.y)/2,Math.max(a.r,b.r));addDust((a.x+b.x)/2,(a.y+b.y)/2,8);if(Math.random()<.5){a.label=pick(whispers);b.label=pick(whispers)} if(audioReady)plink(160+d*1.5,((a.x+b.x)/2/w-.5)*1.5)}
+  }
+  for(const d of dust){d.x+=d.vx;d.y+=d.vy;d.vx*=.985;d.vy*=.985;d.a*=.985}
+  while(dust.length>220)dust.shift();
+  for(const r of rings){r.r+=.8;r.a*=.975}
+  while(rings.length>24)rings.shift();
+}
+function render(){
+  starfield();
+  x.globalCompositeOperation='screen';
+  for(const r of rings){x.strokeStyle=`rgba(180,255,190,${r.a})`;x.lineWidth=1;x.beginPath();x.arc(r.x,r.y,r.r,0,Math.PI*2);x.stroke()}
+  for(const d of dust){x.fillStyle=`hsla(${d.h} 90% 70% / ${d.a*.35})`;x.beginPath();x.arc(d.x,d.y,d.r,0,Math.PI*2);x.fill()}
+  x.globalCompositeOperation='source-over';
+  planets.sort((a,b)=>a.r-b.r); for(const p of planets) drawPlanet(p);
+  if(pointer.down){x.strokeStyle='rgba(255,255,255,.16)';x.lineWidth=1;x.beginPath();x.arc(pointer.x,pointer.y,28+Math.sin(t*.01)*6,0,Math.PI*2);x.stroke()}
+}
+function tick(ts){if(!last)last=ts;const dt=Math.min(32,ts-last);last=ts;t+=dt;physics(dt);render();requestAnimationFrame(tick)}
+function setPointer(e){const p=e.touches?e.touches[0]:e;pointer.x=p.clientX;pointer.y=p.clientY;pointer.dx=pointer.x-pointer.px;pointer.dy=pointer.y-pointer.py;pointer.px=pointer.x;pointer.py=pointer.y}
+function down(e){setPointer(e);pointer.down=true;hint.textContent='the orchard leans toward your hand';initAudio();hush(120+Math.random()*40);if(Math.random()<.8)spawn(pointer.x+rand(-18,18),pointer.y+rand(-18,18),false);addRing(pointer.x,pointer.y,12);addDust(pointer.x,pointer.y,14)}
+function move(e){setPointer(e);if(pointer.down&&Math.random()<.08){addDust(pointer.x,pointer.y,2);if(audioReady&&Math.random()<.06)plink(240+Math.random()*120,(pointer.x/w-.5)*2)}}
+function up(){pointer.down=false;hint.textContent='nothing here is ripe enough to fall'}
+addEventListener('pointerdown',down,{passive:true});addEventListener('pointermove',move,{passive:true});addEventListener('pointerup',up,{passive:true});addEventListener('pointercancel',up,{passive:true});addEventListener('touchstart',down,{passive:true});addEventListener('touchmove',move,{passive:true});addEventListener('touchend',up,{passive:true});addEventListener('resize',resize);
+resize();requestAnimationFrame(tick);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
