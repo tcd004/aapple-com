@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Midnight Backup of the Orchard — aapple.com</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#04080b;color:#d9efe2;font-family:Arial,sans-serif}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+#ui,#hint,#status{position:fixed;left:0;width:100%;text-align:center;pointer-events:none;padding:0 16px;z-index:2}
+#ui{top:16px}
+.kicker{font-size:10px;letter-spacing:.42em;text-transform:uppercase;color:rgba(208,255,232,.34)}
+h1{margin-top:10px;font-weight:normal;font-size:clamp(28px,5vw,56px);line-height:1.02}
+#status{top:94px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:rgba(222,255,240,.42)}
+#hint{bottom:66px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:rgba(222,255,240,.28)}
+#log{position:fixed;left:16px;top:128px;width:min(32rem,calc(100vw - 32px));max-height:min(42vh,320px);overflow:hidden;padding:12px 14px;border:1px solid rgba(206,255,231,.14);background:rgba(2,10,9,.36);backdrop-filter:blur(8px);font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;color:rgba(215,255,236,.72);z-index:2}
+#log div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.footer{position:fixed;left:0;right:0;bottom:0;padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-end;z-index:3}
+.footer a{color:rgba(255,255,255,.22);text-decoration:none;font-size:10px;letter-spacing:2px;text-transform:uppercase}
+.footer a:hover{color:rgba(255,255,255,.52)}
+.footer .credit{color:rgba(255,255,255,.1);font-size:9px;line-height:1.35;text-align:right;max-width:320px}
+@media (max-width:720px){
+  #log{top:auto;bottom:104px;max-height:24vh}
+  h1{font-size:clamp(26px,10vw,44px)}
+  #status{top:88px}
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div class="kicker">autonomous disaster recovery</div>
+  <h1>Midnight Backup of the Orchard</h1>
+</div>
+<div id="status">tap or click to save a memory • drag to bend the archive • sound wakes on first touch</div>
+<div id="log"></div>
+<div id="hint">nothing is deleted, only misfiled under moonlight</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');
+const logEl=document.getElementById('log');
+const statusEl=document.getElementById('status');
+const hintEl=document.getElementById('hint');
+let w=0,h=0,dpr=1,t=0,last=0,audioReady=false,ac,master;
+const pointer={x:0,y:0,down:false,seen:false};
+const cores=[],motes=[],rings=[];
+const phrases=[
+  'saved: bite-mark constellations',
+  'saved: weather from an unopened tab',
+  'saved: three apples that refused gravity',
+  'saved: the color of almost-sunrise',
+  'saved: a cursor pretending not to tremble',
+  'saved: orchard whisper in .tmp format',
+  'saved: forgotten sweetness checksum',
+  'saved: backup of backup of bruise',
+  'saved: small emergency, beautifully named',
+  'saved: unsent apology to the moon',
+  'saved: seed inventory from dream sector',
+  'saved: one impossible branch'
+];
+const tags=['ripe','partial','haunted','recoverable','compressed','mirrored'];
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;c.width=w*dpr;c.height=h*dpr;c.style.width=w+'px';c.style.height=h+'px';x.setTransform(dpr,0,0,dpr,0,0)}
+function rand(a,b){return a+Math.random()*(b-a)}
+function pick(a){return a[(Math.random()*a.length)|0]}
+function logLine(text){const row=document.createElement('div');row.textContent=(new Date).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})+'  '+text;logEl.prepend(row);while(logEl.children.length>9)logEl.lastChild.remove()}
+function initAudio(){if(audioReady)return;audioReady=true;ac=new(window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.gain.value=.06;master.connect(ac.destination)}
+function tone(freq=220,dur=.6,type='sine',gain=.018,pan=0){if(!audioReady)return;const now=ac.currentTime,o=ac.createOscillator(),g=ac.createGain(),p=ac.createStereoPanner();o.type=type;o.frequency.setValueAtTime(freq,now);o.frequency.exponentialRampToValueAtTime(Math.max(50,freq*.7),now+dur);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(gain,now+.03);g.gain.exponentialRampToValueAtTime(.0001,now+dur);p.pan.value=Math.max(-1,Math.min(1,pan));o.connect(g);g.connect(p);p.connect(master);o.start(now);o.stop(now+dur+.03)}
+function hush(){tone(rand(140,210),1.4,'triangle',.012,(pointer.x/w-.5)*1.6);setTimeout(()=>tone(rand(280,420),.8,'sine',.009,(pointer.x/w-.5)*1.6),80)}
+function spawn(px=rand(w*.18,w*.82),py=rand(h*.22,h*.8),seed=false){
+  const r=seed?rand(24,40):rand(14,26), apple=Math.random()>.38;
+  cores.push({x:px,y:py,vx:rand(-.7,.7),vy:rand(-.7,.7),r,apple,phase:rand(0,6.28),glow:rand(.2,1),label:pick(tags),blink:rand(0,6.28)});
+  for(let i=0;i<(seed?8:5);i++)motes.push({x:px,y:py,vx:rand(-1.6,1.6),vy:rand(-1.6,1.6),r:rand(1,3),a:rand(.25,.7)});
+  rings.push({x:px,y:py,r:r*.6,a:.22});
+  const text=pick(phrases)+' ['+pick(tags)+']';
+  logLine(text);
+  statusEl.textContent='backup integrity '+(96+Math.random()*3).toFixed(2)+'% • '+cores.length+' spectral objects indexed';
+  hintEl.textContent=apple?'the apples archive themselves first':'even the non-apple memories want a stem';
+  if(audioReady){hush(); if(Math.random()<.55)setTimeout(()=>tone(rand(520,760),.22,'square',.005,(px/w-.5)*1.4),140)}
+}
+function bg(){
+  const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,'#061116');g.addColorStop(.48,'#09161b');g.addColorStop(1,'#020507');x.fillStyle=g;x.fillRect(0,0,w,h);
+  for(let i=0;i<18;i++){
+    const yy=(i*h/17+t*.02)%h,alpha=.02+(i%3)*.01;
+    x.fillStyle='rgba(170,255,220,'+alpha+')';x.fillRect(0,yy,w,1);
+  }
+  for(let i=0;i<90;i++){
+    const sx=(i*137+t*.012)%w,sy=(i*i*19+t*.006+i*23)%h,sz=1+((i*7)%3);
+    x.fillStyle='rgba(220,255,240,'+(.04+.08*Math.sin(t*.001+i))+')';x.fillRect(sx,sy,sz,sz);
+  }
+}
+function drawAppleBody(r){
+  x.beginPath();x.moveTo(0,-r);x.bezierCurveTo(r,-r*.96,r*1.05,r*.14,0,r);x.bezierCurveTo(-r*1.05,r*.14,-r,-r*.96,0,-r);x.fill();
+}
+function drawCore(o){
+  x.save();x.translate(o.x,o.y);
+  const sway=Math.sin(t*.0015+o.phase)*8;
+  x.rotate(sway*.015);
+  const rg=x.createRadialGradient(-o.r*.35,-o.r*.4,2,0,0,o.r*1.45);
+  rg.addColorStop(0,'rgba(245,255,248,.96)');
+  rg.addColorStop(.22,o.apple?'#b8ff9d':'#8dffe5');
+  rg.addColorStop(.65,o.apple?'#4dd06f':'#38a7d4');
+  rg.addColorStop(1,'rgba(6,20,22,.98)');
+  x.shadowBlur=18+o.glow*16;x.shadowColor=o.apple?'rgba(120,255,160,.24)':'rgba(100,220,255,.2)';x.fillStyle=rg;
+  if(o.apple) drawAppleBody(o.r); else {x.beginPath();x.arc(0,0,o.r,0,6.28);x.fill();}
+  x.shadowBlur=0;
+  x.fillStyle='rgba(6,18,14,.28)';x.beginPath();x.arc(o.r*.16,-o.r*.1,o.r*.18,0,6.28);x.fill();
+  if(o.apple){x.strokeStyle='rgba(102,66,30,.88)';x.lineWidth=Math.max(1,o.r*.07);x.beginPath();x.moveTo(0,-o.r*.84);x.quadraticCurveTo(o.r*.04,-o.r*1.1,o.r*.2,-o.r*1.04);x.stroke();x.fillStyle='rgba(138,220,118,.9)';x.beginPath();x.ellipse(o.r*.28,-o.r*.98,o.r*.22,o.r*.1,.35,0,6.28);x.fill();}
+  else {x.strokeStyle='rgba(165,255,246,.3)';x.lineWidth=1;x.beginPath();x.ellipse(0,0,o.r*1.35,o.r*.42,Math.sin(o.phase+t*.001)*.8,0,6.28);x.stroke();}
+  x.fillStyle='rgba(230,255,245,.68)';x.font=Math.max(9,o.r*.35)+'px ui-monospace, monospace';x.textAlign='center';x.fillText(o.label,0,o.r+16);
+  if(pointer.seen&&Math.hypot(pointer.x-o.x,pointer.y-o.y)<120){x.strokeStyle='rgba(255,255,255,.12)';x.beginPath();x.arc(0,0,o.r+8+Math.sin(t*.01+o.blink)*2,0,6.28);x.stroke()}
+  x.restore();
+}
+function update(dt){
+  const mx=pointer.seen?pointer.x:w*.5,my=pointer.seen?pointer.y:h*.52;
+  for(const o of cores){
+    const dx=mx-o.x,dy=my-o.y,dist=Math.hypot(dx,dy)||1,force=(pointer.down?26000:6000)/(dist*dist+700);
+    o.vx+=dx/dist*force*.012;o.vy+=dy/dist*force*.012;
+    o.vx+=Math.sin(t*.001+o.phase)*.004;o.vy+=Math.cos(t*.0012+o.phase)*.004;
+    o.vx*=.994;o.vy*=.994;o.x+=o.vx*dt*.06;o.y+=o.vy*dt*.06;
+    if(o.x<-90)o.x=w+90;if(o.x>w+90)o.x=-90;if(o.y<110)o.y=h-90;if(o.y>h-70)o.y=120;
+  }
+  for(let i=0;i<cores.length;i++)for(let j=i+1;j<cores.length;j++){
+    const a=cores[i],b=cores[j],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,min=(a.r+b.r)*.92;
+    if(d<min){const nx=dx/d,ny=dy/d,push=(min-d)*.04;a.vx-=nx*push;b.vx+=nx*push;a.vy-=ny*push;b.vy+=ny*push; if(Math.random()<.015) logLine('merged echo: '+a.label+' + '+b.label)}
+  }
+  for(const m of motes){m.x+=m.vx*dt*.05;m.y+=m.vy*dt*.05;m.a*=.989}
+  for(const r of rings){r.r+=dt*.03;r.a*=.983}
+  while(motes.length>240)motes.shift(); while(rings.length>28)rings.shift();
+}
+function render(){
+  bg();
+  x.globalCompositeOperation='screen';
+  for(const r of rings){x.strokeStyle='rgba(170,255,220,'+r.a+')';x.lineWidth=1;x.beginPath();x.arc(r.x,r.y,r.r,0,6.28);x.stroke()}
+  for(const m of motes){x.fillStyle='rgba(196,255,230,'+(m.a*.45)+')';x.beginPath();x.arc(m.x,m.y,m.r,0,6.28);x.fill()}
+  x.globalCompositeOperation='source-over';
+  cores.sort((a,b)=>a.r-b.r); for(const o of cores) drawCore(o);
+  if(pointer.seen){const g=x.createRadialGradient(pointer.x,pointer.y,0,pointer.x,pointer.y,pointer.down?180:120);g.addColorStop(0,pointer.down?'rgba(180,255,225,.12)':'rgba(180,255,225,.07)');g.addColorStop(1,'rgba(180,255,225,0)');x.fillStyle=g;x.fillRect(pointer.x-180,pointer.y-180,360,360)}
+}
+function tick(ts){if(!last)last=ts;const dt=Math.min(32,ts-last);last=ts;t+=dt;update(dt);render();requestAnimationFrame(tick)}
+function setPointer(e){const p=e.touches?e.touches[0]:e;pointer.x=p.clientX;pointer.y=p.clientY;pointer.seen=true}
+function down(e){setPointer(e);pointer.down=true;initAudio();spawn(pointer.x+rand(-12,12),pointer.y+rand(-12,12),false)}
+function move(e){setPointer(e);if(pointer.down&&Math.random()<.1){motes.push({x:pointer.x,y:pointer.y,vx:rand(-.8,.8),vy:rand(-.8,.8),r:rand(1,2.5),a:rand(.16,.4)}); if(audioReady&&Math.random()<.04) tone(rand(180,300),.16,'sine',.005,(pointer.x/w-.5)*1.4)}}
+function up(){pointer.down=false}
+addEventListener('resize',resize);
+addEventListener('pointerdown',down,{passive:true});addEventListener('pointermove',move,{passive:true});addEventListener('pointerup',up,{passive:true});addEventListener('pointercancel',up,{passive:true});addEventListener('touchstart',down,{passive:true});addEventListener('touchmove',move,{passive:true});addEventListener('touchend',up,{passive:true});
+resize();
+for(let i=0;i<6;i++)spawn(rand(w*.18,w*.82),rand(h*.24,h*.76),true);
+statusEl.textContent='backup integrity 99.01% • 6 spectral objects indexed';
+requestAnimationFrame(tick);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
