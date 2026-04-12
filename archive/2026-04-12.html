@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Terms of Germination — aapple.com</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#f7f1e3;color:#221b16;font-family:Georgia,serif}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+#ui,#hint,#status,.footer{position:fixed;left:0;right:0;z-index:2}
+#ui{top:0;padding:18px 20px 0;text-align:center;pointer-events:none}
+.kicker{font:10px/1.2 Arial,sans-serif;letter-spacing:.38em;text-transform:uppercase;color:rgba(34,27,22,.45)}
+h1{margin-top:10px;font-size:clamp(32px,6vw,68px);font-weight:normal;line-height:.95}
+#status{top:96px;text-align:center;font:12px/1.2 Arial,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(34,27,22,.5);padding:0 18px;pointer-events:none}
+#hint{bottom:62px;text-align:center;font:11px/1.2 Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:rgba(34,27,22,.36);padding:0 18px;pointer-events:none}
+#panel{position:fixed;left:18px;top:18px;width:min(300px,calc(100vw - 36px));padding:14px 14px 12px;border:1px solid rgba(34,27,22,.14);background:rgba(255,251,243,.66);backdrop-filter:blur(8px);border-radius:16px;z-index:3;box-shadow:0 16px 40px rgba(70,35,20,.08)}
+#panel label{display:block;font:10px/1.2 Arial,sans-serif;letter-spacing:.28em;text-transform:uppercase;color:rgba(34,27,22,.54);margin-bottom:8px}
+#seedInput{width:100%;border:none;background:rgba(255,255,255,.7);border-radius:10px;padding:12px 14px;font:16px/1.3 Georgia,serif;color:#2a1d14;outline:none;box-shadow:inset 0 0 0 1px rgba(34,27,22,.08)}
+#panel .row{display:flex;gap:10px;margin-top:10px}
+button{flex:1;border:none;border-radius:999px;padding:10px 12px;background:#27160f;color:#fff7e8;font:11px/1 Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;cursor:pointer}
+button.alt{background:rgba(39,22,15,.09);color:#382015}
+#ledger{margin-top:12px;min-height:32px;font:12px/1.4 Arial,sans-serif;color:rgba(34,27,22,.62)}
+.footer{bottom:0;padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-end}
+.footer a{color:rgba(34,27,22,.45);text-decoration:none;font:10px/1 Arial,sans-serif;letter-spacing:2px;text-transform:uppercase}
+.footer a:hover{color:rgba(34,27,22,.7)}
+.footer .credit{max-width:320px;text-align:right;color:rgba(34,27,22,.28);font-size:9px;line-height:1.35}
+@media (max-width:720px){
+  #panel{top:auto;bottom:96px}
+  #status{top:108px}
+  .footer{align-items:flex-start}
+  .footer .credit{max-width:220px}
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div class="kicker">a small legal document for impossible fruit</div>
+  <h1>Terms of Germination</h1>
+</div>
+<div id="status">type a word, phrase, or secret. plant it. watch the page negotiate with spring.</div>
+<div id="panel">
+  <label for="seedInput">seed text</label>
+  <input id="seedInput" maxlength="48" placeholder="ripe doubt, moon receipt, apple.exe">
+  <div class="row">
+    <button id="plantBtn">Plant</button>
+    <button id="windBtn" class="alt">Crosswind</button>
+  </div>
+  <div id="ledger">Every planted phrase becomes a temporary species.</div>
+</div>
+<div id="hint">tap empty space for wild seeds • sound wakes on first gesture</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');
+const input=document.getElementById('seedInput');
+const ledger=document.getElementById('ledger');
+const statusEl=document.getElementById('status');
+const plantBtn=document.getElementById('plantBtn');
+const windBtn=document.getElementById('windBtn');
+let w=0,h=0,dpr=1,last=0,t=0,wind=0,audioReady=false,ac,master;
+const pointer={x:0,y:0,seen:false};
+const plants=[];
+const spores=[];
+const wild=[
+  'apple clause','soft machine','bruise hymn','tiny eclipse','feral punctuation','sleep orchard',
+  'receipt for rain','midnight peel','glossary of moss','mouth of april','error blossom','hollow sunrise'
+];
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;c.width=w*dpr;c.height=h*dpr;c.style.width=w+'px';c.style.height=h+'px';x.setTransform(dpr,0,0,dpr,0,0)}
+function rand(a,b){return a+Math.random()*(b-a)}
+function pick(a){return a[(Math.random()*a.length)|0]}
+function initAudio(){if(audioReady)return;audioReady=true;ac=new(window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.gain.value=.05;master.connect(ac.destination)}
+function ping(freq=330,dur=.5,type='sine',gain=.02,pan=0){if(!audioReady)return;const now=ac.currentTime,o=ac.createOscillator(),g=ac.createGain(),p=ac.createStereoPanner();o.type=type;o.frequency.setValueAtTime(freq,now);o.frequency.exponentialRampToValueAtTime(Math.max(80,freq*.55),now+dur);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(gain,now+.02);g.gain.exponentialRampToValueAtTime(.0001,now+dur);p.pan.value=Math.max(-1,Math.min(1,pan));o.connect(g);g.connect(p);p.connect(master);o.start(now);o.stop(now+dur+.05)}
+function murmur(seed){if(!audioReady)return;const base=180+(seed.text.length*11)%120;ping(base,.9,'triangle',.015,(seed.x/w-.5)*1.3);setTimeout(()=>ping(base*1.5,.4,'sine',.008,(seed.x/w-.5)*1.3),110)}
+function colorFor(text){let sum=0;for(const ch of text)sum+=ch.charCodeAt(0);const hue=(sum*7)%360;return {stem:`hsl(${(hue+40)%360} 34% 32%)`, petal:`hsl(${hue} 74% 62%)`, glow:`hsla(${hue} 90% 65% / .18)`}}
+function plant(text,px,py,scale=1){text=(text||pick(wild)).trim();if(!text)text=pick(wild);const pal=colorFor(text);const seed={text,x:px,y:py,age:0,size:Math.max(16,Math.min(34,14+text.length*.38))*scale,drift:rand(-.3,.3),sway:rand(0,6.28),burst:0,pal};plants.push(seed);for(let i=0;i<text.length*2+10;i++)spores.push({x:px,y:py,vx:rand(-1.8,1.8),vy:rand(-3.4,-.4),r:rand(1,3),a:rand(.2,.65),h:(i/text.length)*60});ledger.textContent='Accepted: “'+text+'” now growing under implied moonlight.';statusEl.textContent=plants.length+' active species • crosswind '+Math.round(Math.abs(wind)*100)+'% • nothing here is botanically defensible';murmur(seed)}
+function spray(px,py){plant(pick(wild),px+rand(-30,30),py+rand(-20,20),rand(.8,1.2))}
+function drawBackground(){
+  const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,'#fff8ea');g.addColorStop(.55,'#f3e4c6');g.addColorStop(1,'#d7bc8c');x.fillStyle=g;x.fillRect(0,0,w,h);
+  x.fillStyle='rgba(255,255,255,.12)';
+  for(let i=0;i<6;i++){const yy=h*.18+i*h*.12+Math.sin(t*.00025+i)*8;x.fillRect(0,yy,w,1)}
+  for(let i=0;i<22;i++){const xx=((i*173)+t*.015)% (w+160)-80; x.fillStyle='rgba(255,255,255,.05)'; x.beginPath(); x.ellipse(xx,h*.16+(i%5)*60,80,26,Math.sin(i+t*.0004)*.3,0,6.28); x.fill()}
+}
+function stemPath(p){
+  x.beginPath(); x.moveTo(p.x,h+30);
+  const bend=Math.sin(t*.0014+p.sway)*20 + wind*80 + p.drift*40;
+  x.bezierCurveTo(p.x+bend*.2,h*.82,p.x-bend*.7,h*.58,p.x+bend*.35,p.y+18);
+}
+function drawPlant(p){
+  const growth=Math.min(1,p.age/1800);
+  const bloom=Math.max(0,Math.min(1,(p.age-500)/1200));
+  const bob=Math.sin(t*.0016+p.sway)*7 + wind*18;
+  x.save();
+  x.shadowBlur=0;
+  x.strokeStyle=p.pal.stem; x.lineWidth=2+growth*2; stemPath({...p,x:p.x+bob*.08,y:p.y}); x.stroke();
+  const headX=p.x+bob, headY=p.y-Math.sin(t*.0019+p.sway)*6;
+  x.fillStyle='rgba(70,120,48,.16)'; x.beginPath(); x.ellipse(headX-14,headY+14,18,8,-.6,0,6.28); x.fill();
+  x.beginPath(); x.ellipse(headX+15,headY+8,16,7,.5,0,6.28); x.fill();
+  x.shadowBlur=24; x.shadowColor=p.pal.glow;
+  x.fillStyle=p.pal.petal;
+  x.font=(p.size*(.4+.6*bloom))+'px Georgia, serif';
+  x.textAlign='center'; x.textBaseline='middle';
+  const chars=[...p.text];
+  const radius=(p.size*.9)+(chars.length*1.8);
+  chars.forEach((ch,i)=>{
+    const a=(i/chars.length)*6.283 + t*.00022 + p.sway;
+    const rr=radius*(.55+.45*bloom);
+    const lx=headX+Math.cos(a)*(rr+Math.sin(t*.0013+i)*3);
+    const ly=headY+Math.sin(a)*(rr*.7+Math.cos(t*.0011+i)*2);
+    x.save(); x.translate(lx,ly); x.rotate(a+Math.sin(t*.0017+i)*.15); x.fillText(ch,0,0); x.restore();
+  });
+  x.shadowBlur=0;
+  x.fillStyle='rgba(36,18,10,.88)'; x.font=(p.size*.58)+'px Georgia, serif'; x.fillText(p.text[0].toUpperCase(),headX,headY);
+  if(bloom>.65 && p.text.toLowerCase().includes('apple')){x.fillStyle='rgba(179,39,32,.9)';x.beginPath();x.moveTo(headX,headY-16);x.bezierCurveTo(headX+18,headY-18,headX+18,headY+9,headX,headY+16);x.bezierCurveTo(headX-18,headY+9,headX-18,headY-18,headX,headY-16);x.fill();x.strokeStyle='rgba(74,45,18,.8)';x.lineWidth=2;x.beginPath();x.moveTo(headX,headY-14);x.quadraticCurveTo(headX+2,headY-22,headX+8,headY-19);x.stroke();}
+  x.restore();
+}
+function update(dt){
+  wind+=(-wind)*.01;
+  for(const p of plants)p.age+=dt;
+  for(const s of spores){s.x+=s.vx+wind*2;s.y+=s.vy;s.vy+=.018;s.a*=.992}
+  while(spores.length>500)spores.shift();
+  for(let i=plants.length-1;i>=0;i--)if(plants[i].age>32000&&plants.length>9)plants.splice(i,1);
+}
+function render(){
+  drawBackground();
+  x.fillStyle='rgba(123,87,53,.18)'; x.fillRect(0,h*.82,w,h*.18);
+  x.fillStyle='rgba(90,62,35,.1)'; for(let i=0;i<18;i++)x.fillRect(i*w/18,h*.82+Math.sin(i+t*.0008)*6,w/18+2,h*.18);
+  x.globalCompositeOperation='screen';
+  for(const s of spores){x.fillStyle=`hsla(${36+s.h} 100% 70% / ${s.a})`;x.beginPath();x.arc(s.x,s.y,s.r,0,6.28);x.fill()}
+  x.globalCompositeOperation='source-over';
+  plants.sort((a,b)=>a.y-b.y); for(const p of plants)drawPlant(p);
+  if(pointer.seen){const g=x.createRadialGradient(pointer.x,pointer.y,0,pointer.x,pointer.y,120);g.addColorStop(0,'rgba(255,255,255,.18)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(pointer.x-120,pointer.y-120,240,240)}
+}
+function tick(ts){if(!last)last=ts;const dt=Math.min(32,ts-last);last=ts;t+=dt;update(dt);render();requestAnimationFrame(tick)}
+function setPointer(e){const p=e.touches?e.touches[0]:e;pointer.x=p.clientX;pointer.y=p.clientY;pointer.seen=true}
+function plantFromInput(){initAudio();const text=input.value.trim()||pick(wild);const px=pointer.seen?pointer.x:rand(w*.2,w*.8);const py=pointer.seen?Math.min(h*.72,Math.max(h*.32,pointer.y)):rand(h*.34,h*.7);plant(text,px,py);input.value=''}
+plantBtn.addEventListener('click',plantFromInput);
+windBtn.addEventListener('click',()=>{initAudio();wind=rand(-1,1);ledger.textContent='Crosswind amended. Several phrases are reconsidering their posture.';ping(240+Math.abs(wind)*120,.7,'square',.01,wind*.7)});
+input.addEventListener('keydown',e=>{if(e.key==='Enter')plantFromInput()});
+addEventListener('pointerdown',e=>{setPointer(e);if(e.target===c){initAudio();spray(pointer.x,Math.min(pointer.y,h*.76)); if(Math.random()<.35)spray(pointer.x+rand(-40,40),Math.min(pointer.y+rand(-20,20),h*.76));}} ,{passive:true});
+addEventListener('pointermove',e=>{setPointer(e)},{passive:true});
+addEventListener('touchstart',e=>setPointer(e),{passive:true});
+addEventListener('resize',resize);
+resize();
+[['welcome',w*.28,h*.55],['apple',w*.52,h*.46],['night soil',w*.74,h*.62],['small thunder',w*.42,h*.68]].forEach(([txt,px,py],i)=>setTimeout(()=>plant(txt,px,py,.95),i*120));
+requestAnimationFrame(tick);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
