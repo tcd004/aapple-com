@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Constellation for Apples That Missed the Ground — aapple.com</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#060816;color:#eef3ff;font-family:Arial,sans-serif}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+#ui,#controls,#hint,.footer{position:fixed;left:0;right:0;z-index:2}
+#ui{top:0;padding:18px 18px 0;text-align:center;pointer-events:none}
+.kicker{font-size:10px;letter-spacing:.42em;text-transform:uppercase;color:rgba(220,230,255,.38)}
+h1{margin-top:12px;font-weight:normal;font-size:clamp(30px,6vw,66px);line-height:.94}
+#controls{top:104px;display:flex;justify-content:center;pointer-events:none}
+.panel{pointer-events:auto;display:flex;gap:10px;align-items:center;padding:12px 14px;border:1px solid rgba(255,255,255,.12);background:rgba(12,16,35,.45);backdrop-filter:blur(10px);border-radius:999px;box-shadow:0 20px 40px rgba(0,0,0,.22)}
+button{border:none;border-radius:999px;padding:10px 14px;background:#edf2ff;color:#0c1021;font:11px/1 Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;cursor:pointer}
+button.alt{background:rgba(255,255,255,.08);color:#eef3ff}
+#message{max-width:min(44vw,420px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:rgba(238,243,255,.72);font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+#hint{bottom:64px;text-align:center;padding:0 20px;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:rgba(225,235,255,.28);pointer-events:none}
+.footer{bottom:0;padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-end}
+.footer a{color:rgba(255,255,255,.28);text-decoration:none;font-size:10px;letter-spacing:2px;text-transform:uppercase}
+.footer a:hover{color:rgba(255,255,255,.6)}
+.footer .credit{max-width:320px;text-align:right;color:rgba(255,255,255,.12);font-size:9px;line-height:1.35}
+@media (max-width:720px){
+  #controls{top:auto;bottom:100px;padding:0 14px}
+  .panel{width:100%;justify-content:space-between;border-radius:22px}
+  #message{max-width:44vw;font-size:11px}
+  .footer{align-items:flex-start}
+  .footer .credit{max-width:220px}
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div class="kicker">astronomy for dropped fruit</div>
+  <h1>Constellation for Apples That Missed the Ground</h1>
+</div>
+<div id="controls">
+  <div class="panel">
+    <button id="scatterBtn">Scatter</button>
+    <button id="humBtn" class="alt">Hum</button>
+    <div id="message">tap the sky to pin a star. drag to bend gravity.</div>
+  </div>
+</div>
+<div id="hint">some apples never fell, they just learned distance • sound wakes on first gesture</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');
+const msg=document.getElementById('message');
+const scatterBtn=document.getElementById('scatterBtn');
+const humBtn=document.getElementById('humBtn');
+let w=0,h=0,dpr=1,last=0,t=0,audioReady=false,ac,master,drone;
+const pointer={x:0,y:0,down:false,seen:false};
+const stars=[],ripples=[];
+const phrases=['bruise nebula','remote harvest','silent stem','gravity rumor','night orchard','aphelion snack','moonlit inventory','seed telemetry','apple afterimage','unclaimed sweetness'];
+function rand(a,b){return a+Math.random()*(b-a)}
+function pick(a){return a[(Math.random()*a.length)|0]}
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;c.width=w*dpr;c.height=h*dpr;c.style.width=w+'px';c.style.height=h+'px';x.setTransform(dpr,0,0,dpr,0,0)}
+function initAudio(){
+  if(audioReady)return;
+  audioReady=true;
+  ac=new(window.AudioContext||window.webkitAudioContext)();
+  master=ac.createGain();master.gain.value=.07;master.connect(ac.destination);
+}
+function ping(freq=440,dur=.4,pan=0,type='sine',gain=.016){
+  if(!audioReady)return;
+  const now=ac.currentTime,o=ac.createOscillator(),g=ac.createGain(),p=ac.createStereoPanner();
+  o.type=type;o.frequency.setValueAtTime(freq,now);o.frequency.exponentialRampToValueAtTime(Math.max(80,freq*.6),now+dur);
+  g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(gain,now+.02);g.gain.exponentialRampToValueAtTime(.0001,now+dur);
+  p.pan.value=Math.max(-1,Math.min(1,pan));o.connect(g);g.connect(p);p.connect(master);o.start(now);o.stop(now+dur+.02);
+}
+function toggleHum(){
+  initAudio();
+  if(drone){drone.osc.stop();drone=null;humBtn.textContent='Hum';msg.textContent='the sky has gone politely quiet';return;}
+  const osc=ac.createOscillator(),g=ac.createGain(),f=ac.createBiquadFilter();
+  osc.type='triangle';osc.frequency.value=108;f.type='lowpass';f.frequency.value=480;g.gain.value=.0001;
+  osc.connect(f);f.connect(g);g.connect(master);osc.start();g.gain.exponentialRampToValueAtTime(.02,ac.currentTime+.4);
+  drone={osc,g};humBtn.textContent='Mute';msg.textContent='the constellation is humming to itself';
+}
+function appleShape(r){
+  x.beginPath();x.moveTo(0,-r);x.bezierCurveTo(r,-r*.96,r*1.06,r*.12,0,r);x.bezierCurveTo(-r*1.06,r*.12,-r,-r*.96,0,-r);
+}
+function addStar(px,py,seed=false){
+  const apple=Math.random()>.45;
+  const hue=apple?rand(2,24):rand(190,250);
+  stars.push({x:px,y:py,vx:rand(-.25,.25),vy:rand(-.25,.25),r:seed?rand(10,18):rand(8,16),apple,hue,tw:rand(0,6.28),mass:rand(.7,1.5),ring:Math.random()>.72,label:pick(phrases),lock:seed?rand(.3,.9):0});
+  ripples.push({x:px,y:py,r:8,a:.24});
+  msg.textContent='catalogued: '+pick(phrases);
+  if(audioReady) ping(apple?rand(220,360):rand(420,620),rand(.25,.8),(px/w-.5)*1.4,apple?'triangle':'sine',apple?.013:.01);
+}
+function seedSky(){stars.length=0;for(let i=0;i<28;i++)addStar(rand(40,w-40),rand(120,h-80),true)}
+function bg(){
+  const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,'#070a18');g.addColorStop(.55,'#0e1430');g.addColorStop(1,'#03050d');x.fillStyle=g;x.fillRect(0,0,w,h);
+  for(let i=0;i<120;i++){
+    const sx=(i*97+t*.004)%w,sy=(i*i*19+i*37)%h,sz=(i%3)+1,al=.04+.05*Math.sin(i+t*.0014);
+    x.fillStyle='rgba(255,255,255,'+al+')';x.fillRect(sx,sy,sz,sz);
+  }
+  const moonX=w*.82+Math.sin(t*.00008)*18,moonY=h*.2;
+  const rg=x.createRadialGradient(moonX,moonY,0,moonX,moonY,140);
+  rg.addColorStop(0,'rgba(255,250,225,.16)');rg.addColorStop(1,'rgba(255,250,225,0)');x.fillStyle=rg;x.beginPath();x.arc(moonX,moonY,140,0,6.28);x.fill();
+}
+function drawLinks(){
+  for(let i=0;i<stars.length;i++)for(let j=i+1;j<stars.length;j++){
+    const a=stars[i],b=stars[j],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);
+    if(d<140){x.strokeStyle='hsla('+(a.hue+b.hue)/2+' 80% 78% / '+(0.12-(d/1600))+')';x.lineWidth=.8;x.beginPath();x.moveTo(a.x,a.y);x.lineTo(b.x,b.y);x.stroke();}
+  }
+}
+function drawStar(s){
+  x.save();x.translate(s.x,s.y);x.rotate(Math.sin(t*.0012+s.tw)*.08);
+  const glow=.45+.55*Math.sin(t*.002+s.tw);
+  x.shadowBlur=18+s.r*1.6;x.shadowColor='hsla('+s.hue+' 95% 70% / .36)';
+  x.fillStyle='hsla('+s.hue+' 90% '+(65+glow*18)+'% / .95)';
+  if(s.apple){appleShape(s.r);x.fill();x.shadowBlur=0;x.strokeStyle='rgba(96,68,34,.8)';x.lineWidth=Math.max(1,s.r*.08);x.beginPath();x.moveTo(0,-s.r*.82);x.quadraticCurveTo(0,-s.r*1.16,s.r*.18,-s.r*1.06);x.stroke();x.fillStyle='rgba(143,232,126,.88)';x.beginPath();x.ellipse(s.r*.28,-s.r*.98,s.r*.22,s.r*.1,.35,0,6.28);x.fill();}
+  else{x.beginPath();x.arc(0,0,s.r*.78,0,6.28);x.fill();}
+  if(s.ring){x.shadowBlur=0;x.strokeStyle='hsla('+s.hue+' 100% 85% / .28)';x.lineWidth=1;x.beginPath();x.ellipse(0,0,s.r*1.7,s.r*.52,Math.sin(s.tw+t*.0008)*.9,0,6.28);x.stroke();}
+  x.restore();
+}
+function update(dt){
+  const gx=pointer.seen?pointer.x:w*.5,gy=pointer.seen?pointer.y:h*.5;
+  for(const s of stars){
+    const dx=gx-s.x,dy=gy-s.y,dist=Math.hypot(dx,dy)||1,force=(pointer.down?16000:2500)/(dist*dist+1600);
+    s.vx+=dx/dist*force*.014*s.mass;s.vy+=dy/dist*force*.014*s.mass;
+    s.vx+=Math.sin(t*.0008+s.tw)*.0025;s.vy+=Math.cos(t*.001+s.tw)*.0025;
+    s.vx*=.996;s.vy*=.996;s.x+=s.vx*dt*.06;s.y+=s.vy*dt*.06;
+    if(s.x< -40)s.x=w+40;if(s.x>w+40)s.x=-40;if(s.y<90)s.y=h-20;if(s.y>h+20)s.y=100;
+  }
+  for(const r of ripples){r.r+=dt*.04;r.a*=.985}
+  while(ripples.length>40)ripples.shift();
+}
+function render(){
+  bg();
+  x.globalCompositeOperation='screen';
+  for(const r of ripples){x.strokeStyle='rgba(210,225,255,'+r.a+')';x.lineWidth=1;x.beginPath();x.arc(r.x,r.y,r.r,0,6.28);x.stroke()}
+  drawLinks();
+  for(const s of stars)drawStar(s);
+  x.globalCompositeOperation='source-over';
+  if(pointer.seen){const g=x.createRadialGradient(pointer.x,pointer.y,0,pointer.x,pointer.y,pointer.down?220:120);g.addColorStop(0,'rgba(255,255,255,'+(pointer.down?.14:.08)+')');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(pointer.x-220,pointer.y-220,440,440)}
+}
+function tick(ts){if(!last)last=ts;const dt=Math.min(32,ts-last);last=ts;t+=dt;update(dt);render();requestAnimationFrame(tick)}
+function setPointer(e){const p=e.touches?e.touches[0]:e;pointer.x=p.clientX;pointer.y=p.clientY;pointer.seen=true}
+function down(e){setPointer(e);pointer.down=true;initAudio();addStar(pointer.x+rand(-8,8),pointer.y+rand(-8,8),false)}
+function move(e){setPointer(e);if(pointer.down&&Math.random()<.08){ripples.push({x:pointer.x,y:pointer.y,r:6,a:.08});if(audioReady&&Math.random()<.05)ping(rand(330,680),.12,(pointer.x/w-.5)*1.4,'sine',.004)}}
+function up(){pointer.down=false}
+scatterBtn.addEventListener('click',()=>{initAudio();seedSky();msg.textContent='the orchard has been rethrown into space';ping(180,.6,0,'square',.01)});
+humBtn.addEventListener('click',toggleHum);
+addEventListener('resize',resize);
+addEventListener('pointerdown',down,{passive:true});addEventListener('pointermove',move,{passive:true});addEventListener('pointerup',up,{passive:true});addEventListener('pointercancel',up,{passive:true});addEventListener('touchstart',down,{passive:true});addEventListener('touchmove',move,{passive:true});addEventListener('touchend',up,{passive:true});
+resize();seedSky();msg.textContent='28 escaped apples currently visible';requestAnimationFrame(tick);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
