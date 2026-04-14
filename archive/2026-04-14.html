@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Please Hold for the Orchard — aapple.com</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#09090c;color:#f6f1e8;font-family:Arial,sans-serif}
+body{touch-action:manipulation}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+#ui,.footer,#hint{position:fixed;left:0;right:0;z-index:2}
+#ui{top:0;padding:18px 18px 0;text-align:center;pointer-events:none}
+.kicker{font-size:10px;letter-spacing:.38em;text-transform:uppercase;color:rgba(246,241,232,.34)}
+h1{margin-top:12px;font-size:clamp(30px,6vw,68px);line-height:.92;font-weight:normal}
+#panel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,calc(100vw - 30px));padding:16px;border:1px solid rgba(255,255,255,.12);border-radius:24px;background:rgba(10,10,14,.56);backdrop-filter:blur(12px);box-shadow:0 24px 80px rgba(0,0,0,.38);z-index:3}
+#status{font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:rgba(246,241,232,.46);text-align:center;margin-bottom:14px}
+#screen{border-radius:18px;padding:16px;background:linear-gradient(180deg,rgba(245,234,210,.08),rgba(86,25,17,.14));border:1px solid rgba(255,255,255,.08);min-height:148px;display:flex;flex-direction:column;justify-content:space-between;gap:10px}
+#screenText{font-family:Georgia,serif;font-size:clamp(22px,4vw,34px);line-height:1.02;text-align:center;text-wrap:balance}
+#sub{font-size:12px;letter-spacing:.11em;text-transform:uppercase;text-align:center;color:rgba(246,241,232,.62);min-height:28px}
+#controls{display:flex;gap:10px;margin-top:12px}
+button{flex:1;border:none;border-radius:999px;padding:12px 14px;background:#f6f1e8;color:#171417;font:11px/1 Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;cursor:pointer}
+button.alt{background:rgba(255,255,255,.08);color:#f6f1e8}
+#log{margin-top:12px;height:56px;overflow:hidden;font-size:12px;line-height:1.35;color:rgba(246,241,232,.6)}
+#hint{bottom:62px;text-align:center;padding:0 18px;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:rgba(246,241,232,.24);pointer-events:none}
+.footer{bottom:0;padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-end}
+.footer a{color:rgba(255,255,255,.28);text-decoration:none;font-size:10px;letter-spacing:2px;text-transform:uppercase}.footer a:hover{color:rgba(255,255,255,.56)}
+.footer .credit{max-width:320px;text-align:right;color:rgba(255,255,255,.12);font-size:9px;line-height:1.35}
+@media (max-width:720px){#panel{top:auto;bottom:94px;transform:translateX(-50%)}.footer{align-items:flex-start}.footer .credit{max-width:220px}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div class="kicker">an automated call center for misplaced fruit</div>
+  <h1>Please Hold for the Orchard</h1>
+</div>
+<div id="panel">
+  <div id="status">line open • midnight support</div>
+  <div id="screen">
+    <div id="screenText">Press connect to receive a message from the orchard.</div>
+    <div id="sub">all calls may be monitored by weather</div>
+  </div>
+  <div id="controls">
+    <button id="callBtn">Connect</button>
+    <button id="holdBtn" class="alt">Hold Music</button>
+  </div>
+  <div id="log">The queue is empty, which is suspicious.</div>
+</div>
+<div id="hint">tap anywhere to knock loose more apples • sound wakes on first gesture</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');
+const screenText=document.getElementById('screenText'),sub=document.getElementById('sub'),log=document.getElementById('log');
+const callBtn=document.getElementById('callBtn'),holdBtn=document.getElementById('holdBtn');
+let w=0,h=0,dpr=1,last=0,t=0,audioReady=false,ac,master,holdLoop=null,holdPhase=0;
+const apples=[],rings=[];
+const lines=[
+  ['Your call is important to the orchard.','A branch is searching for your extension.'],
+  ['Press nothing to continue ripening.','Silence has been selected automatically.'],
+  ['All our operators are currently becoming cider.','Please remain juicy.'],
+  ['The apple tree remembers your browser.','It wishes it did not.'],
+  ['You are caller number moon.','Estimated wait time: one small season.'],
+  ['A leaf is transferring you to another leaf.','Neither leaf has authority.'],
+  ['This support line only fixes emotional bruising.','For gravity, hang up and try again.'],
+  ['Your issue has been escalated to dawn.','Dawn is not in yet.'],
+  ['The orchard would like to verify you are not a worm.','Please blink at the screen.'],
+  ['A polite apple is reading your complaint.','It keeps stopping to glow.']
+];
+function rand(a,b){return a+Math.random()*(b-a)}
+function pick(a){return a[(Math.random()*a.length)|0]}
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;c.width=w*dpr;c.height=h*dpr;c.style.width=w+'px';c.style.height=h+'px';x.setTransform(dpr,0,0,dpr,0,0)}
+function initAudio(){if(audioReady)return;audioReady=true;ac=new(window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.gain.value=.07;master.connect(ac.destination)}
+function tone(freq=440,dur=.3,type='sine',gain=.012,pan=0){if(!audioReady)return;const now=ac.currentTime,o=ac.createOscillator(),g=ac.createGain(),p=ac.createStereoPanner();o.type=type;o.frequency.setValueAtTime(freq,now);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(gain,now+.02);g.gain.exponentialRampToValueAtTime(.0001,now+dur);p.pan.value=Math.max(-1,Math.min(1,pan));o.connect(g);g.connect(p);p.connect(master);o.start(now);o.stop(now+dur+.02)}
+function connect(){initAudio();const [a,b]=pick(lines);screenText.textContent=a;sub.textContent=b;log.textContent='Connection established at '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})+'. No representative sounds confident.';rings.push({x:w*.5,y:h*.52,r:24,a:.32});for(let i=0;i<3;i++)setTimeout(()=>tone(330+i*110,.18,'triangle',.012,rand(-.4,.4)),i*160)}
+function toggleHold(){initAudio();if(holdLoop){clearInterval(holdLoop);holdLoop=null;holdBtn.textContent='Hold Music';log.textContent='Hold music ended before it could resolve its feelings.';return}holdBtn.textContent='Mute';log.textContent='A tiny synthetic orchestra is playing in the refrigerated dark.';holdLoop=setInterval(()=>{holdPhase++;const base=[220,277,330,392][holdPhase%4];tone(base,.22,'sine',.009,-.3);setTimeout(()=>tone(base*1.5,.16,'triangle',.006,.3),90)},420)}
+function seed(){apples.length=0;for(let i=0;i<18;i++)apples.push({x:rand(0,w),y:rand(0,h),vx:rand(-.2,.2),vy:rand(-.08,.08),r:rand(10,24),hue:rand(6,24),seed:rand(0,6.28),stem:rand(-.4,.4)})}
+function addApple(px,py){apples.push({x:px,y:py,vx:rand(-.5,.5),vy:rand(-.7,.2),r:rand(12,22),hue:rand(0,18),seed:rand(0,6.28),stem:rand(-.4,.4)});rings.push({x:px,y:py,r:10,a:.26});tone(rand(240,420),.16,'triangle',.008,(px/w-.5)*1.3)}
+function bg(){const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,'#07080e');g.addColorStop(.55,'#1a1020');g.addColorStop(1,'#2d120e');x.fillStyle=g;x.fillRect(0,0,w,h);for(let i=0;i<70;i++){const yy=(i*53+t*.006)%h;x.fillStyle='rgba(255,255,255,.025)';x.fillRect(0,yy,w,1)}const rg=x.createRadialGradient(w*.5,h*.54,0,w*.5,h*.54,Math.max(w,h)*.45);rg.addColorStop(0,'rgba(255,210,160,.08)');rg.addColorStop(1,'rgba(255,210,160,0)');x.fillStyle=rg;x.fillRect(0,0,w,h)}
+function applePath(r){x.beginPath();x.moveTo(0,-r);x.bezierCurveTo(r,-r*.94,r*1.03,r*.08,0,r);x.bezierCurveTo(-r*1.03,r*.08,-r,-r*.94,0,-r)}
+function drawApple(a){x.save();x.translate(a.x,a.y+Math.sin(t*.001+a.seed)*6);x.rotate(Math.sin(t*.0008+a.seed)*.18);x.shadowBlur=18;x.shadowColor='hsla('+a.hue+' 90% 55% / .28)';x.fillStyle='hsl('+a.hue+' 72% 46%)';applePath(a.r);x.fill();x.shadowBlur=0;x.fillStyle='rgba(255,226,190,.12)';x.beginPath();x.ellipse(-a.r*.25,-a.r*.18,a.r*.18,a.r*.34,.4,0,6.28);x.fill();x.strokeStyle='rgba(74,45,19,.88)';x.lineWidth=Math.max(1,a.r*.08);x.beginPath();x.moveTo(0,-a.r*.86);x.quadraticCurveTo(a.stem*8,-a.r*1.22,a.stem*10,-a.r*1.04);x.stroke();x.fillStyle='rgba(126,220,112,.82)';x.beginPath();x.ellipse(a.r*.24,-a.r*.96,a.r*.24,a.r*.1,.35,0,6.28);x.fill();x.restore()}
+function update(dt){for(const a of apples){a.x+=a.vx*dt*.05;a.y+=a.vy*dt*.05;a.vx+=Math.sin(t*.0007+a.seed)*.0015;a.vy+=Math.cos(t*.0009+a.seed)*.0012;a.vx*=.999;a.vy*=.999;if(a.x<-40)a.x=w+40;if(a.x>w+40)a.x=-40;if(a.y<60)a.y=h-20;if(a.y>h+20)a.y=70}for(const r of rings){r.r+=dt*.06;r.a*=.984}while(rings.length>30)rings.shift()}
+function render(){bg();x.globalCompositeOperation='screen';for(const r of rings){x.strokeStyle='rgba(255,244,220,'+r.a+')';x.lineWidth=1;x.beginPath();x.arc(r.x,r.y,r.r,0,6.28);x.stroke()}for(const a of apples)drawApple(a);x.globalCompositeOperation='source-over';x.strokeStyle='rgba(255,255,255,.06)';x.lineWidth=2;x.beginPath();x.moveTo(w*.5,0);x.lineTo(w*.5,h*.24);x.stroke();x.beginPath();x.arc(w*.5,h*.27,34+Math.sin(t*.003)*2,0,6.28);x.stroke()}
+function tick(ts){if(!last)last=ts;const dt=Math.min(32,ts-last);last=ts;t+=dt;update(dt);render();requestAnimationFrame(tick)}
+addEventListener('resize',resize);
+addEventListener('pointerdown',e=>{initAudio();addApple(e.clientX,e.clientY);if(Math.random()<.35)connect()},{passive:true});
+callBtn.addEventListener('click',connect);holdBtn.addEventListener('click',toggleHold);
+resize();seed();requestAnimationFrame(tick);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
