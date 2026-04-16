@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Orchard of Unsent Cursors — aapple.com</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#06070b;color:#eef0f4;font-family:Georgia,serif}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+#ui,#hint,.footer{position:fixed;left:0;right:0;z-index:2}
+#ui{top:0;padding:18px 18px 0;text-align:center;pointer-events:none}
+.kicker{font:10px/1.3 Arial,sans-serif;letter-spacing:.38em;text-transform:uppercase;color:rgba(238,240,244,.34)}
+h1{margin-top:12px;font-size:clamp(30px,6vw,68px);line-height:.92;font-weight:normal;text-wrap:balance}
+#panel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,calc(100vw - 28px));padding:18px;border-radius:24px;border:1px solid rgba(255,255,255,.1);background:rgba(7,9,14,.42);backdrop-filter:blur(10px);box-shadow:0 28px 90px rgba(0,0,0,.38);z-index:3}
+#phrase{min-height:92px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:clamp(24px,4.2vw,40px);line-height:1.04;text-wrap:balance}
+#sub{margin-top:10px;text-align:center;font:11px/1.5 Arial,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:rgba(238,240,244,.54)}
+#controls{display:flex;gap:10px;margin-top:14px}
+button{flex:1;border:none;border-radius:999px;padding:12px 14px;background:#eef0f4;color:#111318;font:11px/1 Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;cursor:pointer}
+button.alt{background:rgba(255,255,255,.08);color:#eef0f4}
+#hint{bottom:64px;padding:0 20px;text-align:center;font:11px/1.4 Arial,sans-serif;letter-spacing:.22em;text-transform:uppercase;color:rgba(238,240,244,.24)}
+.footer{bottom:0;padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-end}
+.footer a{pointer-events:auto;color:rgba(255,255,255,.28);text-decoration:none;font:10px/1 Arial,sans-serif;letter-spacing:2px;text-transform:uppercase}
+.footer a:hover{color:rgba(255,255,255,.58)}
+.footer .credit{max-width:320px;text-align:right;color:rgba(255,255,255,.13);font:9px/1.35 Arial,sans-serif}
+@media (max-width:720px){#panel{top:auto;bottom:92px;transform:translateX(-50%)}#controls{flex-direction:column}.footer{align-items:flex-start}.footer .credit{max-width:220px}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div class="kicker">a field guide to everything you almost typed</div>
+  <h1>Orchard of Unsent Cursors</h1>
+</div>
+<div id="panel">
+  <div id="phrase">Tap the field to plant a blinking cursor.</div>
+  <div id="sub">drag to stir the wind • sound wakes on first gesture</div>
+  <div id="controls">
+    <button id="scatterBtn">Plant Randomly</button>
+    <button id="toneBtn" class="alt">Wake Choir</button>
+  </div>
+</div>
+<div id="hint">every cursor grows a sentence it never got to finish</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');
+const phraseEl=document.getElementById('phrase');
+const scatterBtn=document.getElementById('scatterBtn');
+const toneBtn=document.getElementById('toneBtn');
+let w=0,h=0,dpr=1,last=0,t=0,audioReady=false,ac,master,drone=null;
+const pointer={x:0,y:0,down:false};
+const stems=[],motes=[];
+const phrases=[
+  'the browser dreamt in red fruit and forgot to save',
+  'someone typed stay and the orchard kept only the cursor',
+  'every tab closes into a little patch of weather',
+  'the moon highlighted the sentence and pressed delete softly',
+  'an apple rolled across the form and submitted dusk',
+  'your unfinished thought has begun to blossom quietly',
+  'autocorrect replaced grief with garden again',
+  'the page keeps a meadow of all your almosts',
+  'a blinking stem waits where a confession might have been',
+  'the internet is composting another beautiful draft',
+  'this sentence wanted to be touched before it vanished',
+  'somewhere a cursor is still asking permission to glow'
+];
+function rand(a,b){return a+Math.random()*(b-a)}
+function pick(a){return a[(Math.random()*a.length)|0]}
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;c.width=w*dpr;c.height=h*dpr;c.style.width=w+'px';c.style.height=h+'px';x.setTransform(dpr,0,0,dpr,0,0);seedMotes()}
+function seedMotes(){motes.length=0;for(let i=0;i<120;i++)motes.push({x:rand(0,w),y:rand(0,h),r:rand(.6,2),a:rand(.04,.2),s:rand(.1,.7)})}
+function initAudio(){if(audioReady)return;audioReady=true;ac=new(window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.gain.value=.07;master.connect(ac.destination)}
+function ping(freq=300,dur=.7,pan=0,type='sine',gain=.012){if(!audioReady)return;const now=ac.currentTime,o=ac.createOscillator(),g=ac.createGain(),p=ac.createStereoPanner();o.type=type;o.frequency.setValueAtTime(freq,now);o.frequency.exponentialRampToValueAtTime(Math.max(90,freq*.6),now+dur);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(gain,now+.03);g.gain.exponentialRampToValueAtTime(.0001,now+dur);p.pan.value=Math.max(-1,Math.min(1,pan));o.connect(g);g.connect(p);p.connect(master);o.start(now);o.stop(now+dur+.03)}
+function toggleChoir(){initAudio();if(drone){drone.forEach(n=>{n.g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+.25);n.o.stop(ac.currentTime+.3)});drone=null;toneBtn.textContent='Wake Choir';phraseEl.textContent='The field has gone back to whispering.';return}const chord=[174.61,261.63,392].map((f,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.type=i===0?'triangle':'sine';o.frequency.value=f;g.gain.value=.0001;o.connect(g);g.connect(master);o.start();g.gain.exponentialRampToValueAtTime(.006/(i+1),ac.currentTime+.4);return{o,g}});drone=chord;toneBtn.textContent='Mute Choir';phraseEl.textContent='The unsent things are humming together now.'}
+function plant(px,py,seeded=false){const text=pick(phrases);stems.push({x:px,y:py,h:rand(30,90),wob:rand(0,6.28),grow:0,text,blink:rand(0,6.28),apple:Math.random()>.72,age:0,drift:rand(-.3,.3)});phraseEl.textContent=text;ping(rand(180,540),rand(.35,1.1),(px/w-.5)*1.4,Math.random()>.5?'triangle':'sine',seeded?.006:.011)}
+function scatter(){for(let i=0;i<8;i++)plant(rand(40,w-40),rand(h*.42,h-70),true);phraseEl.textContent='A handful of unfinished thoughts were planted at once.'}
+function sky(){const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,'#07080d');g.addColorStop(.52,'#12131d');g.addColorStop(1,'#1f1110');x.fillStyle=g;x.fillRect(0,0,w,h);const rg=x.createRadialGradient(w*.5,h*.28,0,w*.5,h*.28,Math.max(w,h)*.45);rg.addColorStop(0,'rgba(190,210,255,.08)');rg.addColorStop(1,'rgba(190,210,255,0)');x.fillStyle=rg;x.fillRect(0,0,w,h);for(const m of motes){m.y-=m.s*.12;if(m.y<-10){m.y=h+10;m.x=rand(0,w)}x.fillStyle='rgba(255,240,220,'+(m.a+.05*Math.sin(t*.001+m.x))+')';x.beginPath();x.arc(m.x+Math.sin(t*.0004+m.y)*3,m.y,m.r,0,6.28);x.fill()}const floor=x.createLinearGradient(0,h*.52,0,h);floor.addColorStop(0,'rgba(39,27,31,.12)');floor.addColorStop(1,'rgba(62,28,20,.88)');x.fillStyle=floor;x.fillRect(0,h*.52,w,h*.48)}
+function drawStem(s){const sway=Math.sin(t*.0014+s.wob+s.age*.004)*8+(pointer.down?(pointer.x-w*.5)*.00004:0);const topY=s.y-s.h*s.grow;const midY=s.y-s.h*.58*s.grow;x.strokeStyle='rgba(145,198,120,.5)';x.lineWidth=1.5;x.beginPath();x.moveTo(s.x,s.y);x.quadraticCurveTo(s.x+sway,midY,s.x+sway*.8,topY);x.stroke();x.strokeStyle='rgba(255,255,255,'+(.54+.34*Math.sin(t*.004+s.blink))+')';x.lineWidth=2.2;x.beginPath();x.moveTo(s.x+sway*.8,topY-10);x.lineTo(s.x+sway*.8,topY+10);x.stroke();if(s.apple){x.fillStyle='rgba(191,42,49,.86)';x.beginPath();x.moveTo(s.x+sway*.8,topY+14);x.bezierCurveTo(s.x+14+sway,topY+10,s.x+15+sway,topY+30,s.x+sway*.8,topY+36);x.bezierCurveTo(s.x-15+sway,topY+30,s.x-14+sway,topY+10,s.x+sway*.8,topY+14);x.fill();x.strokeStyle='rgba(89,58,24,.8)';x.lineWidth=1.2;x.beginPath();x.moveTo(s.x+sway*.8,topY+12);x.quadraticCurveTo(s.x+2+sway,topY+4,s.x+8+sway,topY+6);x.stroke()}x.fillStyle='rgba(245,238,231,'+(0.08+.52*s.grow)+')';x.font='12px Georgia';x.textAlign='center';x.fillText(s.text,s.x+sway*.8,topY-18)}
+function update(dt){for(const s of stems){s.age+=dt;s.grow=Math.min(1,s.grow+dt*.00045);s.x+=s.drift*Math.sin(t*.0007+s.wob)*.02}if(stems.length>22)stems.splice(0,stems.length-22)}
+function render(){sky();for(let i=0;i<7;i++){x.strokeStyle='rgba(255,255,255,'+(0.018+i*.003)+')';x.beginPath();x.moveTo(0,h*.58+i*26+Math.sin(t*.0006+i)*6);for(let px=0;px<=w;px+=18)x.lineTo(px,h*.58+i*26+Math.sin(px*.01+t*.0008+i)*7);x.stroke()}for(const s of stems)drawStem(s);if(pointer.down){const g=x.createRadialGradient(pointer.x,pointer.y,0,pointer.x,pointer.y,160);g.addColorStop(0,'rgba(255,255,255,.08)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(pointer.x-160,pointer.y-160,320,320)}}
+function tick(ts){if(!last)last=ts;const dt=Math.min(32,ts-last);last=ts;t+=dt;update(dt);render();requestAnimationFrame(tick)}
+function setPointer(e){pointer.x=e.clientX;pointer.y=e.clientY}
+addEventListener('resize',resize);
+addEventListener('pointerdown',e=>{setPointer(e);pointer.down=true;initAudio();plant(e.clientX,e.clientY);},{passive:true});
+addEventListener('pointermove',e=>{setPointer(e);if(pointer.down&&Math.random()<.03){ping(rand(240,620),.12,(e.clientX/w-.5)*1.2,'sine',.003)}},{passive:true});
+['pointerup','pointercancel','mouseleave'].forEach(ev=>addEventListener(ev,()=>pointer.down=false,{passive:true}));
+scatterBtn.addEventListener('click',()=>{initAudio();scatter()});
+toneBtn.addEventListener('click',toggleChoir);
+resize();scatter();requestAnimationFrame(tick);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
