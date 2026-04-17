@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>The Orchard Keeps Your Fingerprints — aapple.com</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#050608;color:#f4efe8;font-family:Georgia,serif}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+#ui,#hint,.footer{position:fixed;left:0;right:0;z-index:2;pointer-events:none}
+#ui{top:0;padding:20px 18px 0;text-align:center}
+.kicker{font:10px/1.4 Arial,sans-serif;letter-spacing:.36em;text-transform:uppercase;color:rgba(244,239,232,.38)}
+h1{margin-top:12px;font-size:clamp(30px,6vw,72px);line-height:.92;font-weight:normal;text-wrap:balance}
+#card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(470px,calc(100vw - 28px));padding:18px 18px 16px;border-radius:24px;border:1px solid rgba(255,255,255,.12);background:rgba(10,11,16,.42);backdrop-filter:blur(14px);box-shadow:0 30px 90px rgba(0,0,0,.34);z-index:3}
+#phrase{min-height:96px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:clamp(24px,4.4vw,38px);line-height:1.05;text-wrap:balance}
+#sub{margin-top:10px;text-align:center;font:11px/1.5 Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:rgba(244,239,232,.55)}
+#controls{display:flex;gap:10px;margin-top:14px}
+button{flex:1;border:none;border-radius:999px;padding:12px 14px;background:#f4efe8;color:#121217;font:11px/1 Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;pointer-events:auto}
+button.alt{background:rgba(255,255,255,.08);color:#f4efe8}
+#hint{bottom:64px;padding:0 18px;text-align:center;font:11px/1.4 Arial,sans-serif;letter-spacing:.22em;text-transform:uppercase;color:rgba(244,239,232,.25)}
+.footer{bottom:0;padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-end}
+.footer a{pointer-events:auto;color:rgba(255,255,255,.3);text-decoration:none;font:10px/1 Arial,sans-serif;letter-spacing:2px;text-transform:uppercase}
+.footer a:hover{color:rgba(255,255,255,.56)}
+.footer .credit{max-width:320px;text-align:right;color:rgba(255,255,255,.13);font:9px/1.35 Arial,sans-serif}
+@media (max-width:720px){#card{top:auto;bottom:92px;transform:translateX(-50%)}#controls{flex-direction:column}.footer{align-items:flex-start}.footer .credit{max-width:220px}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div class="kicker">forensic botany for the touch screen era</div>
+  <h1>The Orchard Keeps Your Fingerprints</h1>
+</div>
+<div id="card">
+  <div id="phrase">Touch the dark. The fruit will remember where you were.</div>
+  <div id="sub">drag to smudge the glass • sound wakes on first gesture</div>
+  <div id="controls">
+    <button id="seedBtn">Reveal More</button>
+    <button id="humBtn" class="alt">Wake Archive Hum</button>
+  </div>
+</div>
+<div id="hint">each touch leaves a print, a ripple, and a small confession from the orchard</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');
+const phraseEl=document.getElementById('phrase');
+const seedBtn=document.getElementById('seedBtn');
+const humBtn=document.getElementById('humBtn');
+let w=0,h=0,dpr=1,last=0,t=0;
+let ac,master,audioReady=false,hum=[];
+const prints=[],motes=[],veins=[];
+const pointer={x:0,y:0,down:false};
+const lines=[
+  'someone touched here and the orchard saved their outline',
+  'the glass remembers more gently than people do',
+  'an apple opened like an eye and then relaxed again',
+  'your fingerprint is being translated into weather',
+  'the fruit filed this contact under maybe forever',
+  'there is no delete key in the root system tonight',
+  'every swipe leaves a rumor in the branches',
+  'the screen has started to bruise in beautiful circles',
+  'something red is learning the shape of your attention',
+  'a little halo formed where your hand hesitated'
+];
+function rand(a,b){return a+Math.random()*(b-a)}
+function pick(a){return a[(Math.random()*a.length)|0]}
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;c.width=w*dpr;c.height=h*dpr;c.style.width=w+'px';c.style.height=h+'px';x.setTransform(dpr,0,0,dpr,0,0);seedAtmosphere()}
+function seedAtmosphere(){motes.length=0;veins.length=0;for(let i=0;i<110;i++)motes.push({x:rand(0,w),y:rand(0,h),r:rand(.6,2.2),a:rand(.03,.16),s:rand(.1,.5)});for(let i=0;i<18;i++)veins.push({y:rand(h*.14,h*.92),amp:rand(8,28),freq:rand(.004,.012),phase:rand(0,6.28)})}
+function initAudio(){if(audioReady)return;audioReady=true;ac=new(window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.gain.value=.07;master.connect(ac.destination)}
+function ping(freq=240,dur=.8,pan=0,type='sine',gain=.014){if(!audioReady)return;const now=ac.currentTime,o=ac.createOscillator(),g=ac.createGain(),p=ac.createStereoPanner();o.type=type;o.frequency.setValueAtTime(freq,now);o.frequency.exponentialRampToValueAtTime(Math.max(70,freq*.52),now+dur);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(gain,now+.03);g.gain.exponentialRampToValueAtTime(.0001,now+dur);p.pan.value=Math.max(-1,Math.min(1,pan));o.connect(g);g.connect(p);p.connect(master);o.start(now);o.stop(now+dur+.04)}
+function toggleHum(){initAudio();if(hum.length){hum.forEach(n=>{n.g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+.3);n.o.stop(ac.currentTime+.35)});hum=[];humBtn.textContent='Wake Archive Hum';phraseEl.textContent='The orchard has gone back to listening.';return}const freqs=[110,164.81,246.94];hum=freqs.map((f,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.type=i===0?'triangle':'sine';o.frequency.value=f;o.connect(g);g.connect(master);g.gain.value=.0001;o.start();g.gain.exponentialRampToValueAtTime(.006/(i+1),ac.currentTime+.5);return{o,g}});humBtn.textContent='Mute Archive Hum';phraseEl.textContent='A low archival hum has started under the soil.'}
+function addPrint(px,py,auto=false){const rr=rand(34,78);prints.push({x:px,y:py,r:rr,age:0,life:rand(5000,9000),rings:2+((Math.random()*3)|0),apple:Math.random()>.28,text:pick(lines),tilt:rand(-.45,.45),glow:rand(.4,1)});if(prints.length>22)prints.shift();phraseEl.textContent=prints[prints.length-1].text;ping(rand(170,520),rand(.35,1.1),(px/w-.5)*1.5,Math.random()>.55?'triangle':'sine',auto?.007:.012)}
+function burst(n=6){for(let i=0;i<n;i++)addPrint(rand(50,w-50),rand(h*.22,h*.82),true);phraseEl.textContent='The orchard surfaced several old fingerprints at once.'}
+function bg(){const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,'#050608');g.addColorStop(.55,'#120d12');g.addColorStop(1,'#261312');x.fillStyle=g;x.fillRect(0,0,w,h);const rg=x.createRadialGradient(w*.5,h*.34,0,w*.5,h*.34,Math.max(w,h)*.55);rg.addColorStop(0,'rgba(150,168,192,.08)');rg.addColorStop(1,'rgba(150,168,192,0)');x.fillStyle=rg;x.fillRect(0,0,w,h);for(const v of veins){x.strokeStyle='rgba(120,42,36,.11)';x.lineWidth=1;x.beginPath();for(let px=0;px<=w;px+=16){const py=v.y+Math.sin(px*v.freq+t*.00022+v.phase)*v.amp;x[px?'lineTo':'moveTo'](px,py)}x.stroke()}for(const m of motes){m.y-=m.s*.1;if(m.y<-12){m.y=h+12;m.x=rand(0,w)}x.fillStyle='rgba(255,232,210,'+(m.a+.03*Math.sin(t*.001+m.x))+')';x.beginPath();x.arc(m.x+Math.sin(t*.0005+m.y)*3,m.y,m.r,0,6.28);x.fill()}}
+function drawApple(px,py,r,tilt,a){x.save();x.translate(px,py);x.rotate(tilt);x.beginPath();x.moveTo(0,-r*.42);x.bezierCurveTo(r*.58,-r*.48,r*.62,r*.28,0,r*.54);x.bezierCurveTo(-r*.62,r*.28,-r*.58,-r*.48,0,-r*.42);x.fillStyle='rgba(170,28,40,'+a+')';x.fill();x.fillStyle='rgba(255,230,230,'+(a*.18)+')';x.beginPath();x.ellipse(-r*.13,-r*.1,r*.12,r*.2,.45,0,6.28);x.fill();x.strokeStyle='rgba(96,55,24,'+(a*.85)+')';x.lineWidth=2; x.beginPath();x.moveTo(0,-r*.42);x.quadraticCurveTo(r*.02,-r*.68,r*.15,-r*.63);x.stroke();x.fillStyle='rgba(114,173,87,'+(a*.9)+')';x.beginPath();x.ellipse(r*.19,-r*.62,r*.16,r*.06,.32,0,6.28);x.fill();x.restore()}
+function drawPrint(p){const f=1-p.age/p.life;if(f<=0)return;const pulse=1+Math.sin(t*.003+p.x)*.04;const alpha=f*.72*p.glow;for(let i=0;i<p.rings;i++){x.strokeStyle='rgba(255,238,220,'+(alpha*.15-(i*.025))+')';x.lineWidth=1.2;x.beginPath();x.arc(p.x,p.y,p.r*pulse+i*15+p.age*.012,0,6.28);x.stroke()}const g=x.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*1.8);g.addColorStop(0,'rgba(255,250,240,'+(alpha*.08)+')');g.addColorStop(.5,'rgba(210,50,42,'+(alpha*.12)+')');g.addColorStop(1,'rgba(210,50,42,0)');x.fillStyle=g;x.fillRect(p.x-p.r*1.8,p.y-p.r*1.8,p.r*3.6,p.r*3.6);if(p.apple)drawApple(p.x,p.y,p.r*.58,p.tilt,Math.max(.18,alpha));x.fillStyle='rgba(244,239,232,'+(alpha*.55)+')';x.font='11px Georgia';x.textAlign='center';x.fillText(p.text,p.x,p.y+p.r+18)}
+function smear(){if(!pointer.down)return;const g=x.createRadialGradient(pointer.x,pointer.y,0,pointer.x,pointer.y,140);g.addColorStop(0,'rgba(255,255,255,.07)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(pointer.x-140,pointer.y-140,280,280)}
+function update(dt){for(const p of prints)p.age+=dt}
+function render(){bg();for(const p of prints)drawPrint(p);smear()}
+function tick(ts){if(!last)last=ts;const dt=Math.min(32,ts-last);last=ts;t+=dt;update(dt);render();requestAnimationFrame(tick)}
+function setPointer(e){pointer.x=e.clientX;pointer.y=e.clientY}
+addEventListener('resize',resize);
+addEventListener('pointerdown',e=>{setPointer(e);pointer.down=true;initAudio();addPrint(e.clientX,e.clientY);},{passive:true});
+addEventListener('pointermove',e=>{setPointer(e);if(pointer.down&&Math.random()<.09)addPrint(e.clientX+rand(-8,8),e.clientY+rand(-8,8),true);},{passive:true});
+['pointerup','pointercancel','mouseleave'].forEach(ev=>addEventListener(ev,()=>pointer.down=false,{passive:true}));
+seedBtn.addEventListener('click',()=>{initAudio();burst(7)});
+humBtn.addEventListener('click',toggleHum);
+resize();burst(5);requestAnimationFrame(tick);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
