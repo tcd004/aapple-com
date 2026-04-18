@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Sleep Study for a Nervous Apple — aapple.com</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#04050a;color:#eef3ff;font-family:Georgia,serif}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+#ui,#hint,.footer{position:fixed;left:0;right:0;z-index:2}
+#ui{top:0;padding:18px 18px 0;text-align:center;pointer-events:none}
+.kicker{font:10px/1.3 Arial,sans-serif;letter-spacing:.34em;text-transform:uppercase;color:rgba(238,243,255,.34)}
+h1{margin-top:12px;font-size:clamp(30px,6vw,68px);line-height:.92;font-weight:normal;text-wrap:balance}
+#panel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,calc(100vw - 28px));padding:18px;border-radius:24px;border:1px solid rgba(255,255,255,.1);background:rgba(8,10,18,.42);backdrop-filter:blur(12px);box-shadow:0 28px 90px rgba(0,0,0,.42);z-index:3}
+#phrase{min-height:92px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:clamp(24px,4.2vw,40px);line-height:1.04;text-wrap:balance}
+#sub{margin-top:10px;text-align:center;font:11px/1.5 Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;color:rgba(238,243,255,.54)}
+#controls{display:flex;gap:10px;margin-top:14px}
+button{flex:1;border:none;border-radius:999px;padding:12px 14px;background:#eef3ff;color:#111522;font:11px/1 Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;pointer-events:auto}
+button.alt{background:rgba(255,255,255,.08);color:#eef3ff}
+#hint{bottom:64px;padding:0 20px;text-align:center;font:11px/1.4 Arial,sans-serif;letter-spacing:.22em;text-transform:uppercase;color:rgba(238,243,255,.24)}
+.footer{bottom:0;padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-end}
+.footer a{pointer-events:auto;color:rgba(255,255,255,.28);text-decoration:none;font:10px/1 Arial,sans-serif;letter-spacing:2px;text-transform:uppercase}
+.footer a:hover{color:rgba(255,255,255,.58)}
+.footer .credit{max-width:320px;text-align:right;color:rgba(255,255,255,.13);font:9px/1.35 Arial,sans-serif}
+@media (max-width:720px){#panel{top:auto;bottom:92px;transform:translateX(-50%)}#controls{flex-direction:column}.footer{align-items:flex-start}.footer .credit{max-width:220px}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div class="kicker">circadian diagnostics for one restless fruit</div>
+  <h1>Sleep Study for a Nervous Apple</h1>
+</div>
+<div id="panel">
+  <div id="phrase">Drag the moonlamp over the apple to see what it dreams about.</div>
+  <div id="sub">touch and move to scan • sound wakes on first gesture</div>
+  <div id="controls">
+    <button id="doseBtn">Increase Melatonin</button>
+    <button id="toneBtn" class="alt">Wake Dream Tone</button>
+  </div>
+</div>
+<div id="hint">the brighter the scan, the stranger the dream report</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');
+const phraseEl=document.getElementById('phrase');
+const doseBtn=document.getElementById('doseBtn');
+const toneBtn=document.getElementById('toneBtn');
+let w=0,h=0,dpr=1,last=0,t=0;
+let ac,master,audioReady=false,drone=[];
+const pointer={x:0,y:0,down:false,active:false};
+const stars=[],rings=[],bubbles=[];
+let sedation=.32;
+const reports=[
+  'The apple keeps dreaming that gravity is only a rumor.',
+  'It briefly believed the moon was a nurse with very cold hands.',
+  'Rapid eye movement detected inside the bruise-shaped weather.',
+  'It is pretending to be a planet so nobody asks it to fall.',
+  'The stem is sleep-talking in soft green cursive.',
+  'A tiny alarm clock wandered through the seeds and got lost.',
+  'The patient reports recurring dreams of being peeled by sunrise.',
+  'Its pulse became a choir every time the moonlamp passed overhead.',
+  'The core keeps opening doors marked tomorrow and then backing away.',
+  'It reached stage four and started levitating politely.'
+];
+function rand(a,b){return a+Math.random()*(b-a)}
+function pick(a){return a[(Math.random()*a.length)|0]}
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;c.width=w*dpr;c.height=h*dpr;c.style.width=w+'px';c.style.height=h+'px';x.setTransform(dpr,0,0,dpr,0,0);seed()}
+function seed(){stars.length=0;rings.length=0;bubbles.length=0;for(let i=0;i<130;i++)stars.push({x:rand(0,w),y:rand(0,h),r:rand(.5,2.2),a:rand(.05,.28),s:rand(.1,.6)});for(let i=0;i<5;i++)rings.push({r:rand(70,170)+i*28,phase:rand(0,6.28)});for(let i=0;i<18;i++)bubbles.push({a:rand(0,6.28),d:rand(20,90),s:rand(.2,.9),r:rand(2,7)})}
+function initAudio(){if(audioReady)return;audioReady=true;ac=new(window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.gain.value=.08;master.connect(ac.destination)}
+function ping(freq=280,dur=.8,pan=0,type='sine',gain=.012){if(!audioReady)return;const now=ac.currentTime,o=ac.createOscillator(),g=ac.createGain(),p=ac.createStereoPanner();o.type=type;o.frequency.setValueAtTime(freq,now);o.frequency.exponentialRampToValueAtTime(Math.max(90,freq*.58),now+dur);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(gain,now+.03);g.gain.exponentialRampToValueAtTime(.0001,now+dur);p.pan.value=Math.max(-1,Math.min(1,pan));o.connect(g);g.connect(p);p.connect(master);o.start(now);o.stop(now+dur+.03)}
+function toggleTone(){initAudio();if(drone.length){drone.forEach(n=>{n.g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+.3);n.o.stop(ac.currentTime+.35)});drone=[];toneBtn.textContent='Wake Dream Tone';phraseEl.textContent='The sleep lab went quiet again.';return}const chord=[146.83,220,293.66].map((f,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.type=i===0?'triangle':'sine';o.frequency.value=f*(1+sedation*.08*i);g.gain.value=.0001;o.connect(g);g.connect(master);o.start();g.gain.exponentialRampToValueAtTime(.006/(i+1),ac.currentTime+.4);return{o,g}});drone=chord;toneBtn.textContent='Mute Dream Tone';phraseEl.textContent='A clinical lullaby is now hovering above the bed.'}
+function appleCenter(){return{x:w*.5,y:h*.5-22,rx:Math.min(w,h)*.17,ry:Math.min(w,h)*.2}}
+function moonPos(){if(pointer.active)return{x:pointer.x,y:pointer.y};return{x:w*.75+Math.cos(t*.00018)*w*.14,y:h*.24+Math.sin(t*.00023)*h*.1}}
+function scanPower(){const a=appleCenter(),m=moonPos();const dx=(m.x-a.x)/(a.rx*1.1),dy=(m.y-a.y)/(a.ry*1.1);return Math.max(0,1-Math.sqrt(dx*dx+dy*dy))}
+function sedationDose(){sedation=Math.min(.95,sedation+.1);phraseEl.textContent=pick(reports);initAudio();ping(190+sedation*180,1.2,0,'triangle',.013);}
+function bg(){const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,'#04050a');g.addColorStop(.58,'#0e1220');g.addColorStop(1,'#160d18');x.fillStyle=g;x.fillRect(0,0,w,h);const rg=x.createRadialGradient(w*.5,h*.3,0,w*.5,h*.3,Math.max(w,h)*.46);rg.addColorStop(0,'rgba(112,137,255,.1)');rg.addColorStop(1,'rgba(112,137,255,0)');x.fillStyle=rg;x.fillRect(0,0,w,h);for(const s of stars){s.y+=s.s*.04;if(s.y>h+4){s.y=-4;s.x=rand(0,w)}x.fillStyle='rgba(255,255,255,'+(s.a+.06*Math.sin(t*.001+s.x))+')';x.beginPath();x.arc(s.x,s.y,s.r,0,6.28);x.fill()}}
+function drawBed(a){x.fillStyle='rgba(207,218,255,.05)';x.fillRect(a.x-a.rx*1.7,a.y+a.ry*.92,a.rx*3.4,16);x.strokeStyle='rgba(255,255,255,.08)';x.strokeRect(a.x-a.rx*1.7,a.y+a.ry*.92,a.rx*3.4,16)}
+function drawApple(a,scan){x.save();x.translate(a.x,a.y);const floatY=Math.sin(t*.0015)*8; x.translate(0,floatY);for(const r of rings){x.strokeStyle='rgba(134,164,255,'+(.06+scan*.18)+')';x.lineWidth=1;x.beginPath();x.ellipse(Math.sin(t*.0008+r.phase)*8,-6,r.r*(.72+sedation*.08),r.r*(.22+sedation*.04),0,0,6.28);x.stroke()}const body=x.createRadialGradient(-a.rx*.22,-a.ry*.24,6,0,0,a.rx*1.2);body.addColorStop(0,'rgba(255,223,226,'+(.26+scan*.18)+')');body.addColorStop(.35,'rgba(238,77,96,.95)');body.addColorStop(1,'rgba(105,12,34,.98)');x.fillStyle=body;x.beginPath();x.moveTo(0,-a.ry*.76);x.bezierCurveTo(a.rx*.9,-a.78*a.ry,a.rx*1.05,a.ry*.52,0,a.ry*.96);x.bezierCurveTo(-a.rx*1.05,a.ry*.52,-a.rx*.9,-a.78*a.ry,0,-a.ry*.76);x.fill();x.fillStyle='rgba(255,243,244,'+(.1+scan*.2)+')';x.beginPath();x.ellipse(-a.rx*.24,-a.ry*.2,a.rx*.16,a.ry*.26,.35,0,6.28);x.fill();x.strokeStyle='rgba(82,52,24,.8)';x.lineWidth=4;x.beginPath();x.moveTo(0,-a.ry*.75);x.quadraticCurveTo(a.rx*.04,-a.ry*1.16,a.rx*.18,-a.ry*1.08);x.stroke();x.fillStyle='rgba(123,183,103,.92)';x.beginPath();x.ellipse(a.rx*.24,-a.ry*1.03,a.rx*.24,a.ry*.08,.2,0,6.28);x.fill();const eyelid=.14+(1-sedation)*.24+(1-scan)*.18;['left','right'].forEach((side,i)=>{const sx=(i?1:-1)*a.rx*.26;x.strokeStyle='rgba(24,10,20,.72)';x.lineWidth=3;x.beginPath();x.moveTo(sx-a.rx*.11,-a.ry*.08);x.quadraticCurveTo(sx,-a.ry*.08+a.ry*eyelid,sx+a.rx*.11,-a.ry*.08);x.stroke();if(scan>.24){x.fillStyle='rgba(218,238,255,'+(.22+scan*.5)+')';x.beginPath();x.ellipse(sx,-a.ry*.06,a.rx*.045,a.ry*.07,0,0,6.28);x.fill();x.fillStyle='rgba(31,48,88,'+(.5+scan*.4)+')';x.beginPath();x.arc(sx,-a.ry*.06,a.rx*.018,0,6.28);x.fill();}});x.strokeStyle='rgba(39,10,26,.5)';x.lineWidth=2;x.beginPath();x.moveTo(-a.rx*.08,a.ry*.2);x.quadraticCurveTo(0,a.ry*(.28+.08*scan),a.rx*.08,a.ry*.2);x.stroke();for(const b of bubbles){const bx=Math.cos(t*.0007*b.s+b.a)*(a.rx*.22+b.d*scan);const by=Math.sin(t*.0009*b.s+b.a)*a.ry*.1-a.ry*.2-b.d*.45*scan; x.fillStyle='rgba(207,231,255,'+(.05+scan*.16)+')';x.beginPath();x.arc(bx,by,b.r*(.5+scan),0,6.28);x.fill()}x.restore()}
+function drawMoon(scan){const m=moonPos();const r=Math.min(w,h)*(.07+.05*scan);const g=x.createRadialGradient(m.x-r*.2,m.y-r*.2,4,m.x,m.y,r*1.4);g.addColorStop(0,'rgba(255,252,216,.95)');g.addColorStop(.38,'rgba(190,218,255,.5)');g.addColorStop(1,'rgba(190,218,255,0)');x.fillStyle=g;x.beginPath();x.arc(m.x,m.y,r*1.4,0,6.28);x.fill();x.fillStyle='rgba(255,250,223,.96)';x.beginPath();x.arc(m.x,m.y,r,0,6.28);x.fill();x.strokeStyle='rgba(255,255,255,.24)';x.lineWidth=1;x.beginPath();x.arc(m.x,m.y,r*1.18,0,6.28);x.stroke();return m}
+function drawScan(m,a,scan){x.strokeStyle='rgba(210,231,255,'+(.08+scan*.26)+')';x.lineWidth=2; x.beginPath();x.moveTo(m.x,m.y);x.lineTo(a.x,a.y);x.stroke();const beam=x.createRadialGradient(m.x,m.y,0,a.x,a.y,a.rx*1.15);beam.addColorStop(0,'rgba(255,255,255,'+(.16+scan*.18)+')');beam.addColorStop(.45,'rgba(182,214,255,'+(.08+scan*.2)+')');beam.addColorStop(1,'rgba(182,214,255,0)');x.fillStyle=beam;x.beginPath();x.ellipse(a.x,a.y,a.rx*1.16,a.ry*1.12,0,0,6.28);x.fill()}
+function update(dt){if(!pointer.active&&Math.random()<.008+.012*scanPower())phraseEl.textContent=pick(reports);if(drone.length&&audioReady){const base=1+scanPower()*.04+sedation*.02;drone.forEach((n,i)=>n.o.frequency.setTargetAtTime([146.83,220,293.66][i]*base,ac.currentTime,.2));}}
+function render(){bg();const a=appleCenter();const scan=scanPower();drawBed(a);const m=drawMoon(scan);drawScan(m,a,scan);drawApple(a,scan);x.fillStyle='rgba(238,243,255,.18)';x.font='11px Arial';x.textAlign='center';x.fillText('sedation '+String(Math.round(sedation*100)).padStart(2,'0')+'%',w*.5,h*.19);x.fillText('dream activity '+String(Math.round(scan*100)).padStart(2,'0')+'%',w*.5,h*.19+18)}
+function tick(ts){if(!last)last=ts;const dt=Math.min(32,ts-last);last=ts;t+=dt;update(dt);render();requestAnimationFrame(tick)}
+function activate(e){pointer.active=true;pointer.down=true;pointer.x=e.clientX;pointer.y=e.clientY;initAudio();const s=scanPower();ping(220+s*280,.9,(e.clientX/w-.5)*1.3,s>.55?'triangle':'sine',.011);if(s>.38)phraseEl.textContent=pick(reports)}
+addEventListener('resize',resize);
+addEventListener('pointerdown',e=>activate(e),{passive:true});
+addEventListener('pointermove',e=>{pointer.x=e.clientX;pointer.y=e.clientY;if(pointer.down&&Math.random()<.05){const s=scanPower();ping(250+s*300,.12,(e.clientX/w-.5)*1.2,'sine',.003)}} ,{passive:true});
+['pointerup','pointercancel','mouseleave'].forEach(ev=>addEventListener(ev,()=>{pointer.down=false;if(ev!=='mouseleave')pointer.active=false;},{passive:true}));
+doseBtn.addEventListener('click',sedationDose);
+toneBtn.addEventListener('click',toggleTone);
+resize();requestAnimationFrame(tick);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
