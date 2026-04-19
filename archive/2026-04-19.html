@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Fruitless CAPTCHA for the Moon — aapple.com</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#06070c;color:#f2efe8;font-family:Georgia,serif}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+#ui,.footer,#hint{position:fixed;left:0;right:0;z-index:2}
+#ui{top:0;padding:18px 18px 0;text-align:center;pointer-events:none}
+.kicker{font:10px/1.3 Arial,sans-serif;letter-spacing:.34em;text-transform:uppercase;color:rgba(242,239,232,.35)}
+h1{margin-top:12px;font-size:clamp(30px,6vw,72px);line-height:.92;font-weight:normal;text-wrap:balance}
+#panel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(540px,calc(100vw - 28px));padding:18px;border-radius:24px;border:1px solid rgba(255,255,255,.12);background:rgba(8,9,16,.5);backdrop-filter:blur(12px);box-shadow:0 30px 90px rgba(0,0,0,.38);z-index:3}
+#prompt{min-height:90px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:clamp(24px,4.3vw,40px);line-height:1.05;text-wrap:balance}
+#sub{margin-top:10px;text-align:center;font:11px/1.5 Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:rgba(242,239,232,.54)}
+#controls{display:flex;gap:10px;margin-top:14px}
+button{flex:1;border:none;border-radius:999px;padding:12px 14px;background:#f2efe8;color:#12141f;font:11px/1 Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;pointer-events:auto}
+button.alt{background:rgba(255,255,255,.08);color:#f2efe8}
+#hint{bottom:64px;padding:0 18px;text-align:center;font:11px/1.4 Arial,sans-serif;letter-spacing:.22em;text-transform:uppercase;color:rgba(242,239,232,.23)}
+.footer{bottom:0;padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-end}
+.footer a{pointer-events:auto;color:rgba(255,255,255,.3);text-decoration:none;font:10px/1 Arial,sans-serif;letter-spacing:2px;text-transform:uppercase}
+.footer a:hover{color:rgba(255,255,255,.56)}
+.footer .credit{max-width:320px;text-align:right;color:rgba(255,255,255,.13);font:9px/1.35 Arial,sans-serif}
+@media (max-width:720px){#panel{top:auto;bottom:92px;transform:translateX(-50%)}#controls{flex-direction:column}.footer{align-items:flex-start}.footer .credit{max-width:220px}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div class="kicker">late-night compliance ritual for celestial objects</div>
+  <h1>Fruitless CAPTCHA for the Moon</h1>
+</div>
+<div id="panel">
+  <div id="prompt">Prove the moon is not an apple by dragging the bright token into each impossible ring.</div>
+  <div id="sub">touch and drag the moon • each successful pass changes the sky • sound wakes on first gesture</div>
+  <div id="controls">
+    <button id="shuffleBtn">New Test</button>
+    <button id="toneBtn" class="alt">Wake Verification Tone</button>
+  </div>
+</div>
+<div id="hint">the system becomes less confident every time you succeed</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');
+const promptEl=document.getElementById('prompt');
+const shuffleBtn=document.getElementById('shuffleBtn');
+const toneBtn=document.getElementById('toneBtn');
+let w=0,h=0,dpr=1,last=0,t=0;
+const pointer={x:0,y:0,down:false};
+const moon={x:0,y:0,r:0,drag:false};
+const rings=[]; const dust=[]; const ghosts=[];
+let solved=0,phase=0;
+let ac,master,audioReady=false,drone=[];
+const lines=[
+  'Verification failed. The moon now resembles a polite pear.',
+  'Accepted. The sky has filed a complaint anyway.',
+  'The system is unsure whether apples can glow from embarrassment.',
+  'Passed. A seed just applauded from very far away.',
+  'Verification complete. Please remain fruit-adjacent.',
+  'The captcha is now judging the horizon instead of you.',
+  'Success. Somewhere, gravity muttered "close enough."',
+  'The moon insists this test is beneath it.'
+];
+function rand(a,b){return a+Math.random()*(b-a)}
+function pick(a){return a[(Math.random()*a.length)|0]}
+function initAudio(){if(audioReady)return;audioReady=true;ac=new(window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.gain.value=.08;master.connect(ac.destination)}
+function ping(freq=240,dur=.9,pan=0,type='sine',gain=.012){if(!audioReady)return;const now=ac.currentTime,o=ac.createOscillator(),g=ac.createGain(),p=ac.createStereoPanner();o.type=type;o.frequency.setValueAtTime(freq,now);o.frequency.exponentialRampToValueAtTime(Math.max(70,freq*.55),now+dur);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(gain,now+.03);g.gain.exponentialRampToValueAtTime(.0001,now+dur);p.pan.value=Math.max(-1,Math.min(1,pan));o.connect(g);g.connect(p);p.connect(master);o.start(now);o.stop(now+dur+.05)}
+function toggleTone(){initAudio();if(drone.length){drone.forEach(n=>{n.g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+.3);n.o.stop(ac.currentTime+.35)});drone=[];toneBtn.textContent='Wake Verification Tone';promptEl.textContent='The verification booth has fallen silent.';return}drone=[164.81,246.94,329.63].map((f,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.type=i===0?'triangle':'sine';o.frequency.value=f*(1+phase*.03);o.connect(g);g.connect(master);g.gain.value=.0001;o.start();g.gain.exponentialRampToValueAtTime(.006/(i+1),ac.currentTime+.4);return{o,g}});toneBtn.textContent='Mute Verification Tone';promptEl.textContent='A soft bureaucratic choir is now supervising the moon.'}
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;c.width=w*dpr;c.height=h*dpr;c.style.width=w+'px';c.style.height=h+'px';x.setTransform(dpr,0,0,dpr,0,0);moon.r=Math.min(w,h)*.05; if(!moon.drag){moon.x=w*.5; moon.y=h*.72;} seedDust(); seedRings()}
+function seedDust(){dust.length=0; ghosts.length=0; for(let i=0;i<130;i++)dust.push({x:rand(0,w),y:rand(0,h),r:rand(.6,2.1),a:rand(.03,.18),s:rand(.1,.6)}); for(let i=0;i<8;i++)ghosts.push({a:rand(0,6.28),d:rand(60,180),s:rand(.0004,.0011),r:rand(8,18)})}
+function seedRings(){rings.length=0; const n=3; for(let i=0;i<n;i++){const ang=(Math.PI*2/n)*i-Math.PI/2+phase*.16; rings.push({x:w*.5+Math.cos(ang)*Math.min(w,h)*.22,y:h*.37+Math.sin(ang)*Math.min(w,h)*.12,r:Math.min(w,h)*(.08+.02*i),hit:false,pulse:rand(0,6.28)})}}
+function resetTest(){phase++; solved=0; moon.x=w*.5; moon.y=h*.72; seedRings(); promptEl.textContent='Prove the moon is not an apple by dragging the bright token into each impossible ring.'; initAudio(); ping(220+phase*18,1.1,0,'triangle',.012)}
+function dist(ax,ay,bx,by){return Math.hypot(ax-bx,ay-by)}
+function bg(){const g=x.createLinearGradient(0,0,0,h); g.addColorStop(0,'#06070c'); g.addColorStop(.5,phase%2?'#13111e':'#0d1220'); g.addColorStop(1,phase%3?'#23111c':'#13180e'); x.fillStyle=g; x.fillRect(0,0,w,h); const rg=x.createRadialGradient(w*.5,h*.34,0,w*.5,h*.34,Math.max(w,h)*.55); rg.addColorStop(0,'rgba('+(phase%2?170:100)+','+(phase%3?140:180)+',255,.12)'); rg.addColorStop(1,'rgba(0,0,0,0)'); x.fillStyle=rg; x.fillRect(0,0,w,h); for(const d of dust){d.y-=d.s*.16; if(d.y<-8){d.y=h+8; d.x=rand(0,w)} x.fillStyle='rgba(255,245,230,'+(d.a+.03*Math.sin(t*.001+d.x))+')'; x.beginPath(); x.arc(d.x+Math.sin(t*.0004+d.y)*5,d.y,d.r,0,6.28); x.fill()}}
+function drawRings(){rings.forEach((r,i)=>{const glow=r.hit?.28:.08; const pr=1+.08*Math.sin(t*.002+r.pulse); x.strokeStyle='rgba(255,240,220,'+(glow+.08*Math.sin(t*.002+r.pulse))+')'; x.lineWidth=r.hit?3:1.5; x.beginPath(); x.arc(r.x,r.y,r.r*pr,0,6.28); x.stroke(); x.strokeStyle='rgba(255,90,90,'+(r.hit?.22:.12)+')'; x.beginPath(); x.arc(r.x,r.y,r.r*.58*pr,0,6.28); x.stroke(); x.fillStyle='rgba(242,239,232,.3)'; x.font='11px Arial'; x.textAlign='center'; x.fillText(r.hit?'verified':'ring '+(i+1),r.x,r.y+r.r+18)})}
+function drawGhosts(){ghosts.forEach((g,i)=>{const ang=t*g.s+g.a; const gx=w*.5+Math.cos(ang)*(g.d+Math.sin(t*.001+i)*24); const gy=h*.37+Math.sin(ang*1.3)*g.d*.34; x.fillStyle='rgba(255,80,80,.05)'; x.beginPath(); x.ellipse(gx,gy,g.r*1.3,g.r*.9,ang,0,6.28); x.fill()})}
+function drawMoon(){const halo=x.createRadialGradient(moon.x,moon.y,0,moon.x,moon.y,moon.r*2.2); halo.addColorStop(0,'rgba(255,249,225,.95)'); halo.addColorStop(.4,'rgba(190,220,255,.4)'); halo.addColorStop(1,'rgba(190,220,255,0)'); x.fillStyle=halo; x.beginPath(); x.arc(moon.x,moon.y,moon.r*2.2,0,6.28); x.fill(); x.fillStyle='rgba(255,248,222,.97)'; x.beginPath(); x.arc(moon.x,moon.y,moon.r,0,6.28); x.fill(); x.fillStyle='rgba(0,0,0,.08)'; x.beginPath(); x.arc(moon.x-moon.r*.22,moon.y-moon.r*.1,moon.r*.18,0,6.28); x.arc(moon.x+moon.r*.14,moon.y+moon.r*.18,moon.r*.11,0,6.28); x.fill()}
+function drawThreads(){rings.forEach(r=>{x.strokeStyle='rgba(255,255,255,.05)'; x.lineWidth=1; x.beginPath(); x.moveTo(moon.x,moon.y); x.lineTo(r.x,r.y); x.stroke()})}
+function checkHits(){let changed=false; rings.forEach(r=>{if(!r.hit && dist(moon.x,moon.y,r.x,r.y)<r.r*.55){r.hit=true; solved++; changed=true; initAudio(); ping(320+solved*110,.9,(r.x/w-.5)*1.2,'triangle',.014); promptEl.textContent=pick(lines)}}); if(changed && solved===rings.length){promptEl.textContent='All rings passed. The system still suspects the moon of being fruit.'; initAudio(); ping(620,1.6,0,'sine',.016)}}
+function update(){if(drone.length&&audioReady){drone.forEach((n,i)=>n.o.frequency.setTargetAtTime([164.81,246.94,329.63][i]*(1+.02*solved+.01*Math.sin(t*.0012)),ac.currentTime,.2))} if(!moon.drag){moon.x+=Math.cos(t*.0007)*.15; moon.y+=Math.sin(t*.001)*.12}}
+function render(){bg(); drawGhosts(); drawThreads(); drawRings(); drawMoon(); x.fillStyle='rgba(242,239,232,.2)'; x.font='11px Arial'; x.textAlign='center'; x.fillText('verification confidence '+Math.max(3,97-solved*28-phase*3)+'%',w*.5,h*.18)}
+function tick(ts){if(!last)last=ts; const dt=Math.min(32,ts-last); last=ts; t+=dt; update(dt); render(); requestAnimationFrame(tick)}
+function setPointer(e){pointer.x=e.clientX; pointer.y=e.clientY}
+addEventListener('resize',resize);
+addEventListener('pointerdown',e=>{setPointer(e); if(dist(e.clientX,e.clientY,moon.x,moon.y)<moon.r*1.5){moon.drag=true; pointer.down=true; initAudio(); ping(280,.8,(moon.x/w-.5),'sine',.01)}},{passive:true});
+addEventListener('pointermove',e=>{setPointer(e); if(moon.drag){moon.x=e.clientX; moon.y=e.clientY; if(Math.random()<.05){initAudio(); ping(190+Math.random()*120,.12,(moon.x/w-.5)*1.3,'sine',.003)} checkHits() }},{passive:true});
+['pointerup','pointercancel','mouseleave'].forEach(ev=>addEventListener(ev,()=>{pointer.down=false; moon.drag=false;},{passive:true}));
+shuffleBtn.addEventListener('click',resetTest);
+toneBtn.addEventListener('click',toggleTone);
+resize(); requestAnimationFrame(tick);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
