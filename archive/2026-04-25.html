@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Night Shift for the Orchard Clock</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#04070b;color:#eef5ff;font-family:Arial,sans-serif}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+.ui,.footer,.hud{position:fixed;left:0;right:0;z-index:2;pointer-events:none}
+.ui{top:0;padding:18px 18px 0;display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.panel{max-width:min(430px,82vw);background:rgba(8,16,26,.46);border:1px solid rgba(196,226,255,.15);backdrop-filter:blur(12px);border-radius:18px;padding:14px 16px;box-shadow:0 18px 70px rgba(0,0,0,.35)}
+.kicker{font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:rgba(180,218,255,.72);margin-bottom:8px}
+h1{font-size:clamp(28px,5.8vw,62px);line-height:.94;letter-spacing:-.05em;font-weight:600}
+.copy{margin-top:10px;font-size:13px;line-height:1.45;color:rgba(230,242,255,.86)}
+.mini{font-size:11px;line-height:1.45;color:rgba(215,235,255,.74);text-align:right}
+.hud{bottom:82px;text-align:center;padding:0 20px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:rgba(220,236,255,.44)}
+.footer{bottom:0;padding:14px 16px 16px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;font-size:12px}
+.footer a{pointer-events:auto;color:#d9ecff}
+.credit{max-width:420px;color:rgba(255,255,255,.55);font-size:10px;line-height:1.35;text-align:right}
+@media (max-width:760px){.ui{flex-direction:column}.panel{max-width:none;width:100%}.mini{text-align:left}.hud{bottom:94px;letter-spacing:.16em}.footer{flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<canvas></canvas>
+<div class="ui">
+  <div class="panel">
+    <div class="kicker">temporal maintenance window</div>
+    <h1>Night Shift for the Orchard Clock</h1>
+    <div class="copy">Move your finger to bend the late hours. Tap or click to ring the apples awake. They keep terrible time on purpose, but they are trying.</div>
+  </div>
+  <div class="panel mini">
+    open 24 hours<br>
+    staffed by seeds, moths, and one anxious minute hand<br>
+    local time leaks into the branches automatically
+  </div>
+</div>
+<div class="hud">touch the sky to disturb the schedule</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d');
+let w=0,h=0,dpr=1,t=0,last=0;
+const pointer={x:0,y:0,active:false,power:0};
+const labels=['midnight','01 hush','02 drift','03 moth','04 blue','05 thaw','06 blush','07 peel','08 rumor','09 stem','10 gleam','11 almost','noon','13 echo','14 hum','15 orchard','16 amber','17 sip','18 bruise','19 velvet','20 signal','21 bloom','22 static','23 insomnia'];
+const apples=[]; const dust=[]; const ripples=[];
+let audio;
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);seed();}
+addEventListener('resize',resize);
+function seed(){apples.length=0;dust.length=0;const n=24;for(let i=0;i<n;i++){apples.push({i,phase:Math.random()*6.28,sway:.4+Math.random()*1.6,size:18+Math.random()*10,depth:.7+Math.random()*.7});}for(let i=0;i<110;i++)dust.push({x:Math.random()*w,y:Math.random()*h,r:.5+Math.random()*2.2,a:.06+Math.random()*.22,s:.1+Math.random()*.5});}
+function initAudio(){if(audio)return;const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;audio=new AC();}
+function pluck(freq){if(!audio)return;if(audio.state==='suspended')audio.resume();const now=audio.currentTime,o=audio.createOscillator(),g=audio.createGain(),f=audio.createBiquadFilter();o.type='triangle';o.frequency.setValueAtTime(freq,now);o.frequency.exponentialRampToValueAtTime(freq*1.8,now+.03);o.frequency.exponentialRampToValueAtTime(Math.max(90,freq*.7),now+.8);f.type='lowpass';f.frequency.value=1200;g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(.045,now+.02);g.gain.exponentialRampToValueAtTime(.0001,now+.9);o.connect(f);f.connect(g);g.connect(audio.destination);o.start(now);o.stop(now+.95);}
+function pointerSet(e,on=true){const p=e.touches?e.touches[0]:e;if(!p)return;pointer.x=p.clientX;pointer.y=p.clientY;pointer.active=on;pointer.power=1;}
+addEventListener('mousemove',e=>pointerSet(e));
+addEventListener('mouseleave',()=>pointer.active=false);
+addEventListener('touchstart',e=>{initAudio();pointerSet(e,true);ring(pointer.x,pointer.y,true);strike();},{passive:true});
+addEventListener('touchmove',e=>pointerSet(e,true),{passive:true});
+addEventListener('touchend',()=>pointer.active=false,{passive:true});
+addEventListener('mousedown',e=>{initAudio();pointerSet(e,true);ring(pointer.x,pointer.y,true);strike();});
+addEventListener('mouseup',()=>pointer.active=false);
+addEventListener('click',e=>{initAudio();pointerSet(e,true);ring(pointer.x,pointer.y,false);strike();});
+function strike(){const d=new Date();const base=160+(d.getHours()%12)*18;pluck(base);setTimeout(()=>pluck(base*1.25),90);setTimeout(()=>pluck(base*1.5),180);}
+function ring(x,y,big){ripples.push({x,y,r:10,v:big?3.6:2.1,a:.5});}
+function sky(){const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,'#06111d');g.addColorStop(.45,'#071019');g.addColorStop(1,'#020306');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);ctx.fillStyle='rgba(255,255,255,.03)';for(let i=0;i<6;i++){ctx.beginPath();ctx.arc(w*(.14+i*.17),h*(.08+i*.04),90+i*22,0,6.28);ctx.fill();}}
+function drawDust(dt){for(const d of dust){d.y+=d.s*dt*10;if(d.y>h+4){d.y=-4;d.x=Math.random()*w;}ctx.fillStyle='rgba(220,236,255,'+(d.a+.05*Math.sin(t*.001+d.x))+')';ctx.beginPath();ctx.arc(d.x+Math.sin(t*.0005+d.y)*4,d.y,d.r,0,6.28);ctx.fill();}}
+function appleShape(x,y,s,glow,colorA,colorB){ctx.save();ctx.translate(x,y);ctx.scale(s,s);ctx.beginPath();ctx.moveTo(0,-18);ctx.bezierCurveTo(12,-30,30,-16,25,8);ctx.bezierCurveTo(20,28,7,40,0,34);ctx.bezierCurveTo(-7,40,-20,28,-25,8);ctx.bezierCurveTo(-30,-16,-12,-30,0,-18);ctx.closePath();const g=ctx.createRadialGradient(-7,-11,2,0,8,40);g.addColorStop(0,colorA);g.addColorStop(.45,colorB);g.addColorStop(1,'rgba(8,10,20,.05)');ctx.fillStyle=g;ctx.shadowColor='rgba(255,180,120,'+glow+')';ctx.shadowBlur=18;ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='rgba(255,255,255,.22)';ctx.lineWidth=1;ctx.stroke();ctx.beginPath();ctx.moveTo(1,-18);ctx.quadraticCurveTo(6,-30,0,-40);ctx.strokeStyle='rgba(150,118,82,.85)';ctx.lineWidth=2.4;ctx.stroke();ctx.beginPath();ctx.moveTo(0,-31);ctx.quadraticCurveTo(13,-37,18,-28);ctx.quadraticCurveTo(8,-24,0,-31);ctx.fillStyle='rgba(126,212,150,.7)';ctx.fill();ctx.restore();}
+function frame(ts){const dt=Math.min(.033,((ts-last)||16)/1000);last=ts;t+=dt*1000;pointer.power=Math.max(0,pointer.power-dt*.8);sky();drawDust(dt);
+ const now=new Date(); const hour=now.getHours()+now.getMinutes()/60; const min=now.getMinutes()+now.getSeconds()/60; const sec=now.getSeconds()+now.getMilliseconds()/1000;
+ const cx=w/2, cy=h*.56, rx=Math.min(w,h)*.34, ry=Math.min(w,h)*.22;
+ ctx.strokeStyle='rgba(180,216,255,.07)'; ctx.lineWidth=1; for(let i=0;i<3;i++){ctx.beginPath();ctx.ellipse(cx,cy,rx*(1-i*.18),ry*(1-i*.18),0,0,6.28);ctx.stroke();}
+ apples.forEach((a,idx)=>{
+   const ang=-Math.PI/2+(idx/24)*Math.PI*2;
+   const px=cx+Math.cos(ang)*rx;
+   const py=cy+Math.sin(ang)*ry;
+   const clockPull= idx<12 ? Math.abs(idx-hour%12)/12 : Math.abs(idx-min/5)/12;
+   const drift=Math.sin(a.phase+t*.0014*a.sway)*18*a.depth;
+   const dx=pointer.active?(pointer.x-px):0, dy=pointer.active?(pointer.y-py):0;
+   const dist=Math.hypot(dx,dy); const bend=pointer.active?Math.max(0,1-dist/220):0;
+   const sway=Math.sin(t*.0018*a.sway+idx)*14 + drift + bend*dx*.16;
+   const drop=42 + Math.cos(t*.0012+idx)*8 + bend*dy*.16;
+   ctx.strokeStyle='rgba(140,180,220,'+(.18+.14*bend)+')'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(px,py-90); ctx.quadraticCurveTo(px+sway*.18,py-35,px+sway,py-drop); ctx.stroke();
+   const focus=Math.max(0,1-clockPull*2.6);
+   const size=(a.size/24)*(1+focus*.42+bend*.2);
+   const x=px+sway,y=py-drop;
+   const warm = focus>.72 || Math.abs(idx-sec/2.5)<1 ? 1 : 0;
+   appleShape(x,y,size,.18+focus*.34+bend*.2,warm?'rgba(255,244,170,.96)':'rgba(255,188,128,.94)',warm?'rgba(255,146,82,.88)':'rgba(255,92,76,.86)');
+   ctx.fillStyle='rgba(226,238,255,'+(.34+focus*.42)+')'; ctx.font=(11+focus*2)+'px Courier New'; ctx.textAlign='center'; ctx.fillText(labels[idx],x,py+36+Math.sin(t*.001+idx)*4);
+ });
+ ctx.lineWidth=2.2; ctx.strokeStyle='rgba(214,235,255,.16)'; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos((hour/12)*Math.PI*2-Math.PI/2)*rx*.42,cy+Math.sin((hour/12)*Math.PI*2-Math.PI/2)*ry*.42); ctx.stroke();
+ ctx.strokeStyle='rgba(255,206,164,.22)'; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos((min/60)*Math.PI*2-Math.PI/2)*rx*.66,cy+Math.sin((min/60)*Math.PI*2-Math.PI/2)*ry*.66); ctx.stroke();
+ ctx.strokeStyle='rgba(255,244,208,.44)'; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos((sec/60)*Math.PI*2-Math.PI/2)*rx*.82,cy+Math.sin((sec/60)*Math.PI*2-Math.PI/2)*ry*.82); ctx.stroke();
+ ctx.fillStyle='rgba(240,247,255,.85)'; ctx.beginPath(); ctx.arc(cx,cy,5.5,0,6.28); ctx.fill();
+ ctx.fillStyle='rgba(225,238,255,.78)'; ctx.font='12px Courier New'; ctx.textAlign='center'; ctx.fillText(now.toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'}),cx,cy+ry+70);
+ const line=pointer.active?'schedule compromised, beautifully':'all apples currently pretending to know what time it is';
+ ctx.fillStyle='rgba(225,238,255,.4)'; ctx.fillText(line,cx,cy+ry+92);
+ for(let i=ripples.length-1;i>=0;i--){const r=ripples[i];r.r+=r.v;r.a*=.972;ctx.beginPath();ctx.arc(r.x,r.y,r.r,0,6.28);ctx.strokeStyle='rgba(210,232,255,'+r.a+')';ctx.lineWidth=1.2;ctx.stroke();if(r.a<.02)ripples.splice(i,1);} 
+ requestAnimationFrame(frame);
+}
+resize();requestAnimationFrame(frame);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
