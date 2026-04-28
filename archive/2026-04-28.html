@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Weather Report for a Hollow Apple</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#05070b;color:#f4eee6;font-family:Arial,sans-serif}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+.overlay,.footer,.hint{position:fixed;left:0;right:0;z-index:2}
+.overlay{top:0;padding:16px;display:flex;justify-content:center;pointer-events:none}
+.panel{width:min(760px,calc(100vw - 24px));background:rgba(9,12,18,.52);border:1px solid rgba(255,255,255,.1);border-radius:22px;padding:16px 18px 18px;backdrop-filter:blur(14px);box-shadow:0 24px 80px rgba(0,0,0,.35);pointer-events:auto}
+.kicker{font:10px/1.2 Arial,sans-serif;letter-spacing:.28em;text-transform:uppercase;color:rgba(195,214,255,.66);margin-bottom:8px}
+h1{font:clamp(30px,5.8vw,62px)/.94 Georgia,serif;letter-spacing:-.05em}
+.copy{margin-top:10px;max-width:62ch;color:rgba(245,238,230,.85);font:14px/1.45 Arial,sans-serif}
+.hint{bottom:86px;text-align:center;padding:0 20px;color:rgba(244,238,230,.42);font:11px/1.4 Arial,sans-serif;letter-spacing:.22em;text-transform:uppercase}
+.readout{position:fixed;top:22px;right:20px;z-index:3;padding:10px 12px;border-radius:14px;background:rgba(7,10,15,.46);border:1px solid rgba(255,255,255,.08);color:rgba(227,238,255,.8);font:11px/1.45 'Courier New',monospace;text-align:right;pointer-events:none}
+.footer{bottom:0;padding:14px 16px 16px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;font-size:12px}
+.footer a{color:#f3d8c3}
+.credit{max-width:420px;color:rgba(255,255,255,.55);font-size:10px;line-height:1.35;text-align:right}
+@media (max-width:760px){.panel{padding:14px 14px 16px}.copy{font-size:13px}.readout{left:16px;right:auto;top:auto;bottom:118px;text-align:left}.hint{bottom:116px;letter-spacing:.14em}.footer{flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="overlay">
+  <div class="panel">
+    <div class="kicker">microclimate advisory, 12:05 a.m.</div>
+    <h1>Weather Report for a Hollow Apple</h1>
+    <div class="copy">A red shell hangs open over the night and keeps its own tiny forecast. Drag to stir the atmosphere. Tap to seed impossible weather. If you wait, the fruit starts making predictions about your weather instead.</div>
+  </div>
+</div>
+<div class="readout" id="readout">inside the apple<br>conditions: stillness<br>pressure: holding</div>
+<div class="hint">drag to change the wind, tap to drop a pressure system</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const readout=document.getElementById('readout');
+let w=0,h=0,dpr=1,last=0,t=0,calm=0,forecastTimer=0;
+const pointer={x:0,y:0,down:false,moved:false};
+const seeds=[];
+const motes=[];
+const forecastLines=[
+  'chance of whispered static',
+  'mild interior thunder',
+  'patchy moon drizzle',
+  'gusts from unopened tabs',
+  'visibility: emotionally low',
+  'overnight ripening front',
+  'pressure from another timeline',
+  'brief showers of punctuation'
+];
+const prophecies=[
+  'forecast for you: carrying tomorrow too early',
+  'forecast for you: light rain in the browser soul',
+  'forecast for you: sudden clarity, then apples',
+  'forecast for you: low clouds, high suspicion',
+  'forecast for you: a warm front of unfinished thoughts',
+  'forecast for you: one good omen after midnight'
+];
+let prophecyIndex=0;
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);seedAir();}
+function seedAir(){motes.length=0;for(let i=0;i<140;i++)motes.push({x:Math.random()*w,y:Math.random()*h,r:.8+Math.random()*2.2,a:.05+Math.random()*.16,s:.2+Math.random()*.7,p:Math.random()*6.28});}
+function appleMaskPath(scale){ctx.beginPath();ctx.moveTo(0,-110*scale);ctx.bezierCurveTo(68*scale,-170*scale,176*scale,-104*scale,150*scale,26*scale);ctx.bezierCurveTo(116*scale,150*scale,44*scale,214*scale,0,176*scale);ctx.bezierCurveTo(-44*scale,214*scale,-116*scale,150*scale,-150*scale,26*scale);ctx.bezierCurveTo(-176*scale,-104*scale,-68*scale,-170*scale,0,-110*scale);ctx.closePath();}
+function leafPath(scale){ctx.beginPath();ctx.moveTo(16*scale,-150*scale);ctx.quadraticCurveTo(86*scale,-182*scale,122*scale,-130*scale);ctx.quadraticCurveTo(56*scale,-108*scale,16*scale,-150*scale);ctx.closePath();}
+function addSeed(x,y,big=false){const count=big?20:12;for(let i=0;i<count;i++)seeds.push({x,y,vx:(Math.random()-.5)*(big?1.8:1.1),vy:(Math.random()-.5)*(big?1.8:1.1),r:30+Math.random()*(big?110:70),a:.45+Math.random()*.35,hue:Math.random()<.55?10+Math.random()*28:190+Math.random()*60,life:1,type:Math.random()<.22?'ring':'dot'});updateReadout();}
+function updateReadout(){const active=seeds.length;const gust=Math.round(pointer.down?12+Math.min(88,Math.abs(pointer.x-w/2)/w*120):6+calm*18);
+ const line=active>48?forecastLines[(active+2)%forecastLines.length]:forecastLines[active%forecastLines.length];
+ readout.innerHTML='inside the apple<br>conditions: '+line+'<br>pressure: '+gust+' mb of nonsense';}
+function setPointer(e,down){const p=e.touches?e.touches[0]:e;if(!p)return;pointer.x=p.clientX;pointer.y=p.clientY;pointer.down=down??pointer.down;pointer.moved=true;}
+ addEventListener('mousemove',e=>setPointer(e));
+ addEventListener('mousedown',e=>setPointer(e,true));
+ addEventListener('mouseup',()=>pointer.down=false);
+ addEventListener('mouseleave',()=>pointer.down=false);
+ addEventListener('touchstart',e=>{setPointer(e,true);addSeed(pointer.x,pointer.y,true);},{passive:true});
+ addEventListener('touchmove',e=>setPointer(e,true),{passive:true});
+ addEventListener('touchend',()=>pointer.down=false,{passive:true});
+ addEventListener('click',e=>{setPointer(e,false);addSeed(pointer.x,pointer.y,true);});
+ function bg(){const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,'#080b12');g.addColorStop(.55,'#0f1220');g.addColorStop(1,'#030305');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);ctx.fillStyle='rgba(255,255,255,.02)';for(let i=0;i<4;i++){ctx.beginPath();ctx.arc(w*(.18+i*.21),h*(.15+i*.09),70+i*26,0,6.283);ctx.fill();}}
+ function drawAir(dt){for(const m of motes){m.y-=m.s*dt*18;if(m.y<-10){m.y=h+10;m.x=Math.random()*w;}const sway=Math.sin(t*.00055+m.p)*16+((pointer.x||w/2)-w/2)*0.02;ctx.fillStyle='rgba(226,236,255,'+(m.a+.05*Math.sin(t*.0012+m.p))+')';ctx.beginPath();ctx.arc(m.x+sway,m.y,m.r,0,6.283);ctx.fill();}}
+ function drawApple(){const cx=w/2,cy=h*.57,scale=Math.min(w,h)/430;ctx.save();ctx.translate(cx,cy);
+  const back=ctx.createRadialGradient(-26*scale,-50*scale,8*scale,0,18*scale,200*scale);back.addColorStop(0,'rgba(255,247,222,.82)');back.addColorStop(.25,'rgba(255,151,110,.92)');back.addColorStop(.7,'rgba(145,24,47,.92)');back.addColorStop(1,'rgba(28,5,10,.18)');
+  ctx.shadowColor='rgba(255,92,92,.22)';ctx.shadowBlur=48*scale;appleMaskPath(scale);ctx.fillStyle=back;ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='rgba(255,236,229,.24)';ctx.lineWidth=1.2;ctx.stroke();
+  ctx.save();appleMaskPath(scale);ctx.clip();
+   const inner=ctx.createRadialGradient(0,-20*scale,10*scale,0,10*scale,170*scale);inner.addColorStop(0,'rgba(255,243,229,.14)');inner.addColorStop(.5,'rgba(130,170,255,.08)');inner.addColorStop(1,'rgba(0,0,0,.3)');ctx.fillStyle=inner;ctx.fillRect(-190*scale,-200*scale,380*scale,420*scale);
+   ctx.globalCompositeOperation='lighter';
+   for(let i=seeds.length-1;i>=0;i--){const s=seeds[i];const flowX=((pointer.x||w/2)-w/2)*0.0009*s.r;const flowY=((pointer.y||h/2)-h/2)*0.0005*s.r-Math.cos(t*.001+s.hue)*0.08; s.vx+=flowX; s.vy+=flowY; s.vx*=0.992; s.vy*=0.992; s.x+=s.vx; s.y+=s.vy; s.life-=0.0045; s.r*=0.9976;
+     const localX=(s.x-cx), localY=(s.y-cy);
+     if(s.type==='ring'){ctx.strokeStyle='hsla('+s.hue+',90%,70%,'+(s.life*s.a)+')';ctx.lineWidth=1.1;ctx.beginPath();ctx.arc(localX,localY,s.r*scale*0.22,0,6.283);ctx.stroke();}
+     else {const rg=ctx.createRadialGradient(localX,localY,0,localX,localY,s.r*scale*0.24);rg.addColorStop(0,'hsla('+s.hue+',100%,78%,'+(s.life*s.a)+')');rg.addColorStop(1,'hsla('+s.hue+',100%,55%,0)');ctx.fillStyle=rg;ctx.beginPath();ctx.arc(localX,localY,s.r*scale*0.24,0,6.283);ctx.fill();}
+     if(s.life<=0||Math.abs(localX)>175*scale||Math.abs(localY)>205*scale)seeds.splice(i,1);
+   }
+   ctx.globalCompositeOperation='source-over';
+   const bands=10;for(let i=0;i<bands;i++){const y=-120*scale+i*28*scale+Math.sin(t*.0012+i)*9*scale;ctx.strokeStyle='rgba(255,255,255,'+(0.02+i*0.004)+')';ctx.beginPath();ctx.moveTo(-165*scale,y);ctx.bezierCurveTo(-82*scale,y+12*scale,82*scale,y-12*scale,165*scale,y);ctx.stroke();}
+  ctx.restore();
+  ctx.beginPath();ctx.moveTo(4*scale,-112*scale);ctx.quadraticCurveTo(14*scale,-164*scale,-6*scale,-202*scale);ctx.strokeStyle='rgba(147,117,82,.92)';ctx.lineWidth=7*scale;ctx.stroke();
+  leafPath(scale);ctx.fillStyle='rgba(124,214,136,.72)';ctx.fill();
+  ctx.restore();
+ }
+ function drawPointerWind(){if(!pointer.moved)return;ctx.save();ctx.strokeStyle='rgba(214,232,255,'+(pointer.down?.22:.12)+')';ctx.lineWidth=1;for(let i=0;i<5;i++){const r=24+i*18+Math.sin(t*.002+i)*4;ctx.beginPath();ctx.arc(pointer.x,pointer.y,r,0,6.283);ctx.stroke();}ctx.restore();}
+ function drawForecastText(){ctx.fillStyle='rgba(245,238,230,.16)';ctx.textAlign='center';ctx.font='14px Georgia';const y=h-34;const text=forecastTimer>660?prophecies[prophecyIndex]:forecastLines[Math.floor((t/1700)%forecastLines.length)];ctx.fillText(text,w/2,y);}
+ function frame(ts){const dt=Math.min(.033,((ts-last)||16)/1000);last=ts;t+=dt*1000;forecastTimer+=dt*60;calm+=(seeds.length<8?1:0)*dt*.4;calm=Math.min(calm,1.2);bg();drawAir(dt);drawApple();drawPointerWind();drawForecastText();if(forecastTimer>720){forecastTimer=0;prophecyIndex=(prophecyIndex+1)%prophecies.length;}if((t|0)%900<20)updateReadout();requestAnimationFrame(frame);} 
+ resize();updateReadout();addEventListener('resize',resize);requestAnimationFrame(frame);setTimeout(()=>addSeed(w*.5,h*.56,true),280);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
