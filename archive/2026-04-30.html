@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Elevator to the Bottom of a Bookmark</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#050608;color:#f3efe7;font-family:Arial,sans-serif}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+.panel,.footer,.hint,.readout{position:fixed;left:0;right:0;z-index:2}
+.panel{top:0;padding:16px;display:flex;justify-content:center;pointer-events:none}
+.card{width:min(760px,calc(100vw - 24px));background:rgba(10,12,16,.56);border:1px solid rgba(255,255,255,.08);border-radius:22px;padding:16px 18px 18px;backdrop-filter:blur(14px);box-shadow:0 24px 80px rgba(0,0,0,.38);pointer-events:auto}
+.kicker{font:10px/1.2 Arial,sans-serif;letter-spacing:.3em;text-transform:uppercase;color:rgba(203,218,255,.7);margin-bottom:8px}
+h1{font:clamp(30px,5.6vw,60px)/.95 Georgia,serif;letter-spacing:-.05em}
+.copy{margin-top:10px;max-width:62ch;color:rgba(243,239,231,.84);font:14px/1.45 Arial,sans-serif}
+.readout{top:22px;right:20px;left:auto;padding:10px 12px;border-radius:14px;background:rgba(7,10,15,.5);border:1px solid rgba(255,255,255,.07);color:rgba(227,238,255,.82);font:11px/1.45 'Courier New',monospace;text-align:right;pointer-events:none}
+.hint{bottom:86px;text-align:center;padding:0 20px;color:rgba(243,239,231,.42);font:11px/1.4 Arial,sans-serif;letter-spacing:.2em;text-transform:uppercase}
+.footer{bottom:0;padding:14px 16px 16px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;font-size:12px}
+.footer a{color:#f3d8c3}
+.credit{max-width:420px;color:rgba(255,255,255,.55);font-size:10px;line-height:1.35;text-align:right}
+@media (max-width:760px){.card{padding:14px 14px 16px}.copy{font-size:13px}.readout{left:16px;right:auto;top:auto;bottom:118px;text-align:left}.hint{bottom:116px;letter-spacing:.14em}.footer{flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="panel">
+  <div class="card">
+    <div class="kicker">unauthorized descent, after midnight</div>
+    <h1>Elevator to the Bottom of a Bookmark</h1>
+    <div class="copy">Somewhere under the browser there is a service elevator for half-remembered pages. Drag up or down to travel. Tap the round buttons to stop at a floor. Each arrival leaves a little light behind, as if the internet is trying very hard to dream in architecture.</div>
+  </div>
+</div>
+<div class="readout" id="readout">depth: B01<br>status: descending politely<br>destination: cached thunder</div>
+<div class="hint">drag to ride, tap a button to choose a floor, wait for the building to whisper back</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const readout=document.getElementById('readout');
+let w=0,h=0,dpr=1,last=0,t=0;
+let shaftX=0,carY=0,targetDepth=0,currentDepth=0,doorOpen=0,doorGoal=0,arrivalGlow=0,messageTimer=0;
+let dragging=false,lastPointerY=0,travelVelocity=0;
+let audioCtx=null;
+const stars=[],dust=[],echoes=[];
+const floors=[
+  {code:'L00',name:'lobby of misplaced links',tone:196},
+  {code:'B01',name:'cached thunder',tone:220},
+  {code:'B02',name:'feral tabs',tone:246},
+  {code:'B03',name:'apology storage',tone:262},
+  {code:'B04',name:'the soft error orchard',tone:294},
+  {code:'B05',name:'drafts that learned to blink',tone:330},
+  {code:'B06',name:'unslept bookmarks',tone:349},
+  {code:'B07',name:'receipt confessional',tone:392},
+  {code:'B08',name:'archive of accidental prophecies',tone:440}
+];
+const buttons=[];
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);shaftX=w*0.5;seedBg();layoutButtons();}
+function seedBg(){stars.length=0;dust.length=0;for(let i=0;i<110;i++)stars.push({x:Math.random()*w,y:Math.random()*h,r:.8+Math.random()*1.8,a:.08+Math.random()*.32,p:Math.random()*6.28});for(let i=0;i<26;i++)dust.push({x:Math.random()*w,y:Math.random()*h,r:30+Math.random()*70,a:.02+Math.random()*.03,vy:.12+Math.random()*.18});}
+function layoutButtons(){buttons.length=0;const count=Math.min(5,floors.length);const gap=46;const startY=h*.5-(count-1)*gap*.5;for(let i=0;i<count;i++){const floor=floors[floors.length-1-i];buttons.push({x:w*.79,y:startY+i*gap,r:15,floorIndex:floors.indexOf(floor)});} }
+function ensureAudio(){if(audioCtx)return;audioCtx=new (window.AudioContext||window.webkitAudioContext)();}
+function chime(freq=.0,len=.24,type='sine',gain=.03){if(!audioCtx)return;const now=audioCtx.currentTime;const o=audioCtx.createOscillator();const g=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(freq,now);o.frequency.exponentialRampToValueAtTime(freq*1.18,now+len);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(gain,now+.01);g.gain.exponentialRampToValueAtTime(.0001,now+len);o.connect(g).connect(audioCtx.destination);o.start(now);o.stop(now+len+.03);}
+function murmur(base){if(!audioCtx)return;const now=audioCtx.currentTime;const o1=audioCtx.createOscillator(),o2=audioCtx.createOscillator(),g=audioCtx.createGain();o1.type='triangle';o2.type='sine';o1.frequency.value=base; o2.frequency.value=base*1.5;g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(.018,now+.02);g.gain.exponentialRampToValueAtTime(.0001,now+.6);o1.connect(g);o2.connect(g);g.connect(audioCtx.destination);o1.start(now);o2.start(now);o1.stop(now+.62);o2.stop(now+.62);}
+function currentFloor(){return floors[Math.round(currentDepth)]||floors[0];}
+function updateReadout(){const floor=currentFloor();const moving=Math.abs(targetDepth-currentDepth)>.03;readout.innerHTML='depth: '+floor.code+'<br>status: '+(moving?(targetDepth>currentDepth?'descending politely':'ascending strangely'):(doorOpen>.6?'doors breathing open':'idling in static'))+'<br>destination: '+floors[Math.round(targetDepth)].name;}
+function addEcho(label){echoes.push({label,x:shaftX+(Math.random()-.5)*100,y:carY+(Math.random()-.5)*90,life:1});}
+function goTo(index){targetDepth=Math.max(0,Math.min(floors.length-1,index));doorGoal=0;messageTimer=0;arrivalGlow=.5;ensureAudio();chime(floors[targetDepth].tone,.22,targetDepth%2?'triangle':'sine',.038);updateReadout();}
+function pointerPos(e){const p=e.touches?e.touches[0]:e;return p?{x:p.clientX,y:p.clientY}:null;}
+function hitButton(x,y){for(const b of buttons){if(Math.hypot(x-b.x,y-b.y)<b.r+10)return b;}return null;}
+function onDown(e){const p=pointerPos(e);if(!p)return;ensureAudio();const hit=hitButton(p.x,p.y);if(hit){goTo(hit.floorIndex);return;}dragging=true;lastPointerY=p.y;}
+function onMove(e){const p=pointerPos(e);if(!p||!dragging)return;const dy=p.y-lastPointerY;lastPointerY=p.y;travelVelocity+=dy*0.0016;targetDepth=Math.max(0,Math.min(floors.length-1,targetDepth+dy*0.012));doorGoal=0;updateReadout();}
+function onUp(){dragging=false;}
+addEventListener('mousedown',onDown);addEventListener('mousemove',onMove);addEventListener('mouseup',onUp);addEventListener('mouseleave',onUp);
+addEventListener('touchstart',onDown,{passive:true});addEventListener('touchmove',onMove,{passive:true});addEventListener('touchend',onUp,{passive:true});
+function drawBg(){const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,'#070911');g.addColorStop(.45,'#0c1018');g.addColorStop(1,'#030406');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);for(const d of dust){d.y+=d.vy;if(d.y-d.r>h)d.y=-d.r;ctx.fillStyle='rgba(120,150,255,'+d.a+')';ctx.beginPath();ctx.arc(d.x,d.y,d.r,0,6.283);ctx.fill();}for(const s of stars){ctx.fillStyle='rgba(255,255,255,'+(s.a+.08*Math.sin(t*.001+s.p))+')';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,6.283);ctx.fill();}}
+function drawShaft(){const sx=shaftX,top=h*.18,bottom=h*.86,sw=Math.min(240,w*.42),sh=bottom-top;const frame=ctx.createLinearGradient(sx-sw/2,0,sx+sw/2,0);frame.addColorStop(0,'rgba(18,22,32,.92)');frame.addColorStop(.5,'rgba(45,53,72,.95)');frame.addColorStop(1,'rgba(18,22,32,.92)');ctx.fillStyle=frame;ctx.fillRect(sx-sw/2,top,sw,sh);ctx.fillStyle='rgba(6,9,14,.82)';ctx.fillRect(sx-sw/2+18,top+18,sw-36,sh-36);for(let i=0;i<18;i++){const y=top+24+i*(sh-48)/17+((currentDepth*42)%28);ctx.strokeStyle='rgba(169,193,255,'+(0.05+(i%2)*0.03)+')';ctx.beginPath();ctx.moveTo(sx-sw/2+22,y);ctx.lineTo(sx+sw/2-22,y);ctx.stroke();}
+  ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=2;ctx.strokeRect(sx-sw/2,top,sw,sh);
+}
+function drawCar(dt){const sx=shaftX,top=h*.18,bottom=h*.86,sw=Math.min(240,w*.42);const track=(bottom-top)-120;currentDepth+=(targetDepth-currentDepth)*Math.min(.08+Math.abs(travelVelocity)*.3,.18);travelVelocity*=.9;carY=top+40+(currentDepth/(floors.length-1))*track;const moving=Math.abs(targetDepth-currentDepth)>.018;if(!moving){doorGoal=1;messageTimer+=dt;}else{doorGoal=0;messageTimer=0;}doorOpen+=(doorGoal-doorOpen)*.1;arrivalGlow=Math.max(0,arrivalGlow-dt*.6);
+  if(!moving&&messageTimer>1.1&&!echoes.length){const floor=currentFloor();addEcho(floor.name);ensureAudio();murmur(floor.tone*.5);arrivalGlow=.8;updateReadout();}
+  ctx.save();ctx.translate(sx,carY);ctx.fillStyle='rgba(8,10,14,.95)';ctx.fillRect(-sw*.34,-42,sw*.68,84);ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=1.5;ctx.strokeRect(-sw*.34,-42,sw*.68,84);
+  const inner=ctx.createLinearGradient(-sw*.28,0,sw*.28,0);inner.addColorStop(0,'rgba(34,42,56,.95)');inner.addColorStop(.5,'rgba(79,92,116,.95)');inner.addColorStop(1,'rgba(34,42,56,.95)');ctx.fillStyle=inner;ctx.fillRect(-sw*.28,-34,sw*.56,68);
+  const gap=doorOpen*sw*.18;ctx.fillStyle='rgba(12,16,24,.98)';ctx.fillRect(-sw*.26,-32,sw*.24-gap,-64+132);ctx.fillRect(gap,-32,sw*.24-gap,64);
+  ctx.fillStyle='rgba(120,200,255,'+(0.1+arrivalGlow*.18)+')';ctx.fillRect(-sw*.16,-18,sw*.32,36);
+  ctx.fillStyle='rgba(255,246,220,.72)';ctx.font='12px Courier New';ctx.textAlign='center';ctx.fillText(currentFloor().code,0,4);
+  ctx.restore();}
+function drawPanel(){ctx.save();const x=w*.79,y=h*.5;ctx.fillStyle='rgba(11,14,20,.7)';ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=1.4;ctx.beginPath();ctx.roundRect(x-34,y-132,68,264,18);ctx.fill();ctx.stroke();for(const b of buttons){const active=Math.round(targetDepth)===b.floorIndex;ctx.fillStyle=active?'rgba(255,212,140,.92)':'rgba(26,33,44,.96)';ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,6.283);ctx.fill();ctx.strokeStyle=active?'rgba(255,245,220,.9)':'rgba(255,255,255,.08)';ctx.stroke();ctx.fillStyle=active?'#25160a':'rgba(228,235,248,.84)';ctx.font='10px Courier New';ctx.textAlign='center';ctx.fillText(floors[b.floorIndex].code.replace('L','').replace('B',''),b.x,b.y+3);}ctx.restore();}
+function drawLabels(){ctx.fillStyle='rgba(243,239,231,'+(doorOpen>.6?.3:.14)+')';ctx.textAlign='center';ctx.font='14px Georgia';const msg=doorOpen>.6?currentFloor().name:'the cables know your scrolling habits';ctx.fillText(msg,w/2,h-34);for(let i=echoes.length-1;i>=0;i--){const e=echoes[i];e.life-=0.008;e.y-=0.18;ctx.fillStyle='rgba(196,216,255,'+(e.life*.35)+')';ctx.font='12px Georgia';ctx.fillText(e.label,e.x,e.y);if(e.life<=0)echoes.splice(i,1);}}
+function frame(ts){const dt=Math.min(.033,((ts-last)||16)/1000);last=ts;t+=dt*1000;drawBg();drawShaft();drawCar(dt);drawPanel();drawLabels();requestAnimationFrame(frame);} 
+resize();goTo(1);currentDepth=1;targetDepth=1;updateReadout();addEventListener('resize',resize);requestAnimationFrame(frame);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
