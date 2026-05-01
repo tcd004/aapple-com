@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>aapple.com — Maypole for a Lost Apple Seed</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:radial-gradient(circle at 50% 35%,#1a2230 0%,#0d1016 48%,#050608 100%);font-family:Georgia,serif;color:#f5ebd6}
+canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none}
+.overlay,.footer{position:fixed;left:0;right:0;z-index:2;pointer-events:none}
+.overlay{top:0;padding:20px 18px 0;text-align:center}
+h1{font-size:clamp(28px,6vw,64px);font-weight:400;letter-spacing:.04em;text-shadow:0 0 18px rgba(255,220,170,.16)}
+.subtitle{margin-top:8px;font:12px/1.5 ui-monospace,monospace;letter-spacing:.22em;text-transform:uppercase;color:rgba(245,235,214,.72)}
+.note{margin-top:14px;font:13px/1.5 ui-monospace,monospace;color:rgba(245,235,214,.58)}
+.footer{bottom:0;padding:14px 16px 18px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.footer a,.footer .credit{pointer-events:auto}
+.footer a{color:#f0d79f;text-decoration:none;font:12px ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase}
+.credit{max-width:700px;text-align:center;color:rgba(245,235,214,.42);font-size:10px;line-height:1.4}
+@media (max-width:640px){.overlay{padding-top:28px}.note{font-size:11px;padding:0 18px}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="overlay">
+  <h1>Maypole for a Lost Apple Seed</h1>
+  <div class="subtitle">touch or move to braid the ribbons • press and hold to coax blossoms</div>
+  <div class="note">Somewhere under the page, a seed keeps trying to remember the shape of spring.</div>
+</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+let w=0,h=0,dpr=Math.min(devicePixelRatio||1,2),t=0,audio=null,master=null,pressing=false;
+const pointer={x:.5,y:.55,tx:.5,ty:.55,active:false,downTime:0};
+const ribbons=[],petals=[],motes=[];
+const palette=['#f4c56d','#ec6f5c','#ea8fd3','#86d6d5','#92c56f','#f8e7b0'];
+const words=['hum','root','again','bloom','remember','almost','turn','rise'];
+function resize(){w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}
+addEventListener('resize',resize,{passive:true});resize();
+for(let i=0;i<6;i++)ribbons.push({phase:Math.PI*2*i/6,amp:50+i*12,speed:.003+i*.0006,color:palette[i]});
+for(let i=0;i<90;i++)motes.push({x:Math.random(),y:Math.random(),r:1+Math.random()*2,a:.15+Math.random()*.45,s:0.0004+Math.random()*0.0012});
+function initAudio(){
+  if(audio)return;
+  const Ctx=window.AudioContext||window.webkitAudioContext;if(!Ctx)return;
+  audio=new Ctx(); master=audio.createGain(); master.gain.value=.03; master.connect(audio.destination);
+}
+function ring(freq,pan=0){
+  if(!audio)return;
+  const o=audio.createOscillator(),g=audio.createGain(),p=audio.createStereoPanner?audio.createStereoPanner():null;
+  o.type='sine'; o.frequency.value=freq;
+  g.gain.setValueAtTime(.0001,audio.currentTime); g.gain.exponentialRampToValueAtTime(.13,audio.currentTime+.02); g.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+1.8);
+  if(p){p.pan.value=pan;o.connect(g);g.connect(p);p.connect(master)} else {o.connect(g);g.connect(master)}
+  o.start(); o.stop(audio.currentTime+1.85);
+}
+function bloom(x,y,burst=1){
+  for(let i=0;i<8*burst;i++)petals.push({x,y,a:Math.random()*Math.PI*2,v:1+Math.random()*2.6,size:4+Math.random()*9,life:90+Math.random()*80,hue:palette[(Math.random()*palette.length)|0]});
+  ring(220+Math.random()*220,(x/w-.5)*1.5);
+}
+function setPointer(clientX,clientY){pointer.tx=clientX/w;pointer.ty=clientY/h;pointer.active=true}
+function onDown(e){initAudio();audio&&audio.resume&&audio.resume();pressing=true;pointer.downTime=performance.now();const p=e.touches?e.touches[0]:e;setPointer(p.clientX,p.clientY);bloom(p.clientX,p.clientY,2)}
+function onMove(e){const p=e.touches?e.touches[0]:e;setPointer(p.clientX,p.clientY)}
+function onUp(){pressing=false}
+addEventListener('pointerdown',onDown);addEventListener('pointermove',onMove);addEventListener('pointerup',onUp);addEventListener('pointerleave',onUp);
+addEventListener('touchstart',onDown,{passive:true});addEventListener('touchmove',onMove,{passive:true});addEventListener('touchend',onUp,{passive:true});
+function drawSeed(cx,cy){
+  ctx.save();ctx.translate(cx,cy);
+  const pulse=1+Math.sin(t*.0023)*.04;
+  ctx.scale(pulse,pulse);
+  ctx.fillStyle='#28180d';ctx.beginPath();ctx.ellipse(0,0,24,34,.12,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='rgba(250,226,174,.55)';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(0,-22);ctx.quadraticCurveTo(18,-14,16,6);ctx.quadraticCurveTo(14,30,0,34);ctx.quadraticCurveTo(-16,28,-16,4);ctx.quadraticCurveTo(-18,-16,0,-22);ctx.stroke();
+  ctx.strokeStyle='rgba(255,249,231,.18)';ctx.beginPath();ctx.moveTo(0,-16);ctx.quadraticCurveTo(4,3,0,18);ctx.stroke();
+  ctx.restore();
+}
+function draw(){
+  t=performance.now();
+  pointer.x+=(pointer.tx-pointer.x)*.08; pointer.y+=(pointer.ty-pointer.y)*.08;
+  ctx.clearRect(0,0,w,h);
+  const grad=ctx.createRadialGradient(w*.5,h*.58,10,w*.5,h*.58,Math.max(w,h)*.7);
+  grad.addColorStop(0,'rgba(255,232,180,.08)');grad.addColorStop(.35,'rgba(208,113,101,.08)');grad.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=grad;ctx.fillRect(0,0,w,h);
+  motes.forEach(m=>{m.y=(m.y+m.s)%1;const mx=m.x*w+Math.sin(t*.0004+m.y*9)*16,my=m.y*h;ctx.fillStyle=`rgba(255,245,220,${m.a})`;ctx.beginPath();ctx.arc(mx,my,m.r,0,Math.PI*2);ctx.fill()});
+  const cx=w*.5,cy=h*.58,px=pointer.x*w,py=pointer.y*h;
+  ctx.lineCap='round';
+  ribbons.forEach((r,i)=>{
+    ctx.beginPath();
+    for(let y=h*.08,first=true;y<h*.94;y+=8){
+      const n=(y-h*.08)/(h*.86), sway=Math.sin(t*r.speed+y*.013+r.phase)*r.amp*(1-n*.15);
+      const attract=(px-cx)*(1-Math.abs(n-.5)*1.6)*.32;
+      const x=cx+sway+attract+Math.sin(n*10+t*.0015+i)*10;
+      if(first){ctx.moveTo(x,y);first=false}else ctx.lineTo(x,y)
+    }
+    ctx.strokeStyle=r.color+'c0'; ctx.lineWidth=2.5; ctx.stroke();
+  });
+  ctx.strokeStyle='rgba(145,196,112,.42)'; ctx.lineWidth=2;
+  for(let i=0;i<4;i++){
+    ctx.beginPath();ctx.moveTo(cx,cy+18);
+    const dir=i<2?-1:1, bend=(i%2?.22:.36)*dir*w;
+    ctx.bezierCurveTo(cx+bend*.15,cy+40,cx+bend*.35,h*.86,cx+bend*.65,h+30);ctx.stroke();
+  }
+  drawSeed(cx,cy);
+  const hover=Math.hypot(px-cx,py-cy);
+  if(pressing&&t-pointer.downTime>280&&petals.length<160&&Math.random()<.28)bloom(px+(Math.random()-.5)*40,py+(Math.random()-.5)*40,1);
+  petals.forEach((p,idx)=>{
+    p.x+=Math.cos(p.a)*p.v; p.y+=Math.sin(p.a)*p.v-.15; p.a+=.01*Math.sin(idx+t*.001); p.life--;
+    const alpha=Math.max(0,p.life/170); ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.a);
+    ctx.fillStyle=p.hue+Math.round(alpha*255).toString(16).padStart(2,'0');
+    ctx.beginPath();ctx.moveTo(0,-p.size);ctx.quadraticCurveTo(p.size*.85,-p.size*.2,0,p.size);ctx.quadraticCurveTo(-p.size*.85,-p.size*.2,0,-p.size);ctx.fill();ctx.restore();
+  });
+  for(let i=petals.length-1;i>=0;i--)if(petals[i].life<=0)petals.splice(i,1);
+  ctx.fillStyle='rgba(245,235,214,.78)';ctx.font=`${Math.max(12,Math.min(20,w/28))}px Georgia,serif`;ctx.textAlign='center';
+  words.forEach((word,i)=>{
+    const ang=t*.00025*(i%2?1:-1)+i*Math.PI/4; const rad=94+Math.sin(t*.0012+i)*18+(hover<180?30:0);
+    const x=cx+Math.cos(ang)*rad+(px-cx)*.06,y=cy+Math.sin(ang)*rad*.55+(py-cy)*.05;
+    ctx.globalAlpha=.25+.35*(1+Math.sin(t*.0015+i))/2; ctx.fillText(word,x,y)
+  });
+  ctx.globalAlpha=1;
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
