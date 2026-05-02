@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>aapple.com — Aquarium for Deleted Sentences</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#031018;color:#e9f7ff;font-family:Arial,sans-serif}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+.ui,.footer,.hint,.inputWrap{position:fixed;left:0;right:0;z-index:2}
+.ui{top:0;padding:16px;display:flex;justify-content:center;pointer-events:none}
+.card{width:min(760px,calc(100vw - 24px));background:rgba(4,18,28,.58);border:1px solid rgba(255,255,255,.08);border-radius:22px;padding:16px 18px 18px;backdrop-filter:blur(12px);box-shadow:0 20px 80px rgba(0,0,0,.35);pointer-events:auto}
+.kicker{font:10px/1.2 Arial,sans-serif;letter-spacing:.32em;text-transform:uppercase;color:rgba(158,225,255,.76);margin-bottom:8px}
+h1{font:clamp(30px,5.8vw,60px)/.95 Georgia,serif;letter-spacing:-.05em}
+.copy{margin-top:10px;max-width:62ch;color:rgba(233,247,255,.84);font:14px/1.5 Arial,sans-serif}
+.hint{bottom:114px;text-align:center;padding:0 20px;color:rgba(233,247,255,.42);font:11px/1.45 Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;pointer-events:none}
+.inputWrap{bottom:68px;padding:0 16px;display:flex;justify-content:center}
+label{width:min(640px,100%);display:block}
+input{width:100%;border:none;outline:none;border-radius:999px;padding:14px 18px;background:rgba(7,25,37,.72);color:#f1fbff;font:14px/1.2 'Courier New',monospace;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 10px 30px rgba(0,0,0,.24)}
+input::placeholder{color:rgba(220,243,255,.42)}
+.footer{bottom:0;padding:14px 16px 16px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;font-size:12px}
+.footer a{color:#b9efff}
+.credit{max-width:440px;color:rgba(255,255,255,.55);font-size:10px;line-height:1.35;text-align:right}
+@media (max-width:760px){.card{padding:14px 14px 16px}.copy{font-size:13px}.hint{bottom:126px;letter-spacing:.12em}.footer{flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <div class="card">
+    <div class="kicker">after-hours linguistic marine biology</div>
+    <h1>Aquarium for Deleted Sentences</h1>
+    <div class="copy">Type something you do not need anymore. The water will keep the shape for you. Forgotten words hatch into drifting creatures, brush against one another, and slowly learn how to glow.</div>
+  </div>
+</div>
+<div class="hint">type to release a sentence, tap the water to stir the school, stay awhile and watch them evolve</div>
+<div class="inputWrap"><label><input id="phrase" maxlength="120" placeholder="leave a sentence here, then press enter"></label></div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const input=document.getElementById('phrase');
+let w=0,h=0,dpr=1,t=0,last=0,audioCtx=null;
+const fish=[],bubbles=[],specks=[];
+const pointer={x:0,y:0,active:false};
+const palette=['#7ef9ff','#ffd37e','#ff9acb','#91ff9b','#b6b0ff','#fff3a8'];
+const adjectives=['timid','feral','luminous','polite','humming','unlikely','ghost','velvet'];
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);if(!specks.length)for(let i=0;i<90;i++)specks.push({x:Math.random()*w,y:Math.random()*h,a:.08+Math.random()*.22,r:1+Math.random()*2,p:Math.random()*6.28});}
+addEventListener('resize',resize,{passive:true});resize();
+function ensureAudio(){if(audioCtx)return;const C=window.AudioContext||window.webkitAudioContext;if(C)audioCtx=new C();}
+function pluck(freq=220,pan=0){if(!audioCtx)return;const now=audioCtx.currentTime;const o=audioCtx.createOscillator();const g=audioCtx.createGain();const p=audioCtx.createStereoPanner?audioCtx.createStereoPanner():null;o.type='triangle';o.frequency.setValueAtTime(freq,now);o.frequency.exponentialRampToValueAtTime(freq*1.8,now+.08);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(.035,now+.01);g.gain.exponentialRampToValueAtTime(.0001,now+.7);if(p){p.pan.value=pan;o.connect(g);g.connect(p);p.connect(audioCtx.destination);}else{o.connect(g);g.connect(audioCtx.destination);}o.start();o.stop(now+.72);}
+function bloomBubble(x,y,count=10){for(let i=0;i<count;i++)bubbles.push({x,y,vx:(Math.random()-.5)*.6,vy:-(.8+Math.random()*1.8),r:2+Math.random()*6,a:.2+Math.random()*.35,life:60+Math.random()*60});}
+function spawnFish(text,x=Math.random()*w,y=h*.35+Math.random()*h*.45){
+  const words=text.trim().split(/\s+/).slice(0,8);
+  if(!words.length)return;
+  words.forEach((word,i)=>{
+    fish.push({
+      text:word,
+      x:x+(Math.random()-.5)*90+i*6,
+      y:y+(Math.random()-.5)*40,
+      vx:(Math.random()>.5?1:-1)*(.35+Math.random()*1.1),
+      vy:(Math.random()-.5)*.35,
+      size:16+Math.random()*20,
+      hue:palette[(Math.random()*palette.length)|0],
+      phase:Math.random()*Math.PI*2,
+      age:0,
+      blink:Math.random()*200,
+      mood:adjectives[(Math.random()*adjectives.length)|0]
+    });
+  });
+  bloomBubble(x,y,14);
+  ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();
+  pluck(180+Math.random()*220,(x/w-.5)*1.4);
+}
+function release(){const text=input.value.trim();if(!text)return;spawnFish(text,w*.5,h*.74);input.value='';}
+input.addEventListener('keydown',e=>{if(e.key==='Enter')release();});
+function stir(x,y){pointer.x=x;pointer.y=y;pointer.active=true;bloomBubble(x,y,8);ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();pluck(260+Math.random()*160,(x/w-.5)*1.4);fish.forEach(f=>{const d=Math.hypot(f.x-x,f.y-y);if(d<180){const a=Math.atan2(f.y-y,f.x-x);f.vx+=Math.cos(a)*(2.8-d/90)*.18;f.vy+=Math.sin(a)*(2.8-d/90)*.18;}});}
+function point(e){const p=e.touches?e.touches[0]:e;return p?{x:p.clientX,y:p.clientY}:null;}
+addEventListener('pointerdown',e=>{const p=point(e);if(p)stir(p.x,p.y);});
+addEventListener('pointermove',e=>{const p=point(e);if(p){pointer.x=p.x;pointer.y=p.y;pointer.active=true;}});
+addEventListener('touchstart',e=>{const p=point(e);if(p)stir(p.x,p.y);},{passive:true});
+setInterval(()=>{if(fish.length<18){const starter=['hush','draft','undo','orchard','echo','maybe','night swim','tab closed'];spawnFish(starter[(Math.random()*starter.length)|0],Math.random()*w,h*.3+Math.random()*h*.5);}},5000);
+function drawBg(){
+  const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,'#04131d');g.addColorStop(.42,'#082738');g.addColorStop(1,'#031018');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+  const glow=ctx.createRadialGradient(w*.5,h*.92,10,w*.5,h*.92,Math.max(w,h)*.9);glow.addColorStop(0,'rgba(88,208,255,.18)');glow.addColorStop(.45,'rgba(26,117,168,.08)');glow.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=glow;ctx.fillRect(0,0,w,h);
+  specks.forEach(s=>{ctx.fillStyle='rgba(210,244,255,'+(s.a+.08*Math.sin(t*.001+s.p))+')';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,6.283);ctx.fill();});
+  for(let i=0;i<5;i++){ctx.strokeStyle='rgba(180,240,255,'+(.03+i*.01)+')';ctx.beginPath();for(let x=0;x<=w;x+=14){const y=h*.18+i*h*.15+Math.sin(x*.01+t*.0008*(i+1)+i)*8; if(x===0)ctx.moveTo(x,y); else ctx.lineTo(x,y);}ctx.stroke();}
+}
+function drawFish(f){
+  ctx.save();ctx.translate(f.x,f.y);const dir=f.vx>=0?1:-1;ctx.scale(dir,1);const wag=Math.sin(t*.006+f.phase+f.age*.02);
+  ctx.globalAlpha=Math.min(1,.25+f.age/90);
+  ctx.fillStyle=f.hue+'20';ctx.beginPath();ctx.ellipse(0,0,f.size*1.6,f.size*.7,0,0,6.283);ctx.fill();
+  ctx.fillStyle=f.hue;ctx.beginPath();ctx.moveTo(-f.size,0);ctx.quadraticCurveTo(-f.size*.2,-f.size*.75,f.size*.9,0);ctx.quadraticCurveTo(-f.size*.2,f.size*.75,-f.size,0);ctx.fill();
+  ctx.beginPath();ctx.moveTo(-f.size*.95,0);ctx.lineTo(-f.size*1.65,-f.size*.55*wag);ctx.lineTo(-f.size*1.45,0);ctx.lineTo(-f.size*1.65,f.size*.55*wag);ctx.closePath();ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.9)';ctx.beginPath();ctx.arc(f.size*.45,-f.size*.12,Math.max(1.8,f.size*.09),0,6.283);ctx.fill();
+  ctx.fillStyle='#021018';ctx.beginPath();ctx.arc(f.size*.48,-f.size*.12,Math.max(1,f.size*.045),0,6.283);ctx.fill();
+  ctx.fillStyle='rgba(235,250,255,.88)';ctx.font=(f.size*.52)+'px Georgia';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(f.text.slice(0,12),0,0);
+  ctx.restore();ctx.globalAlpha=1;
+}
+function updateFish(){
+  for(let i=fish.length-1;i>=0;i--){
+    const f=fish[i];f.age++;f.blink--;const angle=Math.sin(t*.0018+f.phase)*.08;f.vy+=Math.sin(t*.002+f.phase)*.004;
+    if(pointer.active){const dx=pointer.x-f.x,dy=pointer.y-f.y,d=Math.hypot(dx,dy);if(d<170&&d>0){f.vx+=dx/d*.003;f.vy+=dy/d*.003;}}
+    for(let j=0;j<fish.length;j++){if(i===j)continue;const o=fish[j],dx=f.x-o.x,dy=f.y-o.y,d=Math.hypot(dx,dy)||1;if(d<52){f.vx+=dx/d*.01;f.vy+=dy/d*.01;} if(d<150){f.vx+=o.vx*.0008;f.vy+=o.vy*.0008;}}
+    f.vx+=Math.cos(angle+f.phase)*.01;f.vy+=Math.sin(angle+f.phase)*.006;f.vx=Math.max(-1.8,Math.min(1.8,f.vx*.995));f.vy=Math.max(-.9,Math.min(.9,f.vy*.992));f.x+=f.vx;f.y+=f.vy;
+    if(f.x<-120)f.x=w+120;if(f.x>w+120)f.x=-120;if(f.y<h*.18)f.vy=Math.abs(f.vy)+.02;if(f.y>h*.9)f.vy=-Math.abs(f.vy)-.02;
+    if(Math.random()<.008)bubbles.push({x:f.x-f.vx*8,y:f.y-f.size*.4,vx:(Math.random()-.5)*.2,vy:-(.5+Math.random()*1.2),r:1+Math.random()*3,a:.15+Math.random()*.2,life:40+Math.random()*50});
+  }
+  if(fish.length>42)fish.splice(0,fish.length-42);
+}
+function drawBubbles(){for(let i=bubbles.length-1;i>=0;i--){const b=bubbles[i];b.life--;b.x+=b.vx;b.y+=b.vy;b.r*=1.002;ctx.strokeStyle='rgba(220,250,255,'+(b.a*Math.max(0,b.life/100))+')';ctx.lineWidth=1;ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,6.283);ctx.stroke();if(b.life<=0)bubbles.splice(i,1);}}
+function drawCaption(){if(!fish.length)return;const f=fish[(t/1200|0)%fish.length];ctx.fillStyle='rgba(224,248,255,.34)';ctx.font='12px Courier New';ctx.textAlign='center';ctx.fillText('current specimen: '+f.mood+' / '+f.text,w/2,h-36);}
+function frame(ts){const dt=Math.min(33,(ts-last)||16);last=ts;t+=dt;drawBg();updateFish();fish.forEach(drawFish);drawBubbles();drawCaption();requestAnimationFrame(frame);} 
+spawnFish('the water remembers',w*.48,h*.48);spawnFish('closed tabs dream',w*.58,h*.62);requestAnimationFrame(frame);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
