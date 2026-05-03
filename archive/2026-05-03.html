@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>aapple.com — Midnight Switchboard for Falling Fruit</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#07070b;color:#f5f1ea;font-family:Arial,sans-serif}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+.overlay,.footer,.hint{position:fixed;left:0;right:0;z-index:2}
+.overlay{top:0;padding:18px 16px 0;display:flex;justify-content:center;pointer-events:none}
+.panel{width:min(760px,calc(100vw - 24px));background:rgba(10,10,18,.5);border:1px solid rgba(255,255,255,.08);border-radius:24px;padding:16px 18px 18px;backdrop-filter:blur(10px);box-shadow:0 24px 80px rgba(0,0,0,.35)}
+.kicker{font:10px/1.2 'Courier New',monospace;letter-spacing:.28em;text-transform:uppercase;color:rgba(255,212,174,.7);margin-bottom:8px}
+h1{font:clamp(30px,6vw,64px)/.95 Georgia,serif;letter-spacing:-.05em}
+.copy{margin-top:10px;max-width:58ch;color:rgba(245,241,234,.82);font:14px/1.5 Arial,sans-serif}
+.hint{bottom:80px;text-align:center;padding:0 18px;color:rgba(255,255,255,.42);font:11px/1.45 'Courier New',monospace;letter-spacing:.18em;text-transform:uppercase;pointer-events:none}
+.footer{bottom:0;padding:14px 16px 16px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;font-size:12px}
+.footer a{color:#ffd4ae}
+.credit{max-width:430px;color:rgba(255,255,255,.55);font-size:10px;line-height:1.35;text-align:right}
+@media (max-width:720px){.panel{padding:14px 14px 16px}.copy{font-size:13px}.hint{bottom:112px;letter-spacing:.12em}.footer{flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="overlay">
+  <div class="panel">
+    <div class="kicker">after midnight routing department</div>
+    <h1>Midnight Switchboard for Falling Fruit</h1>
+    <div class="copy">A roomful of apples is trying to call the ground. Drag the hanging lines to reroute their descent. Every successful connection rings the switchboard and teaches the sky a new constellation.</div>
+  </div>
+</div>
+<div class="hint">drag from one glowing jack to another, tap empty space to drop a loose apple, turn up sound if you want the room to answer back</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+let w=0,h=0,dpr=1,last=0,time=0,audioCtx=null;
+const cols=5,rows=4,jacks=[],cords=[],apples=[],stars=[],sparks=[];
+const pointer={x:0,y:0,down:false,drag:null};
+const jackMap=new Map();
+const fruitWords=['hold','hush','drop','ring','core','wire','night','fall','dial','echo'];
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);buildBoard();}
+addEventListener('resize',resize,{passive:true});
+function idFor(c,r){return c+'-'+r}
+function buildBoard(){jacks.length=0;jackMap.clear();const top=h*.2,left=w*.16,gridW=w*.68,gridH=h*.5;for(let r=0;r<rows;r++){for(let c=0;c<cols;c++){const x=left+gridW*(c/(cols-1));const y=top+gridH*(r/(rows-1));const tone=190+r*55+c*18;jacks.push({id:idFor(c,r),c,r,x,y,tone,pulse:Math.random()*6.28,lit:0});jackMap.set(idFor(c,r),jacks[jacks.length-1]);}}resetCords();if(!stars.length)for(let i=0;i<80;i++)stars.push({x:Math.random()*w,y:Math.random()*h,a:.2+Math.random()*.45,r:1+Math.random()*2,p:Math.random()*6.28});}
+function resetCords(){cords.length=0;for(let r=0;r<rows;r++){const leftJack=jackMap.get(idFor(0,r));const rightJack=jackMap.get(idFor(cols-1,r));cords.push({from:leftJack,to:rightJack,color:['#ffb36b','#ff7aa2','#7be0ff','#d2ff72'][r%4],active:1});}apples.length=0;for(let i=0;i<5;i++)spawnApple((i+1)/(6));}
+function ensureAudio(){if(audioCtx)return;const C=window.AudioContext||window.webkitAudioContext;if(C)audioCtx=new C();}
+function ping(freq=220,pan=0,type='sine',len=.9,vol=.05){if(!audioCtx)return;const now=audioCtx.currentTime,o=audioCtx.createOscillator(),g=audioCtx.createGain(),p=audioCtx.createStereoPanner?audioCtx.createStereoPanner():null;o.type=type;o.frequency.setValueAtTime(freq,now);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(vol,now+.02);g.gain.exponentialRampToValueAtTime(.0001,now+len);if(p){p.pan.value=pan;o.connect(g);g.connect(p);p.connect(audioCtx.destination);}else{o.connect(g);g.connect(audioCtx.destination);}o.start();o.stop(now+len+.02);}
+function hum(){if(!audioCtx||Math.random()>.08)return;ping(100+Math.random()*40,(Math.random()-.5)*.6,'triangle',1.6,.01)}
+function spawnApple(nx=Math.random()){const lane=Math.max(0,Math.min(cols-1,Math.round(nx*(cols-1))));const jack=jackMap.get(idFor(lane,0));apples.push({x:jack.x+(Math.random()-.5)*18,y:-20-random(0,120),vx:(Math.random()-.5)*.1,vy:.5+Math.random()*.25,r:12+Math.random()*8,seed:Math.random()*999,word:fruitWords[(Math.random()*fruitWords.length)|0],color:['#ff6b6b','#ffb347','#ffe66d','#d9ff8c','#ff8fcf'][(Math.random()*5)|0]});}
+function random(a,b){return a+Math.random()*(b-a)}
+function nearestJack(x,y,max=46){let best=null,bd=max;for(const j of jacks){const d=Math.hypot(j.x-x,j.y-y);if(d<bd){bd=d;best=j;}}return best}
+function releaseDrag(){if(!pointer.drag)return;const target=nearestJack(pointer.x,pointer.y,58);if(target&&target.id!==pointer.drag.from.id){pointer.drag.to=target;pointer.drag.active=1;target.lit=1.4;pointer.drag.from.lit=1.2;ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();ping((pointer.drag.from.tone+target.tone)/2,(target.x/w-.5)*1.3,'triangle',1.2,.045);for(let i=0;i<16;i++)sparks.push({x:target.x,y:target.y,vx:(Math.random()-.5)*2.6,vy:(Math.random()-.5)*2.6,life:32+Math.random()*20,color:pointer.drag.color});}else{pointer.drag.to={x:pointer.x,y:pointer.y,ghost:true};pointer.drag.active=.15;}pointer.drag=null;}
+addEventListener('pointerdown',e=>{pointer.down=true;pointer.x=e.clientX;pointer.y=e.clientY;const jack=nearestJack(pointer.x,pointer.y);if(jack){const existing=cords.find(c=>c.from.id===jack.id||c.to.id===jack.id);if(existing){pointer.drag=existing;existing.to={x:pointer.x,y:pointer.y,ghost:true};ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();ping(jack.tone,(jack.x/w-.5)*1.3,'square',.5,.03);}}else{spawnApple(pointer.x/w);ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();ping(160+Math.random()*90,(pointer.x/w-.5)*1.2,'sine',.8,.03);}});
+addEventListener('pointermove',e=>{pointer.x=e.clientX;pointer.y=e.clientY;if(pointer.drag)pointer.drag.to={x:pointer.x,y:pointer.y,ghost:true};});
+addEventListener('pointerup',()=>{pointer.down=false;releaseDrag();});
+addEventListener('pointercancel',()=>{pointer.down=false;releaseDrag();});
+addEventListener('touchstart',e=>{const t=e.touches[0];if(t){pointer.x=t.clientX;pointer.y=t.clientY;}},{passive:true});
+function drawBackground(){const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,'#0c0d16');g.addColorStop(.55,'#140d12');g.addColorStop(1,'#050507');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);const halo=ctx.createRadialGradient(w*.5,h*.18,20,w*.5,h*.18,Math.max(w,h)*.8);halo.addColorStop(0,'rgba(255,185,120,.08)');halo.addColorStop(.4,'rgba(130,110,255,.06)');halo.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=halo;ctx.fillRect(0,0,w,h);for(const s of stars){ctx.fillStyle='rgba(255,240,220,'+(s.a+.15*Math.sin(time*.0005+s.p))+')';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,6.283);ctx.fill();}}
+function drawBoard(){ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=2;ctx.strokeRect(w*.12,h*.12,w*.76,h*.6);ctx.strokeStyle='rgba(255,255,255,.05)';for(let r=1;r<rows;r++){ctx.beginPath();ctx.moveTo(w*.12,jackMap.get(idFor(0,r)).y);ctx.lineTo(w*.88,jackMap.get(idFor(cols-1,r)).y);ctx.stroke();}
+for(const j of jacks){const pulse=.55+.45*Math.sin(time*.002+j.pulse);ctx.fillStyle='rgba(255,214,174,'+(.08+pulse*.06+j.lit*.08)+')';ctx.beginPath();ctx.arc(j.x,j.y,18+pulse*4,0,6.283);ctx.fill();ctx.fillStyle='rgba(255,214,174,.95)';ctx.beginPath();ctx.arc(j.x,j.y,6,0,6.283);ctx.fill();ctx.strokeStyle='rgba(35,18,18,.8)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(j.x,j.y,10,0,6.283);ctx.stroke();j.lit*=.94;}}
+function bezierFor(c){const x1=c.from.x,y1=c.from.y,x2=c.to.x,y2=c.to.y;const sag=Math.max(30,Math.abs(x2-x1)*.12+Math.abs(y2-y1)*.18);return [x1,y1,x1,y1+sag,x2,y2+sag,x2,y2];}
+function pointOnCord(c,t){const [x1,y1,c1x,c1y,c2x,c2y,x2,y2]=bezierFor(c);const mt=1-t;const x=mt*mt*mt*x1+3*mt*mt*t*c1x+3*mt*t*t*c2x+t*t*t*x2;const y=mt*mt*mt*y1+3*mt*mt*t*c1y+3*mt*t*t*c2y+t*t*t*y2;return{x,y};}
+function drawCords(){for(const c of cords){const [x1,y1,c1x,c1y,c2x,c2y,x2,y2]=bezierFor(c);ctx.strokeStyle=c.color;ctx.lineWidth=4;ctx.globalAlpha=.85*c.active;ctx.beginPath();ctx.moveTo(x1,y1);ctx.bezierCurveTo(c1x,c1y,c2x,c2y,x2,y2);ctx.stroke();ctx.globalAlpha=1;for(let i=0;i<3;i++){const p=pointOnCord(c,(i+1)/4);ctx.fillStyle='rgba(255,255,255,.22)';ctx.beginPath();ctx.arc(p.x,p.y,1.7,0,6.283);ctx.fill();}}}
+function updateApples(){if(Math.random()<.025&&apples.length<12)spawnApple();for(let i=apples.length-1;i>=0;i--){const a=apples[i];a.vy+=.018;a.y+=a.vy;a.x+=a.vx+Math.sin(time*.0015+a.seed)*.18;let rerouted=false;for(const c of cords){if(!c.to.id)continue;for(let t=.1;t<.96;t+=.08){const p=pointOnCord(c,t);const d=Math.hypot(a.x-p.x,a.y-p.y);if(d<a.r+8&&a.vy>0){a.x+=(p.x-a.x)*.35;a.y+=(p.y-a.y)*.35;a.vy*=.72;a.vx+=(c.to.x-c.from.x)*.0009;rerouted=true;break;}}if(rerouted)break;}
+if(rerouted&&Math.random()<.1){const j=nearestJack(a.x,a.y,34);if(j)j.lit=.8;}
+if(a.y>h*.74){const target=nearestJack(a.x,a.y,52);const grounded=target&&target.r===rows-1;const pan=(a.x/w-.5)*1.5;ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();ping((grounded?target.tone:140)+random(-20,30),pan,grounded?'triangle':'sawtooth',1,.04);for(let s=0;s<12;s++)sparks.push({x:a.x,y:a.y,vx:(Math.random()-.5)*3.2,vy:-Math.random()*3.4,life:26+Math.random()*18,color:a.color});if(grounded){const msg=['connected','rerouted','answered','received','landed'][(Math.random()*5)|0];stars.push({x:a.x,y:a.y-20,a:.75,r:1.4+Math.random()*2.2,p:Math.random()*6.28,label:msg,ttl:120});}
+apples.splice(i,1);}}
+}
+function drawApples(){for(const a of apples){ctx.save();ctx.translate(a.x,a.y);ctx.rotate(Math.sin(time*.0018+a.seed)*.2);ctx.fillStyle=a.color;ctx.beginPath();ctx.moveTo(0,-a.r);ctx.bezierCurveTo(a.r*.95,-a.r*1.08,a.r*1.05,-a.r*.05,0,a.r*.98);ctx.bezierCurveTo(-a.r*1.05,-a.r*.05,-a.r*.95,-a.r*1.08,0,-a.r);ctx.fill();ctx.strokeStyle='rgba(70,22,24,.3)';ctx.lineWidth=1.2;ctx.stroke();ctx.strokeStyle='#7cc46b';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(1,-a.r*.95);ctx.quadraticCurveTo(2,-a.r*1.35,8,-a.r*1.22);ctx.stroke();ctx.fillStyle='rgba(255,255,255,.78)';ctx.font=(a.r*.56)+'px Georgia';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(a.word[0],0,2);ctx.restore();}}
+function drawSparks(){for(let i=sparks.length-1;i>=0;i--){const s=sparks[i];s.x+=s.vx;s.y+=s.vy;s.vy+=.04;s.life--;ctx.fillStyle=s.color+Math.max(0,Math.min(255,s.life*7)).toString(16).padStart(2,'0');ctx.fillRect(s.x,s.y,2,2);if(s.life<=0)sparks.splice(i,1);}}
+function drawText(){ctx.fillStyle='rgba(255,243,229,.45)';ctx.font='12px Courier New';ctx.textAlign='center';ctx.fillText('active routes: '+cords.filter(c=>c.to.id).length+' / '+cords.length,w/2,h-36);}
+function frame(ts){const dt=Math.min(32,(ts-last)||16);last=ts;time+=dt;drawBackground();drawBoard();drawCords();updateApples();drawApples();drawSparks();drawText();hum();requestAnimationFrame(frame);}
+resize();requestAnimationFrame(frame);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
