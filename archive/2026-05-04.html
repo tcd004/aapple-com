@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>aapple.com — X-Ray Kiosk for a Private Eclipse</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#050608;color:#f7f1e8;font-family:Arial,sans-serif}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+.ui,.footer,.hint{position:fixed;left:0;right:0;z-index:2}
+.ui{top:0;padding:16px;display:flex;justify-content:center;pointer-events:none}
+.card{width:min(760px,calc(100vw - 24px));padding:16px 18px 18px;border:1px solid rgba(255,255,255,.08);border-radius:22px;background:rgba(8,10,14,.55);backdrop-filter:blur(10px);box-shadow:0 22px 70px rgba(0,0,0,.35)}
+.kicker{font:10px/1.2 'Courier New',monospace;letter-spacing:.26em;text-transform:uppercase;color:rgba(162,225,255,.7);margin-bottom:8px}
+h1{font:clamp(30px,6vw,62px)/.95 Georgia,serif;letter-spacing:-.05em;max-width:10ch}
+.copy{margin-top:10px;max-width:56ch;color:rgba(247,241,232,.82);font:14px/1.55 Arial,sans-serif}
+.hint{bottom:80px;padding:0 18px;text-align:center;color:rgba(255,255,255,.42);font:11px/1.45 'Courier New',monospace;letter-spacing:.16em;text-transform:uppercase;pointer-events:none}
+.footer{bottom:0;padding:14px 16px 16px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;font-size:12px}
+.footer a{color:#a2e1ff}
+.credit{max-width:430px;color:rgba(255,255,255,.55);font-size:10px;line-height:1.35;text-align:right}
+@media (max-width:720px){.card{padding:14px 14px 16px}.copy{font-size:13px}.hint{bottom:112px;letter-spacing:.11em}.footer{flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <div class="card">
+    <div class="kicker">after-hours celestial screening</div>
+    <h1>X-Ray Kiosk for a Private Eclipse</h1>
+    <div class="copy">Some objects arrive looking like moons, some like apples, some like sealed thoughts. Touch or move through the field to scan them. Their skins fall away, their cores remember star maps, and the kiosk quietly updates its opinion of the night.</div>
+  </div>
+</div>
+<div class="hint">touch, drag, or move your cursor to sweep the x-ray beam, double tap empty space to release a new body</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+let w=0,h=0,dpr=1,t=0,last=0,audioCtx=null,lastTap=0;
+const pointer={x:0,y:0,active:false,down:false,pulse:0};
+const bodies=[],dust=[],ripples=[];
+const labels=['seed vault','small eclipse','redacted fruit','silent planet','borrowed moon','pocket orchard'];
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);if(!bodies.length)initBodies();}
+addEventListener('resize',resize,{passive:true});
+function rnd(a,b){return a+Math.random()*(b-a)}
+function pick(a){return a[(Math.random()*a.length)|0]}
+function initBodies(){for(let i=0;i<11;i++)spawnBody(Math.random()*w,Math.random()*h,rnd(22,58));for(let i=0;i<140;i++)dust.push({x:Math.random()*w,y:Math.random()*h,r:rnd(.4,2.1),a:rnd(.12,.7),s:rnd(.0008,.003)});}
+function spawnBody(x,y,r){bodies.push({x,y,r,vx:rnd(-.28,.28),vy:rnd(-.24,.24),rot:Math.random()*6.28,spin:rnd(-.004,.004),scan:0,flash:0,seed:Math.random()*1000,label:pick(labels),hue:rnd(350,410)});}
+function ensureAudio(){if(audioCtx)return;const C=window.AudioContext||window.webkitAudioContext;if(C)audioCtx=new C();}
+function ping(freq=220,len=.18,type='sine',vol=.025){if(!audioCtx)return;const now=audioCtx.currentTime,o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(freq,now);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(vol,now+.02);g.gain.exponentialRampToValueAtTime(.0001,now+len);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(now+len+.03);}
+function activate(x,y){pointer.x=x;pointer.y=y;pointer.active=true;pointer.pulse=1;ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();}
+function interact(x,y){activate(x,y);let hit=false;for(const b of bodies){const d=Math.hypot(x-b.x,y-b.y);if(d<b.r+64){b.scan=Math.min(1,b.scan+.24);b.flash=1;hit=true;if(b.scan>.96){ripples.push({x:b.x,y:b.y,r:b.r*.6,life:1,text:b.label});}if(audioCtx)ping(150+b.r*4,.16+(b.scan*.1),b.scan>.86?'triangle':'sine',.02+.02*b.scan);}}
+if(!hit&&audioCtx)ping(120+rnd(-15,15),.08,'square',.012);}
+function addRipple(x,y,text='new arrival'){ripples.push({x,y,r:18,life:1,text});}
+addEventListener('pointerdown',e=>{pointer.down=true;interact(e.clientX,e.clientY);const now=performance.now();if(now-lastTap<320){spawnBody(e.clientX,e.clientY,rnd(20,40));addRipple(e.clientX,e.clientY,'released');}lastTap=now;},{passive:true});
+addEventListener('pointermove',e=>{activate(e.clientX,e.clientY);if(pointer.down)interact(e.clientX,e.clientY);},{passive:true});
+addEventListener('pointerup',()=>pointer.down=false,{passive:true});
+addEventListener('pointerleave',()=>{pointer.down=false;pointer.active=false;},{passive:true});
+function background(){const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,'#05070a');g.addColorStop(.45,'#10141b');g.addColorStop(1,'#050608');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);const halo=ctx.createRadialGradient(pointer.x||w*.5,pointer.y||h*.35,10,pointer.x||w*.5,pointer.y||h*.35,Math.max(w,h)*.55);halo.addColorStop(0,'rgba(162,225,255,.12)');halo.addColorStop(.3,'rgba(162,225,255,.05)');halo.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=halo;ctx.fillRect(0,0,w,h);for(const d of dust){const tw=d.a+.15*Math.sin(t*d.s*1000+d.x);ctx.fillStyle='rgba(255,245,230,'+tw.toFixed(3)+')';ctx.fillRect(d.x,d.y,d.r,d.r);}}
+function drawBeam(){if(!pointer.active)return;ctx.save();ctx.globalCompositeOperation='screen';const beam=ctx.createRadialGradient(pointer.x,pointer.y,0,pointer.x,pointer.y,180+pointer.pulse*60);beam.addColorStop(0,'rgba(190,240,255,.35)');beam.addColorStop(.3,'rgba(120,210,255,.16)');beam.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=beam;ctx.beginPath();ctx.arc(pointer.x,pointer.y,180+pointer.pulse*60,0,6.28);ctx.fill();ctx.restore();pointer.pulse*=.92;}
+function bodyPath(r){ctx.beginPath();ctx.moveTo(0,-r*.98);ctx.bezierCurveTo(r*.94,-r*1.18,r*1.08,-r*.06,0,r);ctx.bezierCurveTo(-r*1.08,-r*.06,-r*.94,-r*1.18,0,-r*.98);}
+function drawBodies(){for(const b of bodies){b.x+=b.vx;b.y+=b.vy;b.rot+=b.spin;const margin=b.r+12;if(b.x<-margin)b.x=w+margin;if(b.x>w+margin)b.x=-margin;if(b.y<-margin)b.y=h+margin;if(b.y>h+margin)b.y=-margin;const drift=Math.sin(t*.001+b.seed)*.15;ctx.save();ctx.translate(b.x,b.y+drift*10);ctx.rotate(b.rot);
+const moon=ctx.createRadialGradient(-b.r*.25,-b.r*.35,4,0,0,b.r*1.2);moon.addColorStop(0,'hsla('+b.hue+',85%,76%,.96)');moon.addColorStop(.55,'hsla('+(b.hue-18)+',70%,50%,.94)');moon.addColorStop(1,'hsla('+(b.hue-28)+',55%,18%,.98)');
+ctx.fillStyle=moon;bodyPath(b.r);ctx.fill();
+ctx.fillStyle='rgba(255,255,255,.1)';ctx.beginPath();ctx.arc(-b.r*.18,-b.r*.22,b.r*.18,0,6.28);ctx.fill();
+ctx.strokeStyle='rgba(50,10,18,.28)';ctx.lineWidth=1.2;bodyPath(b.r);ctx.stroke();
+if(b.scan>0){ctx.save();ctx.globalAlpha=.85*b.scan;ctx.strokeStyle='rgba(175,235,255,.8)';ctx.lineWidth=1.5;ctx.beginPath();for(let i=0;i<7;i++){const a=i/6*6.28;const rr=b.r*.18+(i%2)*b.r*.12;const px=Math.cos(a)*rr,py=Math.sin(a)*rr*(i%2?1.35:.82);i?ctx.lineTo(px,py):ctx.moveTo(px,py);}ctx.closePath();ctx.stroke();ctx.font=(b.r*.2+7)+'px Courier New';ctx.fillStyle='rgba(210,245,255,.9)';ctx.textAlign='center';ctx.fillText('XR-'+((b.seed*999)|0),0,b.r+16);ctx.restore();}
+if(b.scan>.55){ctx.strokeStyle='rgba(255,250,235,'+(.1+.45*b.scan)+')';ctx.lineWidth=1;for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(0,0,b.r*.5+i*b.r*.12+Math.sin(t*.002+b.seed+i)*2,0,6.28);ctx.stroke();}}
+if(b.flash>0){ctx.fillStyle='rgba(255,255,255,'+(b.flash*.18)+')';ctx.beginPath();ctx.arc(0,0,b.r*1.14,0,6.28);ctx.fill();b.flash*=.86;}
+ctx.restore();
+const d=Math.hypot(pointer.x-b.x,pointer.y-b.y);if(pointer.active&&d<160)b.scan=Math.min(1,b.scan+.0045*(1-d/160));else b.scan*=.9965;
+}}
+function drawScanner(){if(!pointer.active)return;ctx.save();ctx.strokeStyle='rgba(162,225,255,.55)';ctx.lineWidth=1;ctx.setLineDash([6,8]);ctx.beginPath();ctx.arc(pointer.x,pointer.y,42+Math.sin(t*.01)*4,0,6.28);ctx.stroke();ctx.restore();}
+function drawRipples(){for(let i=ripples.length-1;i>=0;i--){const r=ripples[i];r.life-=.012;r.r+=1.4;ctx.strokeStyle='rgba(162,225,255,'+(r.life*.45)+')';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(r.x,r.y,r.r,0,6.28);ctx.stroke();ctx.fillStyle='rgba(220,245,255,'+(r.life*.8)+')';ctx.font='11px Courier New';ctx.textAlign='center';ctx.fillText(r.text,r.x,r.y-r.r-8);if(r.life<=0)ripples.splice(i,1);}}
+function drawHud(){ctx.fillStyle='rgba(240,246,255,.5)';ctx.font='12px Courier New';ctx.textAlign='left';const scanned=bodies.filter(b=>b.scan>.92).length;ctx.fillText('scans cleared: '+scanned,18,h-42);ctx.textAlign='right';ctx.fillText('bodies in queue: '+bodies.length,w-18,h-42);}
+function frame(ts){const dt=Math.min(32,(ts-last)||16);last=ts;t+=dt;background();drawBeam();drawBodies();drawScanner();drawRipples();drawHud();requestAnimationFrame(frame);}
+resize();requestAnimationFrame(frame);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
