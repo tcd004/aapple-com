@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>aapple.com — Ticket Window for the Orchard Express</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#120f0c;
+  --panel:#211a15;
+  --line:#5b4637;
+  --paper:#f0dfc2;
+  --ink:#25170e;
+  --glow:#ffb26b;
+  --apple:#cf4c32;
+}
+html,body{min-height:100%;background:radial-gradient(circle at top,#2a1d15 0,#120f0c 55%,#090705 100%);color:var(--paper);font-family:Arial,sans-serif;overflow:hidden}
+body{display:flex;align-items:center;justify-content:center;padding:16px;touch-action:manipulation}
+button,input{font:inherit}
+.shell{width:min(980px,100%);height:min(92vh,760px);display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
+.machine,.ticket{border:1px solid rgba(255,214,178,.12);background:linear-gradient(180deg,rgba(39,29,22,.92),rgba(18,14,11,.95));border-radius:28px;box-shadow:0 26px 90px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.04);position:relative;overflow:hidden}
+.machine{padding:18px 18px 94px}
+.ticket{padding:22px;display:flex;flex-direction:column;background:linear-gradient(180deg,#f5e7cd,#e6d3b0 56%,#dcc39a 100%);color:var(--ink)}
+.kicker{font:10px/1.2 'Courier New',monospace;letter-spacing:.28em;text-transform:uppercase;color:#d6a677;margin-bottom:10px}
+h1{font:clamp(30px,5vw,60px)/.92 Georgia,serif;letter-spacing:-.05em;max-width:8ch}
+.copy{margin-top:10px;max-width:48ch;color:rgba(255,232,210,.78);font-size:14px;line-height:1.55}
+.board{margin-top:18px;border:1px solid rgba(255,214,178,.12);border-radius:20px;background:linear-gradient(180deg,rgba(0,0,0,.26),rgba(255,176,106,.03));padding:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.route{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,214,178,.08);min-height:76px}
+.route .label{font:10px/1.2 'Courier New',monospace;letter-spacing:.22em;text-transform:uppercase;color:#c9925f;margin-bottom:7px}
+.route .value{font-size:20px;line-height:1.05;font-family:Georgia,serif}
+.route .sub{margin-top:6px;font-size:12px;color:rgba(255,232,210,.58)}
+.keypad{position:absolute;left:18px;right:18px;bottom:18px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.key{appearance:none;border:none;border-radius:18px;padding:14px 6px;background:linear-gradient(180deg,#3a2b21,#261c16);color:#f8dfc4;border:1px solid rgba(255,214,178,.1);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 8px 20px rgba(0,0,0,.25);font:12px/1.2 'Courier New',monospace;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;transition:transform .12s,background .2s,box-shadow .2s}
+.key:active{transform:translateY(2px) scale(.99)}
+.key.big{grid-column:span 2}
+.key:hover{background:linear-gradient(180deg,#4a3528,#2c2119)}
+.key.glow{background:linear-gradient(180deg,#714826,#472915);box-shadow:0 0 0 1px rgba(255,178,107,.18),0 0 22px rgba(255,178,107,.16),inset 0 1px 0 rgba(255,255,255,.07)}
+.scan{position:absolute;inset:0;background:linear-gradient(180deg,transparent 0,rgba(255,178,107,.1) 48%,transparent 52%,transparent 100%);mix-blend-mode:screen;animation:scan 7s linear infinite;pointer-events:none}
+@keyframes scan{from{transform:translateY(-100%)}to{transform:translateY(100%)}}
+.ticket:before{content:'';position:absolute;left:0;right:0;top:0;height:18px;background:radial-gradient(circle at 9px 9px,transparent 0 5px,#120f0c 5.5px 8px,transparent 8.5px) repeat-x;background-size:18px 18px;opacity:.12}
+.ticket h2{font:11px/1.2 'Courier New',monospace;letter-spacing:.28em;text-transform:uppercase;color:#8e5b34;margin-bottom:10px}
+.ticket-title{font:clamp(24px,4vw,40px)/.95 Georgia,serif;margin-bottom:14px}
+.ticket p{font-size:14px;line-height:1.55}
+.stub{margin-top:18px;padding-top:14px;border-top:1px dashed rgba(37,23,14,.28);display:grid;gap:10px}
+.row{display:flex;justify-content:space-between;gap:12px;font:12px/1.4 'Courier New',monospace;text-transform:uppercase;letter-spacing:.12em}
+.row span:last-child{text-align:right}
+.printer{margin-top:auto;padding-top:18px;border-top:1px dashed rgba(37,23,14,.28)}
+.marquee{min-height:90px;display:flex;flex-direction:column;gap:8px;justify-content:flex-end}
+.slip{padding:8px 10px;border-left:3px solid var(--apple);background:rgba(37,23,14,.06);transform-origin:left center;animation:slip .35s ease}
+@keyframes slip{from{opacity:0;transform:translateY(12px) rotate(-1deg)}to{opacity:1;transform:none}}
+.footer{position:fixed;left:0;right:0;bottom:0;padding:14px 16px 16px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;font-size:12px;z-index:4}
+.footer a{color:#ffd2a4}.credit{max-width:430px;color:rgba(255,255,255,.55);font-size:10px;line-height:1.35;text-align:right}
+.badge{position:absolute;top:18px;right:18px;padding:8px 10px;border-radius:999px;font:10px/1 'Courier New',monospace;letter-spacing:.18em;text-transform:uppercase;background:rgba(255,178,107,.08);border:1px solid rgba(255,178,107,.14);color:#f3c08c}
+.apple{display:inline-block;width:.7em;height:.7em;border-radius:55% 55% 52% 52% / 58% 58% 40% 40%;background:var(--apple);margin-right:.32em;vertical-align:.02em;position:relative;box-shadow:0 0 12px rgba(207,76,50,.25)}
+.apple:before{content:'';position:absolute;width:.18em;height:.26em;border-radius:99px;background:#7f5632;left:.32em;top:-.14em}.apple:after{content:'';position:absolute;width:.22em;height:.12em;border-radius:99px 99px 0 99px;background:#7eb56f;left:.4em;top:-.08em;transform:rotate(-26deg)}
+@media (max-width:860px){.shell{grid-template-columns:1fr;height:auto;min-height:calc(100vh - 40px)}.machine{min-height:460px}.ticket{min-height:360px}.footer{position:static;margin-top:10px;padding:0 2px 2px;flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <section class="machine">
+    <div class="badge">platform 0</div>
+    <div class="kicker">intercity departures for improbable produce</div>
+    <h1>Ticket Window for the Orchard Express</h1>
+    <div class="copy">This station only serves apples, ghosts, and people willing to travel somewhere that may turn out to be a sentence. Press the brass keys to request a destination. The window will print an impossible fare, a platform rumor, and one useful instruction for crossing into stranger weather.</div>
+    <div class="board">
+      <div class="route"><div class="label">next train</div><div class="value" id="nextTrain">00:06 to The Soft Platform</div><div class="sub" id="nextMood">boarding with a low mechanical sigh</div></div>
+      <div class="route"><div class="label">conductor note</div><div class="value" id="conductor">Please keep your seeds inside the vehicle.</div><div class="sub">apples travel free after midnight</div></div>
+      <div class="route"><div class="label">weather at arrival</div><div class="value" id="weather">warm static, sideways dawn</div><div class="sub">forecast updates when touched</div></div>
+      <div class="route"><div class="label">station population</div><div class="value" id="population">12 insomniacs, 4 apples</div><div class="sub">not counting the one under the bench</div></div>
+    </div>
+    <div class="keypad">
+      <button class="key" data-action="departure">departure</button>
+      <button class="key" data-action="fare">fare</button>
+      <button class="key" data-action="weather">weather</button>
+      <button class="key" data-action="notice">notice</button>
+      <button class="key" data-action="platform">platform</button>
+      <button class="key" data-action="apple">apple</button>
+      <button class="key" data-action="ghost">ghost</button>
+      <button class="key glow" data-action="print">print</button>
+      <button class="key big" data-action="reroute">reroute everything</button>
+      <button class="key big glow" data-action="midnight">midnight special</button>
+    </div>
+    <div class="scan"></div>
+  </section>
+
+  <aside class="ticket">
+    <h2>thermal receipt for one traveler</h2>
+    <div class="ticket-title" id="ticketTitle">The train to Borrowed Autumn is delayed by wonder.</div>
+    <p id="ticketBody">Your seat faces backward so you can watch yesterday peel itself cleanly from the rails. If an apple offers directions, accept them only after it blinks.</p>
+    <div class="stub">
+      <div class="row"><span>fare</span><span id="fareLine">3 red coins and a secret</span></div>
+      <div class="row"><span>platform</span><span id="platformLine">platform 0 beneath the vending moon</span></div>
+      <div class="row"><span>valid until</span><span id="validLine">the first bird mistakes a streetlight for sunrise</span></div>
+    </div>
+    <div class="printer">
+      <h2>recent slips</h2>
+      <div class="marquee" id="marquee"></div>
+    </div>
+  </aside>
+</div>
+
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+
+<script>
+const data={
+  destinations:['Borrowed Autumn','The Soft Platform','A Tunnel Full of Moths','The Orchard Beneath Exit 9','Dawn Storage','Platform for Unclaimed Weather','The Bench at the Center of Sleep','The Little Station After Regret','Pearl Static Junction','The Town That Forgets Gravity'],
+  bodies:['Your seat faces backward so you can watch yesterday peel itself cleanly from the rails.','Please do not feed the timetable after midnight.','The station bell rings only when nobody is listening closely enough.','A porter in a paper cap will collect any extra moonlight at the border.','If the window fogs, write your hometown and wait for it to become less certain.','This route passes through a brief orchard where every apple repeats your best excuse in a kinder voice.','At some point the train will slow for a field of sleeping radios. That is normal.'],
+  fares:['3 red coins and a secret','one copper button, lightly haunted','exact change in seeds','half a lullaby and a receipt stub','the name of a color you invented','one apology wrapped in wax paper','free if you arrive carrying rain'],
+  platforms:['platform 0 beneath the vending moon','platform 2¾ near the humming gate','platform 5, behind the velvet caution tape','platform apple, lower level','platform 9 in the quiet steam','platform B for botanical emergencies','platform night, track still warm'],
+  validity:['the first bird mistakes a streetlight for sunrise','your pockets begin to smell like September','the conductor remembers your face','the moon is punched twice','someone opens an umbrella indoors','the apples stop pretending to be planets'],
+  trains:['00:06 to The Soft Platform','00:18 to Pearl Static Junction','00:31 to Dawn Storage','00:44 to Borrowed Autumn','01:03 to The Orchard Beneath Exit 9','01:11 to The Town That Forgets Gravity'],
+  conductor:['Please keep your seeds inside the vehicle.','No whistling at invisible livestock.','If you brought gravity from home, declare it now.','Tickets may be validated by moonlight only.','The orchard car is for quiet ripening.','Standing room available in the weather compartment.'],
+  weather:['warm static, sideways dawn','thin rain with theatrical ambitions','dry thunder and apple perfume','clear skies, suspiciously clear','a little fog learning your name','soft hail made of erasers'],
+  populations:['12 insomniacs, 4 apples','3 conductors, 1 rumor','28 sleepers and a brass moth','7 commuters, all translucent','14 umbrellas with no owners','1 choir, 0 explanations'],
+  slips:['delay caused by philosophical livestock','complimentary apple issued at border','platform moved two inches to the left','ghost upgraded to window seat','weather car detached and kept singing','orchard class now boarding quietly']
+};
+const els={
+  nextTrain:document.getElementById('nextTrain'),nextMood:document.getElementById('nextMood'),conductor:document.getElementById('conductor'),weather:document.getElementById('weather'),population:document.getElementById('population'),ticketTitle:document.getElementById('ticketTitle'),ticketBody:document.getElementById('ticketBody'),fareLine:document.getElementById('fareLine'),platformLine:document.getElementById('platformLine'),validLine:document.getElementById('validLine'),marquee:document.getElementById('marquee')
+};
+let audioCtx=null;
+function pick(arr){return arr[(Math.random()*arr.length)|0]}
+function ensureAudio(){if(audioCtx)return;const C=window.AudioContext||window.webkitAudioContext;if(C)audioCtx=new C();}
+function blip(freq=320,len=.08,type='square',vol=.018){if(!audioCtx)return;const t=audioCtx.currentTime,o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(freq,t);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+len);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(t+len+.03)}
+function chug(){if(!audioCtx)return;const t=audioCtx.currentTime;[82,96,72].forEach((f,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='triangle';o.frequency.setValueAtTime(f,t+i*.05);g.gain.setValueAtTime(.0001,t+i*.05);g.gain.exponentialRampToValueAtTime(.012,t+i*.05+.01);g.gain.exponentialRampToValueAtTime(.0001,t+i*.05+.18);o.connect(g);g.connect(audioCtx.destination);o.start(t+i*.05);o.stop(t+i*.05+.2);});}
+function addSlip(text){const div=document.createElement('div');div.className='slip';div.textContent=text;els.marquee.prepend(div);while(els.marquee.children.length>4)els.marquee.removeChild(els.marquee.lastChild);}
+function refreshTicket(flair=''){
+  const destination=pick(data.destinations),body=pick(data.bodies),fare=pick(data.fares),platform=pick(data.platforms),valid=pick(data.validity);
+  els.ticketTitle.innerHTML=(Math.random()>.72?'<span class="apple"></span>':'')+'The train to '+destination+(flair?' '+flair:'')+'.';
+  els.ticketBody.textContent=body;
+  els.fareLine.textContent=fare;
+  els.platformLine.textContent=platform;
+  els.validLine.textContent=valid;
+}
+function refreshBoard(){
+  els.nextTrain.textContent=pick(data.trains);
+  els.nextMood.textContent=pick(['boarding with a low mechanical sigh','temporarily delayed by fruit migration','accepting small weather at the doors','stopping only for soft emergencies','running exactly three minutes behind memory']);
+  els.conductor.textContent=pick(data.conductor);
+  els.weather.textContent=pick(data.weather);
+  els.population.textContent=pick(data.populations);
+}
+function act(action){
+  ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();
+  const tones={departure:240,fare:280,weather:330,notice:210,platform:180,apple:260,ghost:146,print:390,reroute:120,midnight:96};
+  blip(tones[action]||220,action==='midnight'?.12:.07,action==='ghost'?'sine':'square',action==='print'?.026:.016);
+  if(action==='departure'){els.nextTrain.textContent=pick(data.trains);els.ticketTitle.textContent='The train to '+pick(data.destinations)+' has opened one bright eye.';addSlip('new departure posted for '+pick(['dawn','apples','nobody in particular']));}
+  if(action==='fare'){els.fareLine.textContent=pick(data.fares);addSlip('fare revised to '+els.fareLine.textContent);}
+  if(action==='weather'){els.weather.textContent=pick(data.weather);els.ticketBody.textContent=pick(data.bodies);addSlip('arrival weather changed without paperwork');}
+  if(action==='notice'){els.conductor.textContent=pick(data.conductor);els.validLine.textContent=pick(data.validity);addSlip(pick(data.slips));}
+  if(action==='platform'){els.platformLine.textContent=pick(data.platforms);els.population.textContent=pick(data.populations);addSlip('platform reassigned by a polite machine');}
+  if(action==='apple'){els.ticketTitle.innerHTML='<span class="apple"></span>The orchard car requests your company.';els.ticketBody.textContent='A red fruit in a conductor cap nods once, stamps your hand, and asks whether you prefer the scenic route or the honest one.';addSlip('apple accepted as valid transit authority');}
+  if(action==='ghost'){els.ticketTitle.textContent='A transparent passenger has your old seat.';els.ticketBody.textContent='You may sit beside it if you can avoid discussing unfinished errands. The ride will be quieter and considerably more accurate.';addSlip('ghost upgraded to window seat');}
+  if(action==='print'){refreshTicket('is now boarding softly');addSlip('ticket printed for '+pick(data.destinations));chug();}
+  if(action==='reroute'){refreshBoard();refreshTicket('has been rerouted through weather');addSlip('entire line bent toward a stranger sunrise');chug();}
+  if(action==='midnight'){refreshBoard();refreshTicket('departs after the clocks loosen');els.ticketBody.textContent='The midnight special arrives without headlights, lit only by sleeping orchard lamps. Bring a careful heart and something you would not mind becoming a rumor.';addSlip('midnight special cleared through platform 0');setTimeout(()=>blip(144,.18,'triangle',.018),90);setTimeout(()=>blip(216,.18,'triangle',.014),180);}
+}
+Array.from(document.querySelectorAll('.key')).forEach(btn=>btn.addEventListener('click',()=>act(btn.dataset.action)));
+document.body.addEventListener('keydown',e=>{const map={1:'departure',2:'fare',3:'weather',4:'notice',5:'platform',6:'apple',7:'ghost',8:'print',9:'reroute',0:'midnight'};if(map[e.key])act(map[e.key]);});
+let auto=setInterval(()=>{refreshBoard();if(Math.random()>.5)addSlip(pick(data.slips));},9000);
+refreshBoard();refreshTicket('is delayed by wonder');['tickets valid until apples confess','please mind the gap in reality','orchard class now accepting dreamers'].forEach(addSlip);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
