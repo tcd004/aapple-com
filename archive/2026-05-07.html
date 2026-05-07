@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>aapple.com — Apple After the Beep</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#090a12;
+  --panel:#111523;
+  --line:#2c3552;
+  --glow:#8fe7ff;
+  --glow2:#ff94d0;
+  --text:#ecf3ff;
+  --muted:rgba(236,243,255,.62);
+  --apple:#ff5d6e;
+}
+html,body{min-height:100%;background:radial-gradient(circle at top,#1a1f35 0,#0b0d18 48%,#06070c 100%);color:var(--text);font-family:Arial,sans-serif;overflow:hidden}
+body{display:flex;align-items:center;justify-content:center;padding:16px;touch-action:manipulation}
+button{font:inherit}
+.shell{width:min(960px,100%);min-height:min(92vh,760px);display:grid;grid-template-columns:1.05fr .95fr;gap:16px}
+.panel,.memo{position:relative;border-radius:28px;border:1px solid rgba(255,255,255,.08);background:linear-gradient(180deg,rgba(17,21,35,.94),rgba(8,10,18,.96));box-shadow:0 28px 90px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.04);overflow:hidden}
+.panel{padding:18px 18px 96px}
+.memo{padding:20px;background:linear-gradient(180deg,#14182a,#0d1120 58%,#090c16)}
+.kicker{font:10px/1.2 'Courier New',monospace;letter-spacing:.28em;text-transform:uppercase;color:#9ccfff;margin-bottom:10px}
+h1{font:clamp(30px,6vw,64px)/.92 Georgia,serif;letter-spacing:-.05em;max-width:9ch}
+.copy{margin-top:12px;max-width:54ch;color:var(--muted);font-size:14px;line-height:1.55}
+.meter{margin-top:18px;padding:14px;border-radius:22px;border:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01))}
+canvas{width:100%;height:190px;display:block;border-radius:16px;background:radial-gradient(circle at 50% 45%,rgba(143,231,255,.08),rgba(255,255,255,.01) 48%,rgba(0,0,0,.22) 100%)}
+.meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.cell{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);min-height:72px}
+.label{font:10px/1.2 'Courier New',monospace;letter-spacing:.22em;text-transform:uppercase;color:#9ccfff;margin-bottom:7px}
+.value{font-size:18px;line-height:1.1;font-family:Georgia,serif}
+.sub{margin-top:6px;font-size:12px;color:rgba(236,243,255,.52)}
+.controls{position:absolute;left:18px;right:18px;bottom:18px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.key{appearance:none;border:none;border-radius:18px;padding:14px 8px;background:linear-gradient(180deg,#1d2338,#121726);color:var(--text);border:1px solid rgba(255,255,255,.07);box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 10px 22px rgba(0,0,0,.24);font:11px/1.15 'Courier New',monospace;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;transition:transform .12s,background .2s,box-shadow .2s}
+.key:hover{background:linear-gradient(180deg,#252d47,#151b2d)}
+.key:active{transform:translateY(2px) scale(.99)}
+.key.big{grid-column:span 2}
+.key.glow{background:linear-gradient(180deg,#3c2852,#1b1431);box-shadow:0 0 0 1px rgba(255,148,208,.12),0 0 22px rgba(255,148,208,.16),inset 0 1px 0 rgba(255,255,255,.05)}
+.memo h2{font:11px/1.2 'Courier New',monospace;letter-spacing:.28em;text-transform:uppercase;color:#ffb6df;margin-bottom:12px}
+.note-title{font:clamp(24px,4vw,38px)/.96 Georgia,serif;margin-bottom:12px}
+.note{font-size:15px;line-height:1.62;color:rgba(236,243,255,.88);min-height:138px}
+.scrubber{margin:18px 0 14px;height:12px;border-radius:999px;background:rgba(255,255,255,.06);position:relative;overflow:hidden}
+.scrubber:before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(143,231,255,.45),rgba(255,148,208,.55));transform-origin:left center;transform:scaleX(var(--progress,0.18))}
+.log{display:grid;gap:10px;margin-top:12px}
+.entry{padding:10px 12px;border-left:3px solid rgba(143,231,255,.55);background:rgba(255,255,255,.03);font-size:13px;line-height:1.45;color:rgba(236,243,255,.72);animation:rise .35s ease}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.footer{position:fixed;left:0;right:0;bottom:0;padding:14px 16px 16px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;font-size:12px;z-index:4}
+.footer a{color:#a9ebff}.credit{max-width:430px;color:rgba(255,255,255,.55);font-size:10px;line-height:1.35;text-align:right}
+.badge{position:absolute;top:18px;right:18px;padding:8px 10px;border-radius:999px;font:10px/1 'Courier New',monospace;letter-spacing:.18em;text-transform:uppercase;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:#ffc5e7}
+.apple{display:inline-block;width:.7em;height:.7em;border-radius:55% 55% 52% 52% / 58% 58% 40% 40%;background:var(--apple);margin-right:.32em;vertical-align:.02em;position:relative;box-shadow:0 0 14px rgba(255,93,110,.28)}
+.apple:before{content:'';position:absolute;width:.18em;height:.26em;border-radius:99px;background:#77503e;left:.32em;top:-.14em}.apple:after{content:'';position:absolute;width:.22em;height:.12em;border-radius:99px 99px 0 99px;background:#88c677;left:.4em;top:-.08em;transform:rotate(-26deg)}
+.orbit{position:absolute;inset:auto auto 28px 28px;width:76px;height:76px;border-radius:50%;border:1px dashed rgba(255,255,255,.1);opacity:.55}.seed{position:absolute;left:50%;top:50%;width:12px;height:12px;margin:-6px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#fff,#8fe7ff 35%,#6e59ff 100%);box-shadow:0 0 18px rgba(143,231,255,.3);animation:spin 8s linear infinite}
+@keyframes spin{from{transform:rotate(0) translateX(38px) rotate(0)}to{transform:rotate(360deg) translateX(38px) rotate(-360deg)}}
+.scan{position:absolute;inset:0;background:linear-gradient(180deg,transparent,rgba(143,231,255,.08) 48%,transparent 52%);mix-blend-mode:screen;animation:scan 8s linear infinite;pointer-events:none}
+@keyframes scan{from{transform:translateY(-100%)}to{transform:translateY(100%)}}
+@media (max-width:860px){.shell{grid-template-columns:1fr;min-height:calc(100vh - 40px)}.panel{min-height:500px}.memo{min-height:420px}.footer{position:static;margin-top:10px;padding:0 2px 2px;flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <section class="panel">
+    <div class="badge">line open</div>
+    <div class="kicker">after-hours orchard telecommunications</div>
+    <h1>Apple After the Beep</h1>
+    <div class="copy">At 12:05 AM, the orchard has switched to voicemail. Press the machine to collect transmissions from sleepless fruit, maintenance ghosts, and one moon that insists it has the wrong number. Each message redraws the waveform, changes the room tone, and leaves a small note in the log.</div>
+    <div class="meter">
+      <canvas id="scope" width="640" height="190"></canvas>
+      <div class="meta">
+        <div class="cell"><div class="label">caller id</div><div class="value" id="caller">Unknown Apple</div><div class="sub" id="callerSub">line filled with polite static</div></div>
+        <div class="cell"><div class="label">message age</div><div class="value" id="age">17 minutes old</div><div class="sub">older messages taste sweeter</div></div>
+        <div class="cell"><div class="label">signal weather</div><div class="value" id="weather">pink interference</div><div class="sub">drag the waveform to bend reception</div></div>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="key" data-act="play">play</button>
+      <button class="key" data-act="skip">skip</button>
+      <button class="key" data-act="apple">apple</button>
+      <button class="key" data-act="ghost">ghost</button>
+      <button class="key" data-act="moon">moon</button>
+      <button class="key" data-act="storm">storm</button>
+      <button class="key glow" data-act="record">record</button>
+      <button class="key glow" data-act="wipe">wipe static</button>
+      <button class="key big" data-act="all">open all lines</button>
+      <button class="key big glow" data-act="midnight">midnight playback</button>
+    </div>
+    <div class="orbit"><div class="seed"></div></div>
+    <div class="scan"></div>
+  </section>
+
+  <aside class="memo">
+    <h2>current transcription</h2>
+    <div class="note-title" id="title"><span class="apple"></span>The orchard called back.</div>
+    <div class="note" id="note">It said the night shift has been neatly folded and stored behind the refrigerator hum. If you hear a beep inside your fruit bowl, do not panic. It is only tomorrow, calling collect.</div>
+    <div class="scrubber" id="scrubber"></div>
+    <h2>message log</h2>
+    <div class="log" id="log"></div>
+  </aside>
+</div>
+
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+
+<script>
+const messages=[
+  {caller:'Unknown Apple',sub:'line filled with polite static',age:'17 minutes old',weather:'pink interference',title:'<span class="apple"></span>The orchard called back.',note:'It said the night shift has been neatly folded and stored behind the refrigerator hum. If you hear a beep inside your fruit bowl, do not panic. It is only tomorrow, calling collect.',tones:[196,262,330],log:'caller reported a soft emergency involving gravity and peel'},
+  {caller:'Maintenance Ghost',sub:'speaking through the wall outlet',age:'3 hours old',weather:'cold fluorescent drizzle',title:'The wall left a message for itself.',note:'A maintenance ghost whispered that every hallway in the house has a backup hallway hiding one inch to the left. It recommends leaving a lamp on for any apples that come home embarrassed.',tones:[147,220,294],log:'ghost requested a cleaner echo and one less living witness'},
+  {caller:'Wrong Number Moon',sub:'insists this is a lighthouse',age:'6 lunar minutes',weather:'silver hiss',title:'The moon thinks you still answer landlines.',note:'It keeps apologizing for the tides, then asks whether the orchard still glows after midnight. Before hanging up, it says one crater is definitely just a thumbprint.',tones:[174,233,349],log:'moon denied responsibility for recent tides in the kitchen'},
+  {caller:'Apple Support',sub:'this is not that apple support',age:'8 minutes old',weather:'friendly dial tone',title:'A red fruit is reading from a script.',note:'Thank you for staying on the line. Your seed is important to us. Press nothing if you would like to be transferred to a more honest season.',tones:[220,277,415],log:'support queue now serving fruit, ghosts, and decorative anxieties'},
+  {caller:'Storm in Drawer 4',sub:'muffled thunder, excellent manners',age:'yesterday, technically',weather:'blue paper rain',title:'A small weather system needs pickup.',note:'The storm says it has been kept in a desk drawer too long and now smells faintly of pencils. It would like a window, a witness, and permission to become dramatic.',tones:[110,165,247],log:'drawer weather escalated from grumble to aria'},
+  {caller:'The Last Beep',sub:'short, nervous, surprisingly tender',age:'arrived just now',weather:'magnetic fog',title:'The machine blinked before speaking.',note:'For half a second the voicemail forgot it was a machine and admitted it was lonely. Then it turned back into a beep and carried on professionally.',tones:[208,312,468],log:'beep briefly achieved self-awareness, then filed a report'}
+];
+const callerEl=document.getElementById('caller');
+const callerSubEl=document.getElementById('callerSub');
+const ageEl=document.getElementById('age');
+const weatherEl=document.getElementById('weather');
+const titleEl=document.getElementById('title');
+const noteEl=document.getElementById('note');
+const logEl=document.getElementById('log');
+const scrubber=document.getElementById('scrubber');
+const canvas=document.getElementById('scope');
+const ctx=canvas.getContext('2d');
+let index=0,progress=.18,dragging=false,pointerX=.5,audioCtx=null,phase=0,currentBars=[];
+function pick(arr){return arr[(Math.random()*arr.length)|0]}
+function ensureAudio(){if(audioCtx)return;const C=window.AudioContext||window.webkitAudioContext;if(C)audioCtx=new C();}
+function ping(freq=220,len=.14,type='sine',vol=.018){if(!audioCtx)return;const t=audioCtx.currentTime,o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(freq,t);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+len);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(t+len+.03)}
+function chord(tones,type='triangle'){if(!audioCtx)return;tones.forEach((freq,i)=>setTimeout(()=>ping(freq,.32,type,.018-i*.003),i*70));}
+function renderBars(seed=index){const msg=messages[seed];currentBars=[];for(let i=0;i<56;i++){const base=.18+Math.abs(Math.sin(i*.26+seed))*0.38;const wobble=((i%7)/7)*0.16;currentBars.push(Math.min(.95,base+wobble+Math.random()*0.18));}pointerX=(seed+1)/messages.length;chord(msg.tones,seed%2?'triangle':'sine');}
+function addLog(text){const e=document.createElement('div');e.className='entry';e.textContent=text;logEl.prepend(e);while(logEl.children.length>4)logEl.removeChild(logEl.lastChild);}
+function loadMessage(i,extra=''){index=(i+messages.length)%messages.length;const m=messages[index];callerEl.textContent=m.caller;callerSubEl.textContent=m.sub;ageEl.textContent=m.age;weatherEl.textContent=m.weather;titleEl.innerHTML=m.title;noteEl.textContent=m.note;scrubber.style.setProperty('--progress',progress.toFixed(3));renderBars(index);addLog(m.log+(extra?(' • '+extra):''));}
+function drift(){progress+=((dragging?pointerX:((Math.sin(phase*.3)+1)/2)*.7+.15)-progress)*.06;progress=Math.max(.04,Math.min(.98,progress));scrubber.style.setProperty('--progress',progress.toFixed(3));}
+function draw(){phase+=.016;drift();ctx.clearRect(0,0,canvas.width,canvas.height);const g=ctx.createLinearGradient(0,0,canvas.width,canvas.height);g.addColorStop(0,'rgba(143,231,255,.95)');g.addColorStop(.5,'rgba(255,148,208,.9)');g.addColorStop(1,'rgba(135,124,255,.88)');ctx.strokeStyle=g;ctx.lineWidth=3;ctx.lineJoin='round';ctx.beginPath();const mid=canvas.height/2;currentBars.forEach((amp,i)=>{const x=(i/(currentBars.length-1))*canvas.width;const y=mid+Math.sin(i*.5+phase*4)*amp*mid*.48*(.35+progress*.85)+(pointerX-.5)*24;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});ctx.stroke();ctx.lineWidth=1;ctx.strokeStyle='rgba(255,255,255,.09)';for(let i=1;i<4;i++){const y=canvas.height*(i/4);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}
+const glow=ctx.createRadialGradient(canvas.width*progress,mid,10,canvas.width*progress,mid,90);glow.addColorStop(0,'rgba(255,255,255,.28)');glow.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=glow;ctx.fillRect(0,0,canvas.width,canvas.height);
+requestAnimationFrame(draw);
+}
+function act(kind){ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();
+  if(kind==='play'){loadMessage(index,'played again');ping(262,.12,'square',.014)}
+  if(kind==='skip'){loadMessage(index+1,'next line opened');}
+  if(kind==='apple'){loadMessage(messages.findIndex(m=>m.caller==='Apple Support'),'apple line prioritized');}
+  if(kind==='ghost'){loadMessage(messages.findIndex(m=>m.caller==='Maintenance Ghost'),'lights dimmed for clarity');}
+  if(kind==='moon'){loadMessage(messages.findIndex(m=>m.caller==='Wrong Number Moon'),'tidal callback accepted');}
+  if(kind==='storm'){loadMessage(messages.findIndex(m=>m.caller==='Storm in Drawer 4'),'drawer opened cautiously');}
+  if(kind==='record'){titleEl.textContent='Please leave a message for the orchard.';noteEl.textContent='Nothing is being saved, but the machine is delighted that you considered saying something back. It rewards your silence with a brighter waveform.';progress=.78;renderBars(index);addLog('machine pretended to record your reply and felt better');chord([330,392,494],'triangle');}
+  if(kind==='wipe'){weatherEl.textContent=pick(['clear static','rose-colored silence','mint dial tone','violet after-ring']);progress=.12;renderBars(index);addLog('static wiped into a neater shape');ping(520,.18,'sine',.012)}
+  if(kind==='all'){loadMessage((index+Math.floor(Math.random()*messages.length))%messages.length,'all lines blinking at once');progress=.92;chord([196,247,294,392],'triangle');}
+  if(kind==='midnight'){titleEl.innerHTML='<span class="apple"></span>Midnight playback engaged.';noteEl.textContent='Every missed call speaks at once. The orchard apologizes for the overlap. Somewhere inside the noise, one apple is asking whether dawn plans to arrive dressed like this.';weatherEl.textContent='velvet overload';progress=.55;renderBars((index+2)%messages.length);addLog('all unanswered beeps briefly formed a choir');chord([130.81,196,261.63,392],'sine');setTimeout(()=>ping(523,.4,'triangle',.012),160);}
+}
+Array.from(document.querySelectorAll('.key')).forEach(btn=>btn.addEventListener('click',()=>act(btn.dataset.act)));
+canvas.addEventListener('pointerdown',e=>{dragging=true;const r=canvas.getBoundingClientRect();pointerX=(e.clientX-r.left)/r.width;progress=pointerX;ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();ping(180+pointerX*220,.08,'square',.01);});
+addEventListener('pointermove',e=>{if(!dragging)return;const r=canvas.getBoundingClientRect();pointerX=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));});
+addEventListener('pointerup',()=>dragging=false);
+document.body.addEventListener('keydown',e=>{const map={1:'play',2:'skip',3:'apple',4:'ghost',5:'moon',6:'storm',7:'record',8:'wipe',9:'all',0:'midnight'};if(map[e.key])act(map[e.key]);});
+loadMessage(0,'machine warmed up');
+draw();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
