@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>aapple.com — Customs Checkpoint for an Apple Comet</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg1:#050816;
+  --bg2:#12071d;
+  --ink:#eff6ff;
+  --muted:rgba(239,246,255,.68);
+  --line:rgba(255,255,255,.12);
+  --gold:#ffd978;
+  --rose:#ff7ea8;
+  --mint:#8ff6db;
+}
+html,body{min-height:100%;background:radial-gradient(circle at 50% 20%,#25113b 0,#0b1022 42%,#04070f 100%);color:var(--ink);font-family:Arial,sans-serif;overflow:hidden}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.panel{position:fixed;left:16px;top:16px;width:min(420px,calc(100vw - 32px));padding:18px 18px 16px;border:1px solid var(--line);border-radius:24px;background:linear-gradient(180deg,rgba(6,10,21,.82),rgba(10,9,20,.62));backdrop-filter:blur(16px);box-shadow:0 20px 60px rgba(0,0,0,.34)}
+.kicker,.tiny,.stamp{font:10px/1.2 'Courier New',monospace;letter-spacing:.24em;text-transform:uppercase}
+.kicker{color:var(--gold);margin-bottom:10px}
+h1{font:clamp(30px,7vw,58px)/.92 Georgia,serif;letter-spacing:-.05em;max-width:10ch}
+.copy{margin-top:12px;color:var(--muted);font-size:14px;line-height:1.55;max-width:34ch}
+.status{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px}
+.card{padding:10px 11px 12px;border-radius:16px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04)}
+.tiny{color:rgba(255,255,255,.52);margin-bottom:6px}
+.value{font:19px/1.05 Georgia,serif}
+.sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:6px;line-height:1.35}
+.controls{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+button{appearance:none;border:none;cursor:pointer;padding:12px 14px;border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.05));color:var(--ink);border:1px solid rgba(255,255,255,.12);font:11px/1 'Courier New',monospace;letter-spacing:.18em;text-transform:uppercase;transition:transform .12s,background .2s}
+button:hover{background:linear-gradient(180deg,rgba(255,255,255,.17),rgba(255,255,255,.07))}
+button:active{transform:scale(.98) translateY(1px)}
+.log{margin-top:14px;display:grid;gap:8px}
+.entry{padding:8px 10px;border-left:3px solid rgba(255,217,120,.65);background:rgba(255,255,255,.03);font-size:12px;line-height:1.45;color:rgba(239,246,255,.72)}
+.manifest{position:fixed;right:16px;top:16px;width:min(320px,calc(100vw - 32px));padding:16px;border-radius:22px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,10,25,.76),rgba(7,10,18,.62));backdrop-filter:blur(14px);box-shadow:0 18px 50px rgba(0,0,0,.28)}
+.manifest h2{font:11px/1.2 'Courier New',monospace;letter-spacing:.26em;text-transform:uppercase;color:var(--mint);margin-bottom:12px}
+.ticket{padding:12px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
+.ticket p{font-size:13px;line-height:1.55;color:rgba(239,246,255,.82)}
+.gauge{height:12px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden;margin:12px 0 10px}
+.gauge::before{content:'';display:block;height:100%;width:calc(var(--scan,42) * 1%);background:linear-gradient(90deg,var(--mint),var(--gold),var(--rose));box-shadow:0 0 18px rgba(255,217,120,.35)}
+.stamp{display:inline-block;margin-top:6px;padding:7px 10px;border:1px dashed rgba(255,217,120,.7);border-radius:999px;color:var(--gold)}
+.footer{position:fixed;left:0;right:0;bottom:0;padding:14px 16px 16px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;font-size:12px;z-index:5}
+.footer a{color:#c8ecff}.credit{max-width:430px;color:rgba(255,255,255,.55);font-size:10px;line-height:1.35;text-align:right}
+@media (max-width:860px){.manifest{top:auto;bottom:70px;right:16px}.panel{padding-bottom:14px}.status{grid-template-columns:1fr}.footer{flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<canvas id="sky"></canvas>
+<section class="panel">
+  <div class="kicker">interstellar produce inspection bureau</div>
+  <h1>Customs Checkpoint for an Apple Comet</h1>
+  <div class="copy">A small celestial apple has arrived from the outer orchard dragging contraband twilight behind it. Drag the sky to bend its tail. Tap or click to stamp incoming fragments. Each stamp changes the manifest, the orbit, and the quiet little song the checkpoint hums to itself.</div>
+  <div class="status">
+    <div class="card"><div class="tiny">cargo</div><div class="value" id="cargo">peels of light</div><div class="sub">declared honestly, somehow</div></div>
+    <div class="card"><div class="tiny">clearance</div><div class="value" id="clearance">pending glow</div><div class="sub">night inspector still squinting</div></div>
+    <div class="card"><div class="tiny">tail length</div><div class="value" id="tail">37 sparks</div><div class="sub">drag to stretch the paperwork</div></div>
+  </div>
+  <div class="controls">
+    <button data-act="stamp">stamp fragment</button>
+    <button data-act="reroute">reroute comet</button>
+    <button data-act="amnesty">grant amnesty</button>
+    <button data-act="apple">inspect core</button>
+  </div>
+  <div class="log" id="log"></div>
+</section>
+<section class="manifest">
+  <h2>arrival manifest</h2>
+  <div class="ticket">
+    <p id="manifestText">Origin listed as <strong>somewhere after midnight</strong>. The crate smells faintly of cold sugar, printer ink, and weather that never learned to land properly.</p>
+    <div class="gauge" id="gauge" style="--scan:42"></div>
+    <div class="stamp" id="stamp">awaiting seal</div>
+  </div>
+</section>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas=document.getElementById('sky');
+const ctx=canvas.getContext('2d');
+const cargoEl=document.getElementById('cargo');
+const clearanceEl=document.getElementById('clearance');
+const tailEl=document.getElementById('tail');
+const manifestText=document.getElementById('manifestText');
+const stampEl=document.getElementById('stamp');
+const gauge=document.getElementById('gauge');
+const logEl=document.getElementById('log');
+const cargoes=['peels of light','fermented starlight','moon stickers','ionized perfume','tiny false dawns','paper halos'];
+const clearances=['pending glow','softly approved','quarantined wonder','cleared for orbit','held for singing','conditionally luminous'];
+const manifests=[
+  'Origin listed as <strong>somewhere after midnight</strong>. The crate smells faintly of cold sugar, printer ink, and weather that never learned to land properly.',
+  'Inspector note: the comet is carrying <strong>six unregistered blushes</strong> and one polite emergency beacon shaped like a leaf.',
+  'The tail appears woven from <strong>receipts for vanished sunsets</strong>. No duty owed, unless beauty has become taxable overnight.',
+  'A sealed pouch contains <strong>gravity in edible form</strong>. Customs has tasted nothing and denies all red glitter on the record.',
+  'Transit papers confirm the fruit passed through <strong>three silent constellations</strong> and one tollbooth staffed entirely by moths.'
+];
+const stamps=['cleared for dusk','approved with sparkles','return to outer orchard','harmless omen','contains lawful wonder','please do not refrigerate'];
+const logs=[
+  'inspector tapped the hull, heard a choir of seeds answer back',
+  'tail adjusted for local gravity and mild theatricality',
+  'one fragment attempted to bribe customs with a nicer moon',
+  'checkpoint lights blinked in sympathetic embarrassment',
+  'a leaf-shaped passport was accepted after a long pause',
+  'all nearby darkness now smells more expensive'
+];
+let w=0,h=0,dpr=Math.min(2,window.devicePixelRatio||1);
+let drag=false,targetX=0,targetY=0,drift=0,scan=42,tailBonus=0,mode='idle',audioCtx=null;
+const comet={x:0,y:0,vx:0,vy:0,r:34};
+const sparks=[];
+function size(){w=canvas.width=innerWidth*dpr;h=canvas.height=innerHeight*dpr;canvas.style.width=innerWidth+'px';canvas.style.height=innerHeight+'px';ctx.setTransform(dpr,0,0,dpr,0,0);comet.x=innerWidth*.62;comet.y=innerHeight*.46;targetX=comet.x;targetY=comet.y;spawnField();}
+function spawnField(){sparks.length=0;for(let i=0;i<120;i++)sparks.push(makeSpark(Math.random()*innerWidth,Math.random()*innerHeight,Math.random()*2+1,true));}
+function makeSpark(x,y,s,star){return{x,y,px:x,py:y,vx:(Math.random()-.5)*.4,vy:(Math.random()-.5)*.4,size:s,star,life:1,hue:Math.random()};}
+function ensureAudio(){if(audioCtx)return;const C=window.AudioContext||window.webkitAudioContext;if(C)audioCtx=new C();}
+function ping(freq=220,dur=.16,type='sine',gain=.015){if(!audioCtx)return;const t=audioCtx.currentTime,o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(freq,t);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(gain,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(t+dur+.03);}
+function chord(fs){if(!audioCtx)return;fs.forEach((f,i)=>setTimeout(()=>ping(f,.24,i%2?'triangle':'sine',.015-(i*.002)),i*60));}
+function pick(arr){return arr[(Math.random()*arr.length)|0];}
+function addLog(text){const div=document.createElement('div');div.className='entry';div.textContent=text;logEl.prepend(div);while(logEl.children.length>4)logEl.removeChild(logEl.lastChild);}
+function updateText(kind){cargoEl.textContent=pick(cargoes);clearanceEl.textContent=pick(clearances);manifestText.innerHTML=pick(manifests);stampEl.textContent=pick(stamps);scan=18+Math.random()*78;gauge.style.setProperty('--scan',scan.toFixed(0));tailBonus=(Math.random()*18)|0;tailEl.textContent=(22+tailBonus+((mode==='amnesty')?18:0))+' sparks';if(kind)addLog(pick(logs));}
+function fragment(x,y){for(let i=0;i<14;i++){const a=(Math.PI*2/14)*i+Math.random()*.2;const s=1+Math.random()*2.6;sparks.push({x,y,px:x,py:y,vx:Math.cos(a)*(1+Math.random()*2.4),vy:Math.sin(a)*(1+Math.random()*2.4),size:s,star:false,life:1,hue:Math.random()});}}
+function action(kind){ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();mode=kind;if(kind==='stamp'){fragment(comet.x,comet.y);chord([220,277,330]);}
+if(kind==='reroute'){targetX=innerWidth*(.18+Math.random()*.64);targetY=innerHeight*(.2+Math.random()*.55);chord([174,233,311]);}
+if(kind==='amnesty'){fragment(comet.x+18,comet.y-10);fragment(comet.x-12,comet.y+8);chord([196,247,392,494]);}
+if(kind==='apple'){fragment(comet.x,comet.y);chord([130.81,164.81,220]);}
+updateText(kind);
+}
+function drawComet(){const grad=ctx.createRadialGradient(comet.x-10,comet.y-10,4,comet.x,comet.y,comet.r*1.7);grad.addColorStop(0,'rgba(255,248,235,.95)');grad.addColorStop(.28,'rgba(255,121,162,.95)');grad.addColorStop(.68,'rgba(167,89,255,.45)');grad.addColorStop(1,'rgba(167,89,255,0)');ctx.fillStyle=grad;ctx.beginPath();ctx.arc(comet.x,comet.y,comet.r*1.7,0,Math.PI*2);ctx.fill();
+ctx.fillStyle='rgba(255,107,138,.96)';ctx.beginPath();ctx.moveTo(comet.x,comet.y-comet.r*.88);ctx.bezierCurveTo(comet.x-comet.r*.98,comet.y-comet.r*1.55,comet.x-comet.r*1.55,comet.y-comet.r*.14,comet.x-comet.r*.95,comet.y+comet.r*.64);ctx.bezierCurveTo(comet.x-comet.r*.55,comet.y+comet.r*1.2,comet.x-.2,comet.y+comet.r*.98,comet.x,comet.y+comet.r*.56);ctx.bezierCurveTo(comet.x+.2,comet.y+comet.r*.98,comet.x+comet.r*.55,comet.y+comet.r*1.2,comet.x+comet.r*.95,comet.y+comet.r*.64);ctx.bezierCurveTo(comet.x+comet.r*1.55,comet.y-comet.r*.14,comet.x+comet.r*.98,comet.y-comet.r*1.55,comet.x,comet.y-comet.r*.88);ctx.fill();
+ctx.strokeStyle='rgba(255,255,255,.24)';ctx.lineWidth=1.2;ctx.stroke();
+ctx.strokeStyle='rgba(141,233,171,.8)';ctx.lineWidth=2.4;ctx.beginPath();ctx.moveTo(comet.x+2,comet.y-comet.r*.88);ctx.quadraticCurveTo(comet.x+10,comet.y-comet.r*1.38,comet.x+16,comet.y-comet.r*1.16);ctx.stroke();
+ctx.fillStyle='rgba(146,255,193,.8)';ctx.beginPath();ctx.ellipse(comet.x+18,comet.y-comet.r*1.18,14,7,-.4,0,Math.PI*2);ctx.fill();}
+function tick(){ctx.clearRect(0,0,innerWidth,innerHeight);
+const bg=ctx.createLinearGradient(0,0,innerWidth,innerHeight);bg.addColorStop(0,'rgba(17,9,37,.22)');bg.addColorStop(1,'rgba(4,7,15,.38)');ctx.fillStyle=bg;ctx.fillRect(0,0,innerWidth,innerHeight);
+ comet.vx+=(targetX-comet.x)*.0025; comet.vy+=(targetY-comet.y)*.0025; comet.vx*=.985; comet.vy*=.985; comet.x+=comet.vx; comet.y+=comet.vy;
+ const tailCount=36+tailBonus;
+ for(let i=0;i<tailCount;i++){
+   const t=i/tailCount; const tx=comet.x-(comet.vx*22+52+drift)*t*1.7; const ty=comet.y-(comet.vy*22)*t + Math.sin((performance.now()*.0018)+(i*.42))*10*t;
+   const r=(1-t)*(4.8+(mode==='amnesty'?2:0));
+   ctx.fillStyle=`hsla(${320-110*t},100%,${78-22*t}%,${.72-.52*t})`;
+   ctx.beginPath();ctx.arc(tx,ty,r,0,Math.PI*2);ctx.fill();
+ }
+ sparks.forEach((s,idx)=>{
+   s.px=s.x; s.py=s.y; s.x+=s.vx; s.y+=s.vy; if(!s.star){s.vx*=.985; s.vy*=.985; s.life-=.009;}
+   if(s.star){if(s.x<0)s.x+=innerWidth;if(s.x>innerWidth)s.x-=innerWidth;if(s.y<0)s.y+=innerHeight;if(s.y>innerHeight)s.y-=innerHeight;}
+   const alpha=s.star?.7:Math.max(0,s.life); ctx.fillStyle=s.star?`rgba(255,255,255,${alpha})`:`hsla(${330+s.hue*60},100%,70%,${alpha})`; ctx.beginPath(); ctx.arc(s.x,s.y,s.size,0,Math.PI*2); ctx.fill();
+   if(!s.star&&s.life<=0) sparks.splice(idx,1);
+ });
+ drawComet();
+ drift=Math.sin(performance.now()*.0012)*18;
+ requestAnimationFrame(tick);
+}
+function pointer(e){const p=e.touches?e.touches[0]:e;targetX=p.clientX;targetY=p.clientY;}
+addEventListener('resize',size);
+addEventListener('pointerdown',e=>{drag=true;pointer(e);action('stamp');});
+addEventListener('pointermove',e=>{if(drag)pointer(e);});
+addEventListener('pointerup',()=>drag=false);
+addEventListener('touchstart',pointer,{passive:true});
+document.querySelectorAll('button').forEach(btn=>btn.addEventListener('click',()=>action(btn.dataset.act)));
+document.body.addEventListener('keydown',e=>{const map={1:'stamp',2:'reroute',3:'amnesty',4:'apple'};if(map[e.key])action(map[e.key]);});
+size(); updateText(); addLog('comet arrived with a neat stack of glowing paperwork'); tick();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
