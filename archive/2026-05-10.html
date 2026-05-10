@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>aapple.com — Peripheral Orchard Calibration</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#05060a;
+  --ink:#f3efe5;
+  --muted:rgba(243,239,229,.68);
+  --line:rgba(255,255,255,.1);
+  --red:#ff5b6e;
+  --gold:#ffcf73;
+  --mint:#88ffd8;
+}
+html,body{height:100%;background:radial-gradient(circle at 50% 50%,#151720 0,#08090d 52%,#040507 100%);color:var(--ink);font-family:Arial,sans-serif;overflow:hidden}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.main{position:relative;z-index:2;min-height:100vh;display:grid;place-items:center;padding:24px}
+.panel{width:min(720px,100%);padding:22px;border:1px solid var(--line);border-radius:28px;background:linear-gradient(180deg,rgba(10,11,16,.78),rgba(10,11,16,.46));backdrop-filter:blur(16px);box-shadow:0 30px 80px rgba(0,0,0,.38)}
+.kicker,.tiny,.hint{font:10px/1.3 'Courier New',monospace;letter-spacing:.24em;text-transform:uppercase}
+.kicker{color:var(--gold);margin-bottom:12px}
+h1{font:clamp(34px,8vw,72px)/.9 Georgia,serif;letter-spacing:-.06em;max-width:10ch}
+.copy{margin-top:14px;max-width:44ch;color:var(--muted);font-size:15px;line-height:1.62}
+.readouts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:18px}
+.card{padding:13px 14px;border-radius:18px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
+.tiny{color:rgba(255,255,255,.48);margin-bottom:8px}.value{font:22px/1 Georgia,serif}.sub{margin-top:8px;font-size:12px;line-height:1.45;color:rgba(243,239,229,.56)}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+button{appearance:none;border:none;cursor:pointer;padding:12px 14px;border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.05));border:1px solid rgba(255,255,255,.12);color:var(--ink);font:11px/1 'Courier New',monospace;letter-spacing:.16em;text-transform:uppercase}
+button:hover{background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.08))}
+.poem{margin-top:16px;padding:14px 16px;border-left:3px solid rgba(136,255,216,.48);background:rgba(255,255,255,.03);min-height:72px;color:rgba(243,239,229,.78);font-size:13px;line-height:1.55}
+.hint{margin-top:14px;color:rgba(255,255,255,.45)}
+.footer{position:fixed;left:0;right:0;bottom:0;padding:14px 16px 16px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;font-size:12px;z-index:3}
+.footer a{color:#d8f8ff}.credit{max-width:430px;color:rgba(255,255,255,.55);font-size:10px;line-height:1.35;text-align:right}
+@media (max-width:760px){.readouts{grid-template-columns:1fr}.panel{padding:18px}.footer{flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="main">
+  <section class="panel">
+    <div class="kicker">visual correction service for shy fruit</div>
+    <h1>Peripheral Orchard Calibration</h1>
+    <div class="copy">This orchard refuses direct attention. Look straight at it and the apples behave like ordinary geometry. Look slightly away, drag the cursor, or tilt your thumb across the glass, and the hidden orchard starts confessing itself. Type a word to release a red afterimage that only wants to be seen sideways.</div>
+    <div class="readouts">
+      <div class="card"><div class="tiny">signal</div><div class="value" id="signal">misbehaving softly</div><div class="sub">the orchard improves when ignored</div></div>
+      <div class="card"><div class="tiny">afterimage</div><div class="value" id="afterimage">0 red ghosts</div><div class="sub">typed words become drifting fruit</div></div>
+      <div class="card"><div class="tiny">focus</div><div class="value" id="focus">slightly off</div><div class="sub">drag to bend the invisible rows</div></div>
+    </div>
+    <div class="actions">
+      <button data-act="blink">blink the orchard</button>
+      <button data-act="misalign">misalign horizon</button>
+      <button data-act="ripen">ripen afterimage</button>
+      <button data-act="hush">lower the evidence</button>
+    </div>
+    <div class="poem" id="poem">At first there was only static and a polite black field. Then a red shape appeared at the edge of attention, as if an apple had been thinking about existing for several minutes before committing.</div>
+    <div class="hint">drag slowly, then stop • tap to plant a ghost apple • type for afterimages • sound wakes on interaction</div>
+  </section>
+</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const signalEl=document.getElementById('signal'),afterEl=document.getElementById('afterimage'),focusEl=document.getElementById('focus'),poemEl=document.getElementById('poem');
+let w=0,h=0,dpr=Math.min(2,window.devicePixelRatio||1),t=0,shift=0,drift=0,lastMove=0,ghosts=0,ambient=.4;
+const pointer={x:0,y:0,down:false};
+const stems=[],apples=[],words=[];
+const signals=['misbehaving softly','blurring on purpose','hiding in plain sight','polite distortion','off-axis bloom','side-eye harvest'];
+const focuses=['slightly off','nearly aligned','deliciously wrong','peripheral only','carefully unfocused','orbiting the obvious'];
+const poems=[
+ 'At first there was only static and a polite black field. Then a red shape appeared at the edge of attention, as if an apple had been thinking about existing for several minutes before committing.',
+ 'The orchard learned a trick from old televisions: glow brightest where nobody is looking directly.',
+ 'Each fruit leaves a red rumor behind it, a soft duplicate that lingers like stage makeup on the retina.',
+ 'Look away and the rows become honest. Look back and they return to pretending they are only weather.',
+ 'Somewhere between focus and doubt, an apple discovers it can haunt light without ever touching it.'
+];
+let audioCtx=null;
+function pick(a){return a[(Math.random()*a.length)|0]}
+function resize(){w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);pointer.x=w*.5;pointer.y=h*.5;seed();}
+function seed(){stems.length=0;for(let i=0;i<26;i++)stems.push({x:(i+.5)/26*w,base:h*(.64+Math.random()*.18),height:70+Math.random()*140,curve:(Math.random()-.5)*28,phase:Math.random()*6.28});if(!apples.length){for(let i=0;i<8;i++)spawnApple(w*(.15+Math.random()*.7),h*(.3+Math.random()*.45),true)}}
+function spawnApple(x,y,quiet){apples.push({x,y,r:12+Math.random()*10,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.18,phase:Math.random()*6.28,life:1,ghost:quiet?0:1,hue:Math.random()*.08});ghosts++;updateText();}
+function typeFruit(ch){const x=w*(.18+Math.random()*.64),y=h*(.28+Math.random()*.42);words.push({x,y,ch,life:150});spawnApple(x,y,false);sound(180+(ch.charCodeAt(0)%18)*18,.12,.012,'sine');}
+function ensureAudio(){if(audioCtx)return;const C=window.AudioContext||window.webkitAudioContext;if(C)audioCtx=new C();}
+function sound(freq=220,dur=.16,gain=.015,type='triangle'){if(!audioCtx)return;const now=audioCtx.currentTime,o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(freq,now);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(gain,now+.02);g.gain.exponentialRampToValueAtTime(.0001,now+dur);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(now+dur+.03);}
+function chord(list){if(!audioCtx)return;list.forEach((f,i)=>setTimeout(()=>sound(f,.22,.014-i*.002,i%2?'sine':'triangle'),i*65));}
+function updateText(){signalEl.textContent=pick(signals);focusEl.textContent=pick(focuses);afterEl.textContent=ghosts+' red ghost'+(ghosts===1?'':'s');}
+function action(kind){ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();
+  if(kind==='blink'){shift+=22;poemEl.textContent=pick(poems);chord([196,247,294]);}
+  if(kind==='misalign'){drift=(Math.random()-.5)*80;shift+=14;chord([174,220,262,330]);}
+  if(kind==='ripen'){for(let i=0;i<4;i++)spawnApple(w*(.2+Math.random()*.6),h*(.26+Math.random()*.4),false);poemEl.textContent='The afterimage fattens into something almost edible, if memory counts as a mouth.';chord([220,277,349,440]);}
+  if(kind==='hush'){ambient=.18;poemEl.textContent='The orchard lowers its brightness until it can pass for a minor thought.';sound(146,.28,.011,'sine');}
+  updateText();
+}
+function drawBackground(){const g=ctx.createRadialGradient(w*.5,h*.45,10,w*.5,h*.45,h*.7);g.addColorStop(0,'rgba(27,31,45,.8)');g.addColorStop(.55,'rgba(9,11,16,.94)');g.addColorStop(1,'rgba(4,5,7,1)');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);for(let i=0;i<36;i++){const y=(i/35)*h;ctx.fillStyle=`rgba(255,255,255,${0.012+Math.sin(t*.7+i)*0.004})`;ctx.fillRect(0,y,w,1);} }
+function drawRows(offset,mult,alpha){ctx.save();ctx.translate(offset,0);stems.forEach((s,i)=>{const sway=Math.sin(t+s.phase+i*.22)*8*mult + drift*.02;ctx.strokeStyle=`rgba(136,255,216,${alpha})`;ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(s.x,s.base);ctx.quadraticCurveTo(s.x+s.curve*.4+sway,s.base-s.height*.55,s.x+sway,s.base-s.height);ctx.stroke();ctx.fillStyle=`rgba(136,255,216,${alpha*.8})`;ctx.beginPath();ctx.ellipse(s.x+sway*1.1,s.base-s.height*.66,10,4,-.45,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.ellipse(s.x-sway*.2,s.base-s.height*.42,9,4,.45,0,Math.PI*2);ctx.fill();});ctx.restore();}
+function drawApples(layer,offset,alpha,blur){ctx.save();ctx.translate(offset,0);if(blur)ctx.filter='blur(7px)';apples.forEach((a,idx)=>{const bob=Math.sin(t*1.2+a.phase)*8;const px=a.x+Math.sin(t*.5+idx)*6*layer;const py=a.y+bob;const glow=ctx.createRadialGradient(px-2,py-3,2,px,py,a.r*2.2);glow.addColorStop(0,`rgba(255,248,238,${alpha*.9})`);glow.addColorStop(.34,`rgba(255,91,110,${alpha})`);glow.addColorStop(1,'rgba(255,91,110,0)');ctx.fillStyle=glow;ctx.beginPath();ctx.arc(px,py,a.r*2,0,Math.PI*2);ctx.fill();ctx.filter='none';ctx.fillStyle=`rgba(255,91,110,${alpha})`;ctx.beginPath();ctx.moveTo(px,py-a.r*.9);ctx.bezierCurveTo(px-a.r,py-a.r*1.5,px-a.r*1.55,py-a.r*.1,px-a.r*.95,py+a.r*.7);ctx.bezierCurveTo(px-a.r*.48,py+a.r*1.22,px-.1,py+a.r*.95,px,py+a.r*.52);ctx.bezierCurveTo(px+.1,py+a.r*.95,px+a.r*.48,py+a.r*1.22,px+a.r*.95,py+a.r*.7);ctx.bezierCurveTo(px+a.r*1.55,py-a.r*.1,px+a.r,py-a.r*1.5,px,py-a.r*.9);ctx.fill();ctx.strokeStyle=`rgba(255,255,255,${alpha*.18})`;ctx.lineWidth=1;ctx.stroke();ctx.strokeStyle=`rgba(136,255,216,${alpha*.85})`;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(px+1,py-a.r*.88);ctx.quadraticCurveTo(px+4,py-a.r*1.35,px+12,py-a.r*1.12);ctx.stroke();});ctx.restore();}
+function renderWords(){words.forEach((wrd,i)=>{wrd.life--;wrd.y-=.14;ctx.fillStyle=`rgba(243,239,229,${Math.max(0,wrd.life/150)*.65})`;ctx.font='15px Georgia';ctx.fillText(wrd.ch,wrd.x,wrd.y);if(wrd.life<=0)words.splice(i,1);});}
+function loop(){t+=.01;shift*=.96;drift*=.985;drawBackground();
+  const idle=Math.min(1,(performance.now()-lastMove)/1800);
+  const p=(pointer.x/w-.5)*28;
+  drawRows(-10-p*.25-shift*.2,1,.18+.08*idle);
+  drawApples(.8,-18-p*.7-shift*.5,.18+.22*idle,true);
+  drawRows(0,1.1,.42);
+  drawApples(1,p*.18,.8,false);
+  drawRows(10+p*.35+shift*.24,1.25,.12+.07*idle);
+  drawApples(1.2,16+p*.78+shift*.65,.12+.2*idle,true);
+  if(pointer.down && Math.random()>.75)spawnApple(pointer.x+(Math.random()-.5)*40,pointer.y+(Math.random()-.5)*40,false);
+  apples.forEach(a=>{a.x+=a.vx+(pointer.x-w*.5)*.00003;a.y+=a.vy;a.vy+=Math.sin(t+a.phase)*.0015;a.life=Math.min(1,a.life+.01);if(a.x<-40)a.x=w+40;if(a.x>w+40)a.x=-40;if(a.y<h*.18||a.y>h*.8)a.vy*=-1;});
+  renderWords();
+  requestAnimationFrame(loop);
+}
+addEventListener('resize',resize);
+addEventListener('pointerdown',e=>{pointer.down=true;pointer.x=e.clientX;pointer.y=e.clientY;lastMove=performance.now();ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();spawnApple(pointer.x,pointer.y,false);sound(240+Math.random()*80,.14,.013,'triangle');});
+addEventListener('pointermove',e=>{pointer.x=e.clientX;pointer.y=e.clientY;lastMove=performance.now();});
+addEventListener('pointerup',()=>pointer.down=false);
+document.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>action(b.dataset.act)));
+document.body.tabIndex=0;
+document.body.addEventListener('keydown',e=>{if(e.key.length===1&&/\S/.test(e.key))typeFruit(e.key);const map={1:'blink',2:'misalign',3:'ripen',4:'hush'};if(map[e.key])action(map[e.key]);});
+resize();updateText();loop();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
