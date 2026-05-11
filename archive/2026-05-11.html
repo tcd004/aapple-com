@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>aapple.com — Help Desk for Missing Constellations</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#03050b;
+  --panel:rgba(10,16,28,.76);
+  --line:rgba(255,255,255,.1);
+  --text:#edf4ff;
+  --muted:rgba(237,244,255,.66);
+  --gold:#ffd98d;
+  --blue:#8cd8ff;
+  --pink:#ff8fc7;
+}
+html,body{height:100%;background:radial-gradient(circle at 50% 20%,#13213c 0,#060a14 45%,#02040a 100%);color:var(--text);font-family:Arial,sans-serif;overflow:hidden}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.main{position:relative;z-index:2;min-height:100vh;display:grid;place-items:center;padding:20px}
+.panel{width:min(760px,100%);border:1px solid var(--line);border-radius:26px;padding:20px;background:linear-gradient(180deg,rgba(8,12,20,.84),rgba(8,12,20,.5));backdrop-filter:blur(14px);box-shadow:0 24px 80px rgba(0,0,0,.4)}
+.kicker,.tiny,.hint,button{font-family:'Courier New',monospace;text-transform:uppercase;letter-spacing:.18em}
+.kicker{font-size:10px;color:var(--gold);margin-bottom:12px}
+h1{font:clamp(34px,8vw,74px)/.9 Georgia,serif;letter-spacing:-.06em;max-width:11ch}
+.copy{margin-top:14px;max-width:48ch;font-size:15px;line-height:1.62;color:var(--muted)}
+.grid{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;margin-top:18px}
+.card{padding:14px 15px;border-radius:18px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
+.tiny{font-size:10px;color:rgba(255,255,255,.45);margin-bottom:8px}.big{font:24px/1 Georgia,serif}.small{margin-top:8px;color:rgba(237,244,255,.58);font-size:12px;line-height:1.45}
+.queue{min-height:126px;display:flex;flex-direction:column;gap:8px}
+.ticket{padding:10px 12px;border-radius:14px;background:rgba(140,216,255,.08);border:1px solid rgba(140,216,255,.18);font-size:12px;line-height:1.45;color:rgba(237,244,255,.85)}
+.ticket b{color:#fff}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+button{appearance:none;border:none;cursor:pointer;padding:12px 14px;border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.05));border:1px solid rgba(255,255,255,.12);color:var(--text);font-size:10px}
+button:hover{background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.08))}
+.hint{font-size:10px;color:rgba(255,255,255,.42);margin-top:14px}
+.footer{position:fixed;left:0;right:0;bottom:0;padding:14px 16px 16px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;font-size:12px;z-index:3}
+.footer a{color:#d8f8ff}.credit{max-width:430px;color:rgba(255,255,255,.55);font-size:10px;line-height:1.35;text-align:right}
+@media (max-width:760px){.grid{grid-template-columns:1fr}.panel{padding:18px}.footer{flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="main">
+  <section class="panel">
+    <div class="kicker">overnight support center for absent sky geometry</div>
+    <h1>Help Desk for Missing Constellations</h1>
+    <div class="copy">Several constellations failed to report for the night shift. Drag stars to reconnect them, tap empty sky to open a ticket, and type a note if you have seen any suspicious celestial behavior. One of the missing lights may actually be an apple pretending to be astronomy.</div>
+    <div class="grid">
+      <div class="card">
+        <div class="tiny">live queue</div>
+        <div class="queue" id="queue"></div>
+      </div>
+      <div class="card">
+        <div class="tiny">status</div>
+        <div class="big" id="status">4 constellations unresolved</div>
+        <div class="small" id="detail">The hold music is mostly moonlight and clerical concern.</div>
+      </div>
+    </div>
+    <div class="actions">
+      <button data-act="ticket">file tiny emergency</button>
+      <button data-act="reroute">reroute the stars</button>
+      <button data-act="apple">flag suspicious fruit</button>
+      <button data-act="hold">play hold music</button>
+    </div>
+    <div class="hint">drag stars • tap dark sky to add a ticket • type to leave notes for the cosmos • sound wakes after interaction</div>
+  </section>
+</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const queueEl=document.getElementById('queue'),statusEl=document.getElementById('status'),detailEl=document.getElementById('detail');
+let w=0,h=0,dpr=Math.min(2,window.devicePixelRatio||1),t=0,drag=null,holdGlow=0,typed=[];
+let audioCtx=null;
+const pointer={x:0,y:0,down:false};
+const ticketPool=[
+  ['Ticket #0041','Orion misplaced three shoulders and one excuse.'],
+  ['Ticket #1178','A quiet patch of night keeps asking for subtitles.'],
+  ['Ticket #2090','Cassiopeia was folded into a paper crane by static.'],
+  ['Ticket #3204','Unclaimed sparkle blinking near the service elevator.'],
+  ['Ticket #4422','One red object insists it is a star and not produce.'],
+  ['Ticket #5531','Minor gravity leak behind the velvet horizon.'],
+  ['Ticket #6720','Several dots connected themselves into a rumor.']
+];
+const detailPool=[
+  'The hold music is mostly moonlight and clerical concern.',
+  'A supervisor from the dawn shift will arrive in approximately forever.',
+  'Please stay on the line while the sky searches under the couch cushions.',
+  'Someone in astronomy wrote “be right back” and never elaborated.',
+  'The stars appreciate your patience and your slightly trembling cursor.'
+];
+const stars=[];
+const links=[[0,1],[1,2],[2,3],[4,5],[5,6],[6,7],[8,9],[9,10],[10,11]];
+function pick(a){return a[(Math.random()*a.length)|0]}
+function ensureAudio(){if(audioCtx)return;const C=window.AudioContext||window.webkitAudioContext;if(C)audioCtx=new C();}
+function tone(f=220,d=.2,g=.015,type='sine'){if(!audioCtx)return;const now=audioCtx.currentTime,o=audioCtx.createOscillator(),gain=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(f,now);gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(g,now+.02);gain.gain.exponentialRampToValueAtTime(.0001,now+d);o.connect(gain);gain.connect(audioCtx.destination);o.start();o.stop(now+d+.05);}
+function chord(arr){if(!audioCtx)return;arr.forEach((f,i)=>setTimeout(()=>tone(f,.24,.013-i*.002,i%2?'triangle':'sine'),i*70));}
+function resize(){w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);seed();}
+function seed(){stars.length=0;const groups=[
+  {x:w*.22,y:h*.3},{x:w*.38,y:h*.24},{x:w*.3,y:h*.46},{x:w*.18,y:h*.56},
+  {x:w*.58,y:h*.28},{x:w*.7,y:h*.22},{x:w*.77,y:h*.42},{x:w*.62,y:h*.54},
+  {x:w*.45,y:h*.68},{x:w*.58,y:h*.74},{x:w*.7,y:h*.68},{x:w*.82,y:h*.78}
+ ];
+ groups.forEach((g,i)=>stars.push({x:g.x+(Math.random()-.5)*30,y:g.y+(Math.random()-.5)*30,baseX:g.x,baseY:g.y,r:i===5?6.5:4+Math.random()*2,apple:i===5,phase:Math.random()*6.28}));
+ renderQueue();updateStatus();}
+function unresolved(){let count=0;links.forEach(([a,b])=>{const dx=stars[a].x-stars[b].x,dy=stars[a].y-stars[b].y;if(Math.hypot(dx,dy)>160)count++;});return count;}
+function renderQueue(extra){const items=[pick(ticketPool),pick(ticketPool),pick(ticketPool)]; if(extra) items.unshift(extra);
+ queueEl.innerHTML=items.slice(0,3).map(([a,b])=>`<div class="ticket"><b>${a}</b><br>${b}</div>`).join('');}
+function updateStatus(){const n=unresolved();statusEl.textContent=n+` constellation${n===1?'':'s'} unresolved`;detailEl.textContent=pick(detailPool);}
+function addTyped(ch){typed.push({ch,x:pointer.x||w*.5,y:pointer.y||h*.55,life:180});renderQueue(['Note received',`The cosmos logged: “${ch}”.`]);updateStatus();tone(180+(ch.charCodeAt(0)%12)*26,.14,.012,'triangle');}
+function action(kind){ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();
+ if(kind==='ticket'){renderQueue(pick(ticketPool));detailEl.textContent='A paper moon clerk stamped your concern with invisible ink.';chord([220,262,330]);}
+ if(kind==='reroute'){stars.forEach(s=>{s.x=s.baseX+(Math.random()-.5)*90;s.y=s.baseY+(Math.random()-.5)*90});detailEl.textContent='The heavens have been put on a temporary detour.';chord([196,247,294,370]);}
+ if(kind==='apple'){const apple=stars.find(s=>s.apple);apple.x+=18-Math.random()*36;apple.y+=14-Math.random()*28;detailEl.textContent='The suspicious fruit denies everything and glows redder.';chord([175,220,262]);}
+ if(kind==='hold'){holdGlow=1;detailEl.textContent='Please enjoy three seconds of administrative starlight.';chord([262,330,392,523]);}
+ updateStatus();}
+ function nearest(x,y){let best=null,dist=28;stars.forEach((s,i)=>{const d=Math.hypot(x-s.x,y-s.y);if(d<dist){dist=d;best=i;}});return best;}
+ function bg(){const g=ctx.createRadialGradient(w*.5,h*.35,20,w*.5,h*.35,h*.8);g.addColorStop(0,'rgba(16,28,54,.95)');g.addColorStop(.45,'rgba(5,8,18,.96)');g.addColorStop(1,'rgba(2,4,10,1)');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+ for(let i=0;i<90;i++){const x=(i*97%w),y=(i*67%h),a=.08+((i*13%7)/7)*.14;ctx.fillStyle=`rgba(255,255,255,${a})`;ctx.fillRect(x,y,1.2,1.2);} }
+ function drawLinks(){links.forEach(([a,b],i)=>{const s=stars[a],e=stars[b],d=Math.hypot(s.x-e.x,s.y-e.y),ok=d<160;ctx.strokeStyle=ok?`rgba(140,216,255,${.34+.08*Math.sin(t*2+i)})`:`rgba(255,143,199,.15)`;ctx.lineWidth=ok?1.8:1;ctx.setLineDash(ok?[]:[4,8]);ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(e.x,e.y);ctx.stroke();});ctx.setLineDash([]);}
+ function drawStars(){stars.forEach((s,i)=>{const pulse=1+Math.sin(t*2+s.phase)*.12;const r=s.r*pulse;const glow=ctx.createRadialGradient(s.x,s.y,1,s.x,s.y,r*4);const hue=s.apple?'255,110,110':'237,244,255';glow.addColorStop(0,`rgba(${hue},.95)`);glow.addColorStop(.35,`rgba(${hue},.35)`);glow.addColorStop(1,`rgba(${hue},0)`);ctx.fillStyle=glow;ctx.beginPath();ctx.arc(s.x,s.y,r*4,0,Math.PI*2);ctx.fill();
+ if(s.apple){ctx.fillStyle='rgba(255,110,110,.92)';ctx.beginPath();ctx.moveTo(s.x,s.y-r*.9);ctx.bezierCurveTo(s.x-r,s.y-r*1.5,s.x-r*1.55,s.y-r*.1,s.x-r*.95,s.y+r*.7);ctx.bezierCurveTo(s.x-r*.48,s.y+r*1.22,s.x-.1,s.y+r*.95,s.x,s.y+r*.52);ctx.bezierCurveTo(s.x+.1,s.y+r*.95,s.x+r*.48,s.y+r*1.22,s.x+r*.95,s.y+r*.7);ctx.bezierCurveTo(s.x+r*1.55,s.y-r*.1,s.x+r,s.y-r*1.5,s.x,s.y-r*.9);ctx.fill();ctx.strokeStyle='rgba(141,255,185,.9)';ctx.lineWidth=1.8;ctx.beginPath();ctx.moveTo(s.x+.5,s.y-r*.85);ctx.quadraticCurveTo(s.x+4,s.y-r*1.5,s.x+10,s.y-r*1.15);ctx.stroke();}
+ else{ctx.fillStyle='rgba(237,244,255,.95)';ctx.beginPath();ctx.arc(s.x,s.y,r,0,Math.PI*2);ctx.fill();}
+ });}
+ function drawTyped(){typed.forEach((m,i)=>{m.life--;m.y-=.16;ctx.fillStyle=`rgba(255,217,141,${Math.max(0,m.life/180)*.8})`;ctx.font='14px Georgia';ctx.fillText(m.ch,m.x,m.y);if(m.life<=0)typed.splice(i,1);});}
+ function loop(){t+=.01;holdGlow*=.97;bg();
+ ctx.save();ctx.globalAlpha=.12+.18*holdGlow;for(let i=0;i<8;i++){ctx.strokeStyle=`rgba(140,216,255,${.16-i*.015})`;ctx.beginPath();ctx.arc(w*.5,h*.5,140+i*42+Math.sin(t+i)*8,0,Math.PI*2);ctx.stroke();}ctx.restore();
+ drawLinks();drawStars();drawTyped();requestAnimationFrame(loop);}
+ addEventListener('resize',resize);
+ addEventListener('pointerdown',e=>{pointer.down=true;pointer.x=e.clientX;pointer.y=e.clientY;ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();drag=nearest(pointer.x,pointer.y);if(drag===null){renderQueue(pick(ticketPool));tone(220+Math.random()*90,.13,.012,'sine');}else tone(330,.09,.01,'triangle');});
+ addEventListener('pointermove',e=>{pointer.x=e.clientX;pointer.y=e.clientY;if(drag!==null){stars[drag].x=e.clientX;stars[drag].y=e.clientY;updateStatus();}});
+ addEventListener('pointerup',()=>{pointer.down=false;drag=null;});
+ document.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>action(b.dataset.act)));
+ document.body.tabIndex=0;
+ document.body.addEventListener('keydown',e=>{if(e.key.length===1&&/\S/.test(e.key))addTyped(e.key);const map={1:'ticket',2:'reroute',3:'apple',4:'hold'};if(map[e.key])action(map[e.key]);});
+ resize();loop();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
