@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>aapple.com — Soft Fruit for Hard Rain</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg1:#09111f;
+  --bg2:#04070d;
+  --ink:#f4f8ff;
+  --muted:rgba(244,248,255,.7);
+  --line:rgba(255,255,255,.1);
+  --cyan:#8ee7ff;
+  --violet:#c8a7ff;
+  --red:#ff6f7d;
+  --gold:#ffd480;
+}
+html,body{height:100%;overflow:hidden;background:radial-gradient(circle at 50% 18%,#1a2f52 0,#09111f 36%,#04070d 100%);color:var(--ink);font-family:Arial,sans-serif}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.main{position:relative;z-index:2;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:22px}
+.panel{width:min(700px,100%);padding:22px;border-radius:28px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(7,12,20,.78),rgba(7,12,20,.45));backdrop-filter:blur(14px);box-shadow:0 28px 90px rgba(0,0,0,.36)}
+.kicker,.hint,button,.label{font-family:'Courier New',monospace;text-transform:uppercase;letter-spacing:.18em}
+.kicker{font-size:10px;color:var(--gold);margin-bottom:12px}
+h1{font:clamp(36px,8vw,78px)/.9 Georgia,serif;letter-spacing:-.06em;max-width:10ch}
+.copy{margin-top:14px;max-width:45ch;color:var(--muted);font-size:15px;line-height:1.62}
+.meters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:18px}
+.card{padding:14px;border-radius:18px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
+.label{font-size:10px;color:rgba(255,255,255,.45);margin-bottom:9px}
+.value{font:22px/1 Georgia,serif}
+.sub{margin-top:8px;font-size:12px;line-height:1.45;color:rgba(244,248,255,.56)}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+button{appearance:none;border:none;cursor:pointer;padding:12px 14px;border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.05));border:1px solid rgba(255,255,255,.12);color:var(--ink);font-size:10px}
+button:hover{background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.08))}
+.note{margin-top:16px;padding:14px 16px;border-radius:18px;background:rgba(142,231,255,.08);border:1px solid rgba(142,231,255,.18);color:rgba(244,248,255,.78);font-size:13px;line-height:1.55;min-height:72px}
+.hint{font-size:10px;color:rgba(255,255,255,.42);margin-top:14px}
+.footer{position:fixed;left:0;right:0;bottom:0;padding:14px 16px 16px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;font-size:12px;z-index:3}
+.footer a{color:#d8f8ff}.credit{max-width:430px;color:rgba(255,255,255,.55);font-size:10px;line-height:1.35;text-align:right}
+@media (max-width:760px){.meters{grid-template-columns:1fr}.panel{padding:18px}.footer{flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="main">
+  <section class="panel">
+    <div class="kicker">pluviophonic orchard no. 1</div>
+    <h1>Soft Fruit for Hard Rain</h1>
+    <div class="copy">Tonight the weather turned musical. Every raindrop that lands on the orchard rings like glass, and the apples have started drifting upward to listen more closely. Move through the storm, tap to plant a buoyant fruit, and type to release tiny weather spells into the rain.</div>
+    <div class="meters">
+      <div class="card"><div class="label">rain mood</div><div class="value" id="mood">silver lullaby</div><div class="sub">the sky keeps changing its mind in C minor</div></div>
+      <div class="card"><div class="label">floating fruit</div><div class="value" id="count">0 apples adrift</div><div class="sub">touch the glass and they rise to meet the weather</div></div>
+      <div class="card"><div class="label">thunder etiquette</div><div class="value" id="thunder">surprisingly polite</div><div class="sub">louder when you ask nicely</div></div>
+    </div>
+    <div class="actions">
+      <button data-act="burst">cloudburst</button>
+      <button data-act="hush">soften rain</button>
+      <button data-act="lift">lift the orchard</button>
+      <button data-act="thunder">courteous thunder</button>
+    </div>
+    <div class="note" id="note">The first drop landed on an apple and the apple answered with a bell tone, as if weather had accidentally invented a tiny cathedral.</div>
+    <div class="hint">drag to bend the rainfall • tap to grow floating apples • type for weather charms • sound begins after interaction</div>
+  </section>
+</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const moodEl=document.getElementById('mood'),countEl=document.getElementById('count'),thunderEl=document.getElementById('thunder'),noteEl=document.getElementById('note');
+let w=0,h=0,dpr=Math.min(2,window.devicePixelRatio||1),t=0,rainAmp=1,wind=0,floatLift=0,flash=0;
+const pointer={x:0,y:0,down:false};
+const drops=[],apples=[],chars=[];
+const moods=['silver lullaby','glass drizzle','upward weather','midnight irrigation','cathedral mist','gentle static'];
+const thunderModes=['surprisingly polite','clearing its throat','murmuring velvet','formal applause','softly theatrical'];
+const notes=[
+ 'The first drop landed on an apple and the apple answered with a bell tone, as if weather had accidentally invented a tiny cathedral.',
+ 'Some storms want to flood the ground. This one wants to tune it.',
+ 'The orchard has stopped falling downward and started listening upward.',
+ 'Rain rehearses the same song all night, but no two apples hear it the same way.',
+ 'Even the thunder seems careful not to interrupt the fruit.'
+];
+let audioCtx=null;
+function pick(a){return a[(Math.random()*a.length)|0]}
+function ensureAudio(){if(audioCtx)return;const C=window.AudioContext||window.webkitAudioContext;if(C)audioCtx=new C();}
+function ping(f=440,d=.18,g=.012,type='sine'){if(!audioCtx)return;const now=audioCtx.currentTime,o=audioCtx.createOscillator(),gain=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(f,now);gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(g,now+.02);gain.gain.exponentialRampToValueAtTime(.0001,now+d);o.connect(gain);gain.connect(audioCtx.destination);o.start();o.stop(now+d+.04);}
+function rumble(){if(!audioCtx)return;const now=audioCtx.currentTime,o=audioCtx.createOscillator(),f=audioCtx.createBiquadFilter(),g=audioCtx.createGain();o.type='sawtooth';o.frequency.setValueAtTime(55,now);f.type='lowpass';f.frequency.setValueAtTime(180,now);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(.028,now+.05);g.gain.exponentialRampToValueAtTime(.0001,now+.9);o.connect(f);f.connect(g);g.connect(audioCtx.destination);o.start();o.stop(now+1);} 
+function resize(){w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);seedRain();}
+function seedRain(){drops.length=0;for(let i=0;i<140;i++)drops.push({x:Math.random()*w,y:Math.random()*h,z:.6+Math.random()*1.4});if(!apples.length)for(let i=0;i<5;i++)spawnApple(Math.random()*w,h*(.6+Math.random()*.22),true);} 
+function spawnApple(x,y,quiet){apples.push({x,y,r:14+Math.random()*12,vx:(Math.random()-.5)*.3,vy:-(.2+Math.random()*.5),phase:Math.random()*6.28,hue:Math.random()*.05});updateReadout();if(!quiet){ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();ping(220+Math.random()*120,.16,.012,'triangle');}}
+function updateReadout(){countEl.textContent=apples.length+' apple'+(apples.length===1?'':'s')+' adrift';moodEl.textContent=pick(moods);thunderEl.textContent=pick(thunderModes);} 
+function addChar(ch){chars.push({ch,x:pointer.x||w*.5,y:pointer.y||h*.5,life:170});noteEl.textContent='The rain accepted the word “'+ch+'” and turned it briefly into weather.';ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();ping(260+(ch.charCodeAt(0)%18)*24,.12,.011,'sine');}
+function action(kind){ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();
+  if(kind==='burst'){rainAmp=1.9;wind+=(Math.random()-.5)*1.4;noteEl.textContent='A sudden choir of rain arrives, striking the fruit like tuned glass.';for(let i=0;i<3;i++)setTimeout(()=>ping(420+i*90,.16,.011,'triangle'),i*80);}
+  if(kind==='hush'){rainAmp=.45;noteEl.textContent='The storm lowers its voice until each drop sounds handwritten.';ping(240,.22,.01,'sine');}
+  if(kind==='lift'){floatLift+=.9;for(let i=0;i<4;i++)spawnApple(w*(.18+Math.random()*.64),h*(.58+Math.random()*.22),true);noteEl.textContent='The orchard forgets gravity for a moment and rises into its own weather.';ping(294,.2,.012,'triangle');ping(392,.24,.01,'sine');}
+  if(kind==='thunder'){flash=1;noteEl.textContent='The thunder knocks before entering.';rumble();}
+  updateReadout();
+}
+function drawBg(){const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,'rgba(18,34,62,1)');g.addColorStop(.55,'rgba(8,16,30,1)');g.addColorStop(1,'rgba(4,7,13,1)');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);ctx.fillStyle='rgba(255,255,255,.03)';for(let i=0;i<24;i++)ctx.fillRect(0,(i/24)*h,w,1);if(flash>0){ctx.fillStyle='rgba(210,230,255,'+(flash*.22)+')';ctx.fillRect(0,0,w,h);flash*=.92;}}
+function drawRain(){ctx.lineWidth=1.2;for(const d of drops){const speed=(5+d.z*4)*rainAmp;d.x+=wind*d.z;d.y+=speed;if(d.y>h+20){d.y=-20;d.x=Math.random()*w}if(d.x<-20)d.x=w+20;if(d.x>w+20)d.x=-20;const dx=(pointer.x/w-.5)*18*d.z+wind*10;ctx.strokeStyle='rgba(142,231,255,'+(.16+d.z*.11)+')';ctx.beginPath();ctx.moveTo(d.x,d.y);ctx.lineTo(d.x+dx,d.y+18*d.z*rainAmp);ctx.stroke();}}
+function applePath(x,y,r){ctx.beginPath();ctx.moveTo(x,y-r*.9);ctx.bezierCurveTo(x-r,y-r*1.5,x-r*1.55,y-r*.1,x-r*.95,y+r*.7);ctx.bezierCurveTo(x-r*.48,y+r*1.22,x-.1,y+r*.95,x,y+r*.52);ctx.bezierCurveTo(x+.1,y+r*.95,x+r*.48,y+r*1.22,x+r*.95,y+r*.7);ctx.bezierCurveTo(x+r*1.55,y-r*.1,x+r,y-r*1.5,x,y-r*.9);}
+function drawApples(){for(const a of apples){a.vx+=(pointer.x-w*.5)*.00001;a.x+=a.vx+wind*.2;a.y+=a.vy-floatLift*.02;a.vy+=Math.sin(t+a.phase)*.002;a.vy*=.998;a.vx*=.998;if(a.x<-40)a.x=w+40;if(a.x>w+40)a.x=-40;if(a.y<-50){a.y=h+20;a.vy=-(.15+Math.random()*.3)}if(a.y>h+40)a.y=h*(.72+Math.random()*.18);
+    const bob=Math.sin(t*1.3+a.phase)*5;const x=a.x,y=a.y+bob,r=a.r;const glow=ctx.createRadialGradient(x,y,2,x,y,r*2.5);glow.addColorStop(0,'rgba(255,245,245,.9)');glow.addColorStop(.3,'rgba(255,111,125,.42)');glow.addColorStop(1,'rgba(255,111,125,0)');ctx.fillStyle=glow;ctx.beginPath();ctx.arc(x,y,r*2.1,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(255,111,125,.95)';applePath(x,y,r);ctx.fill();ctx.strokeStyle='rgba(255,255,255,.14)';ctx.lineWidth=1;ctx.stroke();ctx.strokeStyle='rgba(149,255,184,.95)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x+1,y-r*.88);ctx.quadraticCurveTo(x+4,y-r*1.35,x+12,y-r*1.12);ctx.stroke();
+  }}
+function drawRipples(){for(let i=0;i<apples.length;i++){const a=apples[i];if(i%2===0){ctx.strokeStyle='rgba(200,167,255,.08)';ctx.beginPath();ctx.arc(a.x,a.y,26+Math.sin(t+i)*8,0,Math.PI*2);ctx.stroke();}}}
+function drawChars(){for(let i=chars.length-1;i>=0;i--){const c=chars[i];c.life--;c.y-=.22;ctx.fillStyle='rgba(255,212,128,'+(c.life/170*.8)+')';ctx.font='15px Georgia';ctx.fillText(c.ch,c.x,c.y);if(c.life<=0)chars.splice(i,1);}}
+function rainHits(){for(let i=0;i<5;i++){const d=drops[(Math.random()*drops.length)|0];for(const a of apples){if(Math.abs(d.x-a.x)<a.r && Math.abs(d.y-a.y)<a.r*.8 && Math.random()>.88){ping(480+(a.r*4),.08,.004,'sine');break;}}}}
+function loop(){t+=.01;wind*=.995;rainAmp+=(1-rainAmp)*.003;floatLift*=.992;drawBg();drawRain();drawRipples();drawApples();drawChars();if(audioCtx && Math.random()>.7)rainHits();requestAnimationFrame(loop);} 
+addEventListener('resize',resize);
+addEventListener('pointerdown',e=>{pointer.down=true;pointer.x=e.clientX;pointer.y=e.clientY;spawnApple(pointer.x,pointer.y,false);});
+addEventListener('pointermove',e=>{pointer.x=e.clientX;pointer.y=e.clientY;if(pointer.down){wind+=(e.movementX||0)*.0015;rainAmp=Math.min(2.2,Math.max(.35,rainAmp+Math.abs(e.movementY||0)*.003));}});
+addEventListener('pointerup',()=>pointer.down=false);
+document.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>action(b.dataset.act)));
+document.body.tabIndex=0;
+document.body.addEventListener('keydown',e=>{if(e.key.length===1&&/\S/.test(e.key))addChar(e.key);const map={1:'burst',2:'hush',3:'lift',4:'thunder'};if(map[e.key])action(map[e.key]);});
+resize();updateReadout();loop();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
