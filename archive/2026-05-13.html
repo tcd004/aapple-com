@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>aapple.com — Orchard Fax From 3 Minutes in the Future</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07070b;
+  --panel:rgba(12,14,22,.84);
+  --line:rgba(255,255,255,.11);
+  --ink:#eef1ff;
+  --muted:rgba(238,241,255,.66);
+  --green:#9dffb6;
+  --amber:#ffd27d;
+  --red:#ff6e7f;
+}
+html,body{height:100%;background:radial-gradient(circle at 50% 18%,#1b2036 0,#090b12 44%,#040406 100%);color:var(--ink);font-family:Arial,sans-serif;overflow:hidden}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.main{position:relative;z-index:2;min-height:100vh;display:grid;place-items:center;padding:20px}
+.panel{width:min(760px,100%);padding:20px;border-radius:26px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(10,12,18,.88),rgba(10,12,18,.56));backdrop-filter:blur(12px);box-shadow:0 24px 80px rgba(0,0,0,.42)}
+.kicker,.tiny,.hint,button,.ticker{font-family:'Courier New',monospace;text-transform:uppercase;letter-spacing:.18em}
+.kicker{font-size:10px;color:var(--amber);margin-bottom:12px}
+h1{font:clamp(34px,8vw,70px)/.9 Georgia,serif;letter-spacing:-.06em;max-width:11ch}
+.copy{margin-top:14px;max-width:48ch;color:var(--muted);font-size:15px;line-height:1.62}
+.grid{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;margin-top:18px}
+.card{padding:14px;border-radius:18px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
+.tiny{font-size:10px;color:rgba(255,255,255,.44);margin-bottom:8px}
+.big{font:24px/1 Georgia,serif}
+.small{margin-top:8px;font-size:12px;line-height:1.45;color:rgba(238,241,255,.56)}
+.ticker{margin-top:12px;padding:10px 12px;border-radius:14px;background:rgba(157,255,182,.08);border:1px solid rgba(157,255,182,.18);font-size:11px;color:rgba(238,241,255,.82);min-height:48px}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+button{appearance:none;border:none;cursor:pointer;padding:12px 14px;border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.05));border:1px solid rgba(255,255,255,.12);color:var(--ink);font-size:10px}
+button:hover{background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.08))}
+.feed{display:flex;flex-direction:column;gap:8px;min-height:142px}
+.line{padding:9px 11px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.06);font-size:12px;line-height:1.42;color:rgba(238,241,255,.82)}
+.line b{color:#fff}
+.hint{font-size:10px;color:rgba(255,255,255,.42);margin-top:14px}
+.footer{position:fixed;left:0;right:0;bottom:0;padding:14px 16px 16px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;font-size:12px;z-index:3}
+.footer a{color:#d8f8ff}.credit{max-width:430px;color:rgba(255,255,255,.55);font-size:10px;line-height:1.35;text-align:right}
+@media (max-width:760px){.grid{grid-template-columns:1fr}.panel{padding:18px}.footer{flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="main">
+  <section class="panel">
+    <div class="kicker">temporal office equipment left running overnight</div>
+    <h1>Orchard Fax From 3 Minutes in the Future</h1>
+    <div class="copy">A miswired orchard has started faxing updates from a future that keeps arriving slightly early. Drag across the static to bend time, tap to drop another glowing stamp, and type a note to send a tiny message forward. Sometimes the machine reports apples. Sometimes it reports you.</div>
+    <div class="grid">
+      <div class="card">
+        <div class="tiny">incoming page</div>
+        <div class="feed" id="feed"></div>
+      </div>
+      <div class="card">
+        <div class="tiny">machine status</div>
+        <div class="big" id="status">waiting for tomorrow to clear</div>
+        <div class="small" id="detail">The paper tray contains static, moonlight, and one confidential apple.</div>
+        <div class="ticker" id="ticker">Transmission queue idle, but visibly nervous.</div>
+      </div>
+    </div>
+    <div class="actions">
+      <button data-act="fax">pull future page</button>
+      <button data-act="jam">cause paper jam</button>
+      <button data-act="apple">flag fruit anomaly</button>
+      <button data-act="clear">clear the timeline</button>
+    </div>
+    <div class="hint">drag to smear the signal • tap to stamp the page • type to transmit a word • sound begins after interaction</div>
+  </section>
+</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const feedEl=document.getElementById('feed'),statusEl=document.getElementById('status'),detailEl=document.getElementById('detail'),tickerEl=document.getElementById('ticker');
+let w=0,h=0,dpr=Math.min(2,window.devicePixelRatio||1),t=0,smear=0,flash=0,jam=0;
+const pointer={x:0,y:0,down:false};
+const particles=[],stamps=[],glyphs=[];
+const futureLines=[
+ ['00:03','The orchard has already read your next thought and found the handwriting charming.'],
+ ['00:02','A red object is rolling uphill through tomorrow\'s margins.'],
+ ['00:01','Please ignore the page that knows your cursor by name.'],
+ ['23:59','Three apples have filed for diplomatic immunity.'],
+ ['00:04','The static is not noise, it is very tiny weather from later.'],
+ ['00:00','Midnight arrived early and left a receipt in the feeder.'],
+ ['00:05','One branch keeps faxing silhouettes instead of fruit.']
+];
+const statuses=['waiting for tomorrow to clear','receiving speculative produce','mildly ahead of schedule','negotiating with static','temporarily chronological','paperwork from the near future'];
+const details=[
+ 'The paper tray contains static, moonlight, and one confidential apple.',
+ 'A clerk from tomorrow insists this all makes sense from their angle.',
+ 'Every page smells faintly like ozone and red skin.',
+ 'The machine hums like it just remembered a secret three minutes early.',
+ 'Nothing is on fire, but time is definitely warm.'
+];
+let audioCtx=null;
+function pick(a){return a[(Math.random()*a.length)|0]}
+function ensureAudio(){if(audioCtx)return;const C=window.AudioContext||window.webkitAudioContext;if(C)audioCtx=new C();}
+function tone(f=220,d=.16,g=.014,type='triangle'){if(!audioCtx)return;const now=audioCtx.currentTime,o=audioCtx.createOscillator(),gain=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(f,now);gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(g,now+.02);gain.gain.exponentialRampToValueAtTime(.0001,now+d);o.connect(gain);gain.connect(audioCtx.destination);o.start();o.stop(now+d+.04);}
+function faxChord(){[196,247,311,392].forEach((f,i)=>setTimeout(()=>tone(f,.2,.013-i*.0015,i%2?'sine':'triangle'),i*55));}
+function renderFeed(extra){const items=[extra||pick(futureLines),pick(futureLines),pick(futureLines)].slice(0,3);feedEl.innerHTML=items.map(([time,text])=>`<div class="line"><b>${time}</b><br>${text}</div>`).join('');}
+function updateText(msg){statusEl.textContent=pick(statuses);detailEl.textContent=pick(details);if(msg)tickerEl.textContent=msg;}
+function resize(){w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);seed();}
+function seed(){particles.length=0;for(let i=0;i<170;i++)particles.push({x:Math.random()*w,y:Math.random()*h,vx:(Math.random()-.5)*.25,vy:.2+Math.random()*.8,a:.06+Math.random()*.18});renderFeed();}
+function stamp(x,y,apple){stamps.push({x,y,r:12+Math.random()*16,apple,life:1,rot:Math.random()*6.28});updateText(apple?'Fruit anomaly logged for imminent review.':'A page was stamped before it technically arrived.');ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();tone(apple?180:260,.14,.012,apple?'sawtooth':'triangle');}
+function typed(ch){glyphs.push({ch,x:pointer.x||w*.5,y:pointer.y||h*.54,life:170});renderFeed(['00:06',`The machine accepted “${ch}” as advance notice.`]);updateText('Your word has been faxed to a smaller, stranger tomorrow.');ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();tone(220+(ch.charCodeAt(0)%20)*18,.11,.011,'sine');}
+function act(kind){ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();
+ if(kind==='fax'){flash=1;renderFeed();updateText('Fresh page received from three minutes ahead.');faxChord();}
+ if(kind==='jam'){jam=Math.min(1,jam+.35);updateText('Paper jam achieved. Time now folds in the middle.');renderFeed(['00:02','The page is crumpled, but the future remains legible.']);tone(140,.24,.014,'sawtooth');}
+ if(kind==='apple'){stamp(w*(.25+Math.random()*.5),h*(.28+Math.random()*.38),true);renderFeed(['00:01','Alert: orchard matter detected in office equipment.']);}
+ if(kind==='clear'){jam*=.35;smear*=.5;updateText('Timeline cleared. Residual static remains professionally vague.');tone(330,.18,.012,'triangle');}
+}
+function bg(){const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,'rgba(20,24,40,1)');g.addColorStop(.52,'rgba(8,10,16,1)');g.addColorStop(1,'rgba(4,4,6,1)');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);if(flash>0){ctx.fillStyle=`rgba(255,255,255,${flash*.16})`;ctx.fillRect(0,0,w,h);flash*=.9;}}
+function drawStatic(){for(const p of particles){p.x+=p.vx+smear*.03;p.y+=p.vy+(jam*.25);if(p.y>h){p.y=0;p.x=Math.random()*w}if(p.x>w)p.x=0;if(p.x<0)p.x=w;ctx.fillStyle=`rgba(238,241,255,${p.a})`;ctx.fillRect(p.x,p.y,1.1,1.1);}for(let i=0;i<26;i++){ctx.fillStyle=`rgba(255,255,255,${0.015+jam*.02})`;ctx.fillRect(0,(i/26)*h+Math.sin(t*2+i)*2,w,1);}}
+function appleShape(x,y,r){ctx.beginPath();ctx.moveTo(x,y-r*.9);ctx.bezierCurveTo(x-r,y-r*1.5,x-r*1.55,y-r*.1,x-r*.95,y+r*.7);ctx.bezierCurveTo(x-r*.48,y+r*1.22,x-.1,y+r*.95,x,y+r*.52);ctx.bezierCurveTo(x+.1,y+r*.95,x+r*.48,y+r*1.22,x+r*.95,y+r*.7);ctx.bezierCurveTo(x+r*1.55,y-r*.1,x+r,y-r*1.5,x,y-r*.9);}
+function drawStamps(){for(let i=stamps.length-1;i>=0;i--){const s=stamps[i];ctx.save();ctx.translate(s.x,s.y);ctx.rotate(s.rot+Math.sin(t+i)*.05);ctx.globalAlpha=Math.max(.12,s.life);ctx.strokeStyle=s.apple?'rgba(255,110,127,.9)':'rgba(157,255,182,.75)';ctx.lineWidth=2;ctx.strokeRect(-s.r*1.3,-s.r*.9,s.r*2.6,s.r*1.8);if(s.apple){ctx.fillStyle='rgba(255,110,127,.88)';appleShape(0,0,s.r*.58);ctx.fill();ctx.strokeStyle='rgba(157,255,182,.92)';ctx.beginPath();ctx.moveTo(1,-s.r*.5);ctx.quadraticCurveTo(4,-s.r*.9,9,-s.r*.72);ctx.stroke();}
+ else{ctx.fillStyle='rgba(157,255,182,.8)';ctx.font=`${s.r*.72}px Courier New`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('OK',0,2);}ctx.restore();s.life*=.994;if(s.life<.08)stamps.splice(i,1);}}
+function drawGlyphs(){for(let i=glyphs.length-1;i>=0;i--){const g=glyphs[i];g.life--;g.y-=.16;ctx.fillStyle=`rgba(255,210,125,${g.life/170*.8})`;ctx.font='15px Georgia';ctx.fillText(g.ch,g.x,g.y);if(g.life<=0)glyphs.splice(i,1);}}
+function loop(){t+=.01;smear*=.985;jam*=.992;bg();drawStatic();drawStamps();drawGlyphs();requestAnimationFrame(loop);}
+addEventListener('resize',resize);
+addEventListener('pointerdown',e=>{pointer.down=true;pointer.x=e.clientX;pointer.y=e.clientY;stamp(pointer.x,pointer.y,false);});
+addEventListener('pointermove',e=>{pointer.x=e.clientX;pointer.y=e.clientY;if(pointer.down)smear+=(e.movementX||0)*.08;});
+addEventListener('pointerup',()=>pointer.down=false);
+document.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>act(b.dataset.act)));
+document.body.tabIndex=0;
+document.body.addEventListener('keydown',e=>{if(e.key.length===1&&/\S/.test(e.key))typed(e.key);const map={1:'fax',2:'jam',3:'apple',4:'clear'};if(map[e.key])act(map[e.key]);});
+resize();loop();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
