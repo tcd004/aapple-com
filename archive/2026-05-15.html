@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>aapple.com — Seed Vault for Small Thunder</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --sky1:#050816;
+  --sky2:#101a38;
+  --soil1:#130d0b;
+  --soil2:#241712;
+  --glow:#8ac5ff;
+  --seed:#ffd98c;
+  --root:#ff8a6b;
+  --leaf:#9cffb6;
+}
+html,body{height:100%;overflow:hidden;background:#070a14;color:#eef5ff;font-family:Arial,sans-serif}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.overlay{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none;padding:18px 18px 84px}
+.top{max-width:min(540px,92vw)}
+.kicker,.hint,.readout{font-family:'Courier New',monospace;text-transform:uppercase;letter-spacing:.18em}
+.kicker{font-size:10px;color:rgba(255,217,140,.78);margin-bottom:10px}
+h1{font:clamp(40px,10vw,96px)/.88 Georgia,serif;letter-spacing:-.07em;text-shadow:0 8px 28px rgba(0,0,0,.28)}
+.copy{margin-top:12px;font-size:14px;line-height:1.6;color:rgba(238,245,255,.76);max-width:44ch;text-shadow:0 2px 8px rgba(0,0,0,.35)}
+.panel{align-self:flex-start;margin-top:18px;padding:12px 14px;border-radius:18px;background:rgba(6,10,22,.32);border:1px solid rgba(255,255,255,.09);backdrop-filter:blur(10px)}
+.readout{font-size:10px;color:rgba(156,255,182,.8)}
+.note{margin-top:7px;font-size:12px;line-height:1.45;color:rgba(238,245,255,.66);max-width:34ch}
+.hint{position:fixed;left:18px;bottom:58px;font-size:10px;color:rgba(238,245,255,.44);pointer-events:none}
+.footer{position:fixed;left:0;right:0;bottom:0;padding:14px 16px 16px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;font-size:12px;z-index:3}
+.footer a{color:#d8f8ff;pointer-events:auto}.credit{max-width:430px;color:rgba(255,255,255,.55);font-size:10px;line-height:1.35;text-align:right}
+@media (max-width:700px){.overlay{padding:14px 14px 96px}.copy{font-size:13px}.footer{flex-direction:column;align-items:flex-start}.credit{text-align:left}.hint{left:14px;bottom:82px;max-width:80vw}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="overlay">
+  <div class="top">
+    <div class="kicker">midnight weather storage beneath a nervous orchard</div>
+    <h1>Seed Vault for Small Thunder</h1>
+    <div class="copy">Tonight's storm was too delicate to leave in the sky, so it has been archived underground in seed-sized capsules. Touch the horizon to drop thunder into the soil. Drag to braid roots through the static. Type a letter if you want the weather to remember your handwriting.</div>
+    <div class="panel">
+      <div class="readout" id="readout">vault stable • 0 seeds charged • thunder behaving politely</div>
+      <div class="note" id="note">The dirt is warm with saved lightning. Nothing has sprouted yet, but everything is listening.</div>
+    </div>
+  </div>
+</div>
+<div class="hint">tap or click to plant thunder • drag to guide roots • type for tiny weather relics • sound wakes after interaction</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const readout=document.getElementById('readout'),note=document.getElementById('note');
+let w=0,h=0,dpr=Math.min(2,window.devicePixelRatio||1),t=0,charge=0;
+const horizon=()=>h*.44;
+const pointer={x:0,y:0,down:false};
+const bolts=[],seeds=[],glyphs=[],sparks=[],clouds=[];
+let audioCtx=null;
+function pick(a){return a[(Math.random()*a.length)|0]}
+function ensureAudio(){if(audioCtx)return;const C=window.AudioContext||window.webkitAudioContext;if(C)audioCtx=new C();}
+function tone(f=220,d=.18,g=.015,type='sine'){if(!audioCtx)return;const now=audioCtx.currentTime,o=audioCtx.createOscillator(),gain=audioCtx.createGain(),filter=audioCtx.createBiquadFilter();o.type=type;o.frequency.setValueAtTime(f,now);filter.type='lowpass';filter.frequency.setValueAtTime(1200,now);gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(g,now+.02);gain.gain.exponentialRampToValueAtTime(.0001,now+d);o.connect(filter);filter.connect(gain);gain.connect(audioCtx.destination);o.start();o.stop(now+d+.05);}
+function rumble(){if(!audioCtx)return;const now=audioCtx.currentTime,o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='triangle';o.frequency.setValueAtTime(44,now);o.frequency.exponentialRampToValueAtTime(28,now+.5);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(.02,now+.04);g.gain.exponentialRampToValueAtTime(.0001,now+.6);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(now+.65);}
+function resize(){w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);seedClouds();}
+function seedClouds(){clouds.length=0;for(let i=0;i<8;i++)clouds.push({x:(i+.5)/8*w,y:60+Math.random()*120,r:80+Math.random()*120,drift:(Math.random()-.5)*.12});}
+function makeBolt(x){const pts=[];let px=x,py=horizon()-6;pts.push([px,py]);for(let i=0;i<7;i++){px+= (Math.random()-.5)*34;py+= 18+Math.random()*26;pts.push([px,py]);}
+  const endY=h*.78+Math.random()*h*.12;while(py<endY){px+=(Math.random()-.5)*26;py+=16+Math.random()*20;pts.push([px,py]);}
+  bolts.push({pts,life:1});
+  seeds.push({x:px,y:py,vx:(Math.random()-.5)*.3,vy:-1.2-Math.random()*1.1,r:4+Math.random()*4,life:1,hue:40+Math.random()*40});
+  for(let i=0;i<16;i++)sparks.push({x:px,y:py,vx:(Math.random()-.5)*2.2,vy:(Math.random()-.5)*2.2,life:40+Math.random()*20});
+  charge++;
+  readout.textContent=`vault stable • ${charge} seed${charge===1?'':'s'} charged • thunder behaving ${charge<4?'politely':charge<8?'strangely':'like a rumor'}`;
+  note.textContent=pick([
+    'A root just translated lightning into patience.',
+    'The ground accepted the storm with careful, glowing manners.',
+    'Somewhere below, a seed clicked open like a tiny safe.',
+    'The orchard filed that thunder under future fruit.',
+    'The soil keeps the shape of every sound you drop into it.'
+  ]);
+  ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();rumble();tone(180+Math.random()*80,.16,.012,'sawtooth');tone(320+Math.random()*120,.12,.008,'triangle');
+}
+function rootTrail(x,y){sparks.push({x,y,vx:(Math.random()-.5)*.6,vy:(Math.random()-.5)*.6,life:18,root:true});if(pointer.down&&y>horizon())seeds.push({x,y,vx:(Math.random()-.5)*.15,vy:-.2,r:1.6+Math.random()*1.2,life:.45,hue:120+Math.random()*40,trail:true});}
+function addGlyph(ch){glyphs.push({ch,x:pointer.x||w*.5,y:pointer.y||h*.36,life:150});note.textContent=`The weather stored “${ch}” in a glass seed no larger than a raindrop.`;ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();tone(220+(ch.charCodeAt(0)%18)*22,.14,.01,'sine');}
+function sky(){const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,'#040713');g.addColorStop(.42,'#132247');g.addColorStop(.44,'#566a8a');g.addColorStop(.46,'#1c1a21');g.addColorStop(1,'#100b09');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);clouds.forEach((c,i)=>{c.x+=c.drift;if(c.x<-c.r)c.x=w+c.r;if(c.x>w+c.r)c.x=-c.r;const rg=ctx.createRadialGradient(c.x,c.y,c.r*.12,c.x,c.y,c.r);rg.addColorStop(0,`rgba(160,190,255,${0.05+Math.sin(t+i)*0.02})`);rg.addColorStop(1,'rgba(12,16,32,0)');ctx.fillStyle=rg;ctx.beginPath();ctx.arc(c.x,c.y,c.r,0,Math.PI*2);ctx.fill();});}
+function stars(){for(let i=0;i<60;i++){const x=(i*137.5%w),y=(i*57.3%horizon())*.9;ctx.fillStyle=`rgba(255,255,255,${0.05+((i*17)%10)/100+Math.sin(t*1.5+i)*0.02})`;ctx.fillRect(x,y,1.2,1.2);}}
+function soil(){ctx.fillStyle='rgba(0,0,0,.08)';ctx.fillRect(0,horizon(),w,h-horizon());for(let i=0;i<24;i++){ctx.strokeStyle=`rgba(255,138,107,${0.04+Math.sin(t+i)*0.015})`;ctx.beginPath();ctx.moveTo(0,horizon()+i*18);ctx.quadraticCurveTo(w*.4+Math.sin(t+i)*50,horizon()+i*16+6,w,horizon()+i*19);ctx.stroke();}}
+function drawBolts(){for(let i=bolts.length-1;i>=0;i--){const b=bolts[i];ctx.strokeStyle=`rgba(138,197,255,${b.life*.85})`;ctx.lineWidth=2.2;ctx.shadowBlur=16;ctx.shadowColor='rgba(138,197,255,.75)';ctx.beginPath();b.pts.forEach(([x,y],j)=>j?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.stroke();ctx.shadowBlur=0;b.life*=.93;if(b.life<.05)bolts.splice(i,1);}}
+function drawSeeds(){for(let i=seeds.length-1;i>=0;i--){const s=seeds[i];s.x+=s.vx;s.y+=s.vy;s.vy+=s.trail?.01:.02;s.life*=s.trail?.985:.994;ctx.beginPath();ctx.fillStyle=s.trail?`hsla(${s.hue},80%,72%,${s.life*.55})`:`hsla(${s.hue},95%,74%,${s.life})`;ctx.shadowBlur=s.trail?8:16;ctx.shadowColor=ctx.fillStyle;ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;if(!s.trail&&s.life>.25&&Math.random()<.12){ctx.strokeStyle=`rgba(156,255,182,${s.life*.28})`;ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x+Math.sin(t*4+i)*12,s.y+10+Math.cos(t*3+i)*12);ctx.stroke();}if(s.life<.03||s.y<-20||s.y>h+20)seeds.splice(i,1);}}
+function drawSparks(){for(let i=sparks.length-1;i>=0;i--){const s=sparks[i];s.x+=s.vx;s.y+=s.vy;s.life--;ctx.fillStyle=s.root?`rgba(255,138,107,${s.life/18*.4})`:`rgba(138,197,255,${s.life/60*.8})`;ctx.fillRect(s.x,s.y,s.root?1.5:2,s.root?1.5:2);if(s.life<=0)sparks.splice(i,1);}}
+function drawGlyphs(){for(let i=glyphs.length-1;i>=0;i--){const g=glyphs[i];g.life--;g.y-=.18;ctx.fillStyle=`rgba(255,217,140,${g.life/150*.9})`;ctx.font='16px Georgia';ctx.fillText(g.ch,g.x,g.y);if(g.life<=0)glyphs.splice(i,1);}}
+function horizonGlow(){const y=horizon();const grad=ctx.createLinearGradient(0,y-14,0,y+18);grad.addColorStop(0,'rgba(255,255,255,0)');grad.addColorStop(.45,'rgba(255,217,140,.38)');grad.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=grad;ctx.fillRect(0,y-14,w,32);}
+function loop(){t+=.01;sky();stars();horizonGlow();soil();drawBolts();drawSeeds();drawSparks();drawGlyphs();requestAnimationFrame(loop);}
+addEventListener('resize',resize);
+addEventListener('pointerdown',e=>{pointer.down=true;pointer.x=e.clientX;pointer.y=e.clientY;makeBolt(pointer.x);});
+addEventListener('pointermove',e=>{pointer.x=e.clientX;pointer.y=e.clientY;if(pointer.down)rootTrail(pointer.x,pointer.y);});
+addEventListener('pointerup',()=>pointer.down=false);
+addEventListener('pointercancel',()=>pointer.down=false);
+document.body.tabIndex=0;
+document.body.addEventListener('keydown',e=>{if(e.key.length===1&&/\S/.test(e.key))addGlyph(e.key);if(e.key===' '){e.preventDefault();makeBolt(w*(.2+Math.random()*.6));}});
+resize();loop();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
