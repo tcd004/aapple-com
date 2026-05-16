@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>aapple.com — Applemancy for the Last Visible Minute</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#03040a;
+  --sky:#0b1330;
+  --glow:#8ec5ff;
+  --gold:#ffd58a;
+  --red:#ff6f91;
+  --text:#eef3ff;
+}
+html,body{height:100%;overflow:hidden;background:radial-gradient(circle at 50% 18%,#16214c 0,#070b18 38%,#020308 100%);color:var(--text);font-family:Arial,sans-serif}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.ui{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:18px 18px 86px;pointer-events:none}
+.top{max-width:min(560px,92vw)}
+.kicker,.hint,.small,.readout{font-family:'Courier New',monospace;text-transform:uppercase;letter-spacing:.18em}
+.kicker{font-size:10px;color:rgba(255,213,138,.84);margin-bottom:10px}
+h1{font:clamp(38px,9vw,88px)/.9 Georgia,serif;letter-spacing:-.07em;text-shadow:0 8px 28px rgba(0,0,0,.35);max-width:11ch}
+.copy{margin-top:14px;max-width:46ch;font-size:14px;line-height:1.62;color:rgba(238,243,255,.75)}
+.panel{margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;align-self:flex-start;max-width:min(640px,92vw)}
+.card{padding:12px 14px;border-radius:18px;border:1px solid rgba(255,255,255,.1);background:rgba(7,10,22,.34);backdrop-filter:blur(12px)}
+.small{font-size:10px;color:rgba(255,255,255,.46);margin-bottom:8px}
+.readout{font-size:10px;color:rgba(142,197,255,.8)}
+.note{font-size:12px;line-height:1.48;color:rgba(238,243,255,.67);min-height:52px}
+.hint{position:fixed;left:18px;bottom:58px;font-size:10px;color:rgba(238,243,255,.42)}
+.footer{position:fixed;left:0;right:0;bottom:0;padding:14px 16px 16px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;font-size:12px;z-index:4}
+.footer a{color:#d8f8ff;pointer-events:auto}.credit{max-width:430px;color:rgba(255,255,255,.55);font-size:10px;line-height:1.35;text-align:right}
+@media (max-width:760px){.panel{grid-template-columns:1fr}.footer{flex-direction:column;align-items:flex-start}.credit{text-align:left}.hint{left:14px;bottom:82px;max-width:82vw}.ui{padding:14px 14px 96px}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <div class="top">
+    <div class="kicker">midnight divination performed on typo traffic and patient stars</div>
+    <h1>Applemancy for the Last Visible Minute</h1>
+    <div class="copy">A little observatory stayed open too late and discovered that apples can be read like constellations if you let them hang in impossible air. Drag to bend the starfield. Tap or click to release another omen-apple. Type a letter to name a prophecy and send it drifting into orbit. Sound wakes only after you touch the page.</div>
+    <div class="panel">
+      <div class="card">
+        <div class="small">night instrument</div>
+        <div class="readout" id="readout">lens aligned • 0 omens suspended • horizon still negotiable</div>
+      </div>
+      <div class="card">
+        <div class="small">interpretation</div>
+        <div class="note" id="note">The telescope insists this is astronomy, but the fruit is clearly involved.</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="hint">tap to cast an apple into the sky • drag to warp the field • type to label a future • press space for a cluster</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const readout=document.getElementById('readout'),note=document.getElementById('note');
+let w=0,h=0,dpr=Math.min(2,window.devicePixelRatio||1),t=0,castCount=0,warp=0;
+const pointer={x:0,y:0,down:false};
+const stars=[],apples=[],runes=[],dust=[];
+let audioCtx=null;
+function pick(a){return a[(Math.random()*a.length)|0]}
+function ensureAudio(){if(audioCtx)return;const C=window.AudioContext||window.webkitAudioContext;if(C)audioCtx=new C();}
+function tone(f=220,d=.18,g=.012,type='sine'){if(!audioCtx)return;const now=audioCtx.currentTime,o=audioCtx.createOscillator(),gain=audioCtx.createGain(),filter=audioCtx.createBiquadFilter();o.type=type;o.frequency.setValueAtTime(f,now);filter.type='lowpass';filter.frequency.setValueAtTime(1500,now);gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(g,now+.02);gain.gain.exponentialRampToValueAtTime(.0001,now+d);o.connect(filter);filter.connect(gain);gain.connect(audioCtx.destination);o.start();o.stop(now+d+.04);}
+function chime(base){[1,1.25,1.5].forEach((m,i)=>setTimeout(()=>tone(base*m,.18,.011-i*.0015,i%2?'triangle':'sine'),i*65));}
+function resize(){w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);seedStars();}
+function seedStars(){stars.length=0;for(let i=0;i<150;i++)stars.push({x:Math.random()*w,y:Math.random()*h*.82,z:.4+Math.random()*1.6,a:.18+Math.random()*.6});}
+function appleShape(x,y,r){ctx.beginPath();ctx.moveTo(x,y-r*.95);ctx.bezierCurveTo(x-r,y-r*1.6,x-r*1.58,y-r*.12,x-r*.96,y+r*.76);ctx.bezierCurveTo(x-r*.46,y+r*1.26,x-.1,y+r*.96,x,y+r*.56);ctx.bezierCurveTo(x+.1,y+r*.96,x+r*.46,y+r*1.26,x+r*.96,y+r*.76);ctx.bezierCurveTo(x+r*1.58,y-r*.12,x+r,y-r*1.6,x,y-r*.95);}
+function castApple(x,y,typed=''){const a={x,y,vx:(Math.random()-.5)*.35,vy:(Math.random()-.5)*.28,r:12+Math.random()*16,rot:Math.random()*6.28,spin:(Math.random()-.5)*.01,glow:.7+Math.random()*.5,label:typed,seed:Math.random()*999};apples.push(a);for(let i=0;i<18;i++)dust.push({x,y,vx:(Math.random()-.5)*1.2,vy:(Math.random()-.5)*1.2,life:30+Math.random()*20,h:Math.random()<.2?340:210});castCount++;readout.textContent=`lens aligned • ${castCount} omen${castCount===1?'':'s'} suspended • horizon ${castCount<4?'still negotiable':castCount<8?'becoming symbolic':'reading back'} `;note.textContent=pick([
+  'One apple has drifted into a house the zodiac forgot to name.',
+  'The sky is pretending not to notice the fruit, which is how you know it noticed.',
+  'A red orbit usually means good luck, mild hauntings, or both.',
+  'The telescope says this omen is ripe in exactly the wrong century.',
+  'Some prophecies prefer stems to punctuation.'
+]);ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();chime(180+Math.random()*90);}
+function addRune(ch){runes.push({ch,x:pointer.x||w*.5,y:pointer.y||h*.45,life:170});note.textContent=`The observatory logged “${ch}” as a celestial annotation and looked extremely pleased.`;ensureAudio();audioCtx&&audioCtx.resume&&audioCtx.resume();tone(250+(ch.charCodeAt(0)%20)*19,.13,.01,'triangle');}
+function bg(){const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,'#08112c');g.addColorStop(.45,'#070d1d');g.addColorStop(1,'#020308');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);const moon=ctx.createRadialGradient(w*.74,h*.22,10,w*.74,h*.22,120);moon.addColorStop(0,'rgba(255,245,214,.16)');moon.addColorStop(.4,'rgba(255,213,138,.08)');moon.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=moon;ctx.beginPath();ctx.arc(w*.74,h*.22,120,0,Math.PI*2);ctx.fill();}
+function drawStars(){for(const s of stars){const dx=(pointer.x-w*.5||0)*0.012*s.z*warp,dy=(pointer.y-h*.5||0)*0.009*s.z*warp;const x=s.x+dx+Math.sin(t*.4+s.z)*4;const y=s.y+dy+Math.cos(t*.3+s.z*2)*3;ctx.fillStyle=`rgba(142,197,255,${s.a})`;ctx.fillRect(x,y,s.z,s.z);if(Math.random()<.05){ctx.fillStyle=`rgba(255,213,138,${s.a*.35})`;ctx.fillRect(x+1,y,1,1);}}}
+function drawThreads(){ctx.strokeStyle='rgba(142,197,255,.08)';ctx.lineWidth=1;for(let i=0;i<apples.length;i++){for(let j=i+1;j<apples.length&&j<i+4;j++){const a=apples[i],b=apples[j],dx=a.x-b.x,dy=a.y-b.y,dist=Math.hypot(dx,dy);if(dist<180){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}}}}
+function drawApples(){for(let i=apples.length-1;i>=0;i--){const a=apples[i];a.rot+=a.spin;a.x+=Math.sin(t*.8+a.seed)*.18+a.vx;a.y+=Math.cos(t*.7+a.seed)*.12+a.vy;a.vx*=.999;a.vy*=.999;const glow=ctx.createRadialGradient(a.x,a.y,a.r*.2,a.x,a.y,a.r*2.7);glow.addColorStop(0,'rgba(255,111,145,.18)');glow.addColorStop(.55,'rgba(142,197,255,.08)');glow.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=glow;ctx.beginPath();ctx.arc(a.x,a.y,a.r*2.7,0,Math.PI*2);ctx.fill();ctx.save();ctx.translate(a.x,a.y);ctx.rotate(a.rot);ctx.fillStyle='rgba(255,111,145,.92)';appleShape(0,0,a.r);ctx.fill();ctx.strokeStyle='rgba(255,213,138,.35)';ctx.lineWidth=1.2;ctx.stroke();ctx.strokeStyle='rgba(142,255,186,.9)';ctx.beginPath();ctx.moveTo(1,-a.r*.55);ctx.quadraticCurveTo(4,-a.r*.98,10,-a.r*.76);ctx.stroke();ctx.fillStyle='rgba(142,255,186,.8)';ctx.beginPath();ctx.ellipse(10,-a.r*.68,5,2.5,.5,0,Math.PI*2);ctx.fill();if(a.label){ctx.fillStyle='rgba(255,245,220,.82)';ctx.font='11px Courier New';ctx.textAlign='center';ctx.fillText(a.label,0,a.r+16);}ctx.restore();}}
+function drawDust(){for(let i=dust.length-1;i>=0;i--){const d=dust[i];d.x+=d.vx;d.y+=d.vy;d.life--;ctx.fillStyle=`hsla(${d.h},85%,72%,${d.life/50*.8})`;ctx.fillRect(d.x,d.y,2,2);if(d.life<=0)dust.splice(i,1);}}
+function drawRunes(){for(let i=runes.length-1;i>=0;i--){const r=runes[i];r.life--;r.y-=.18;ctx.fillStyle=`rgba(255,213,138,${r.life/170*.88})`;ctx.font='16px Georgia';ctx.fillText(r.ch,r.x,r.y);if(r.life<=0)runes.splice(i,1);}}
+function horizon(){ctx.fillStyle='rgba(0,0,0,.1)';ctx.fillRect(0,h*.78,w,h*.22);ctx.strokeStyle='rgba(255,213,138,.16)';ctx.beginPath();ctx.moveTo(0,h*.78);for(let x=0;x<=w;x+=20){ctx.lineTo(x,h*.78+Math.sin(t+x*.01)*4);}ctx.stroke();}
+function loop(){t+=.01;warp*=.985;bg();drawStars();drawThreads();drawApples();drawDust();drawRunes();horizon();requestAnimationFrame(loop);}
+addEventListener('resize',resize);
+addEventListener('pointerdown',e=>{pointer.down=true;pointer.x=e.clientX;pointer.y=e.clientY;castApple(pointer.x,pointer.y);warp=Math.min(1.8,warp+.45);});
+addEventListener('pointermove',e=>{pointer.x=e.clientX;pointer.y=e.clientY;if(pointer.down)warp=Math.min(2.2,warp+(Math.abs(e.movementX)+Math.abs(e.movementY))*.004);});
+addEventListener('pointerup',()=>pointer.down=false);
+addEventListener('pointercancel',()=>pointer.down=false);
+document.body.tabIndex=0;
+document.body.addEventListener('keydown',e=>{if(e.key.length===1&&/\S/.test(e.key)){addRune(e.key);castApple(pointer.x||w*.5,pointer.y||h*.45,e.key);}if(e.key===' '){e.preventDefault();for(let i=0;i<3;i++)setTimeout(()=>castApple(w*(.3+Math.random()*.4),h*(.26+Math.random()*.28)),i*80);}});
+resize();loop();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
