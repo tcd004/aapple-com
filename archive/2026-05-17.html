@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>aapple.com - Nocturnal Orchard Radar</title>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#020611;color:#d7ffe9;font-family:Arial,Helvetica,sans-serif}
+canvas{display:block;width:100vw;height:100vh;touch-action:none}
+.overlay{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:16px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:rgba(210,255,235,.78)}
+.panel{max-width:min(420px,72vw);background:rgba(3,12,24,.34);border:1px solid rgba(130,255,210,.22);padding:10px 12px;border-radius:12px;backdrop-filter:blur(6px)}
+.big{display:block;font-size:clamp(24px,4vw,46px);line-height:.95;letter-spacing:.04em;color:#fff;text-transform:none;margin-top:6px}
+.small{font-size:12px;letter-spacing:.03em;line-height:1.45;text-transform:none;color:rgba(225,255,241,.78)}
+.metrics{text-align:right;white-space:nowrap}
+.footer{position:fixed;left:16px;right:16px;bottom:12px;display:flex;justify-content:space-between;align-items:end;gap:12px;font-size:12px;color:rgba(255,255,255,.7)}
+.footer a{color:#c1ffe1}
+.credit{max-width:560px;text-align:right;color:rgba(255,255,255,.42);font-size:10px;line-height:1.4}
+@media (max-width:640px){.top{flex-direction:column;align-items:stretch}.metrics{text-align:left}.footer{flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="overlay">
+  <div class="top">
+    <div class="panel">
+      <div>midnight survey // sector aapple</div>
+      <span class="big">Nocturnal Orchard Radar</span>
+      <div class="small">Tap or move to send out a sweep. Hidden fruit answers in rings, ghost labels, and nervous little stars.</div>
+    </div>
+    <div class="panel metrics">
+      <div>contacts: <span id="contacts">0</span></div>
+      <div>whispers: <span id="whispers">listening</span></div>
+      <div>time: <span id="clock"></span></div>
+    </div>
+  </div>
+</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const contactsEl=document.getElementById('contacts');
+const whispersEl=document.getElementById('whispers');
+const clockEl=document.getElementById('clock');
+let w=0,h=0,dpr=Math.min(devicePixelRatio||1,2),t=0;
+const pointer={x:0,y:0,active:false};
+const pings=[];
+const sparks=[];
+const labels=[];
+const messages=['ripe silence','seed static','peel shimmer','core echo','sweet interference','bruise glow','stem signal'];
+const apples=[];
+function resize(){w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;canvas.style.width=w+'px';canvas.style.height=h+'px';ctx.setTransform(dpr,0,0,dpr,0,0);}
+function makeApples(){apples.length=0;const n=Math.max(8,Math.min(15,Math.floor((w*h)/90000)));for(let i=0;i<n;i++){const r=18+Math.random()*42;apples.push({x:w*(.08+Math.random()*.84),y:h*(.12+Math.random()*.7),r,phase:Math.random()*Math.PI*2,hue:Math.random()*18-6});}}
+function reset(){resize();makeApples();contactsEl.textContent=apples.length;for(let i=0;i<90;i++)sparks[i]={x:Math.random()*w,y:Math.random()*h,s:Math.random()*2+.4,v:.15+Math.random()*.6};}
+function ping(x,y,manual=true){pings.push({x,y,r:0,a:1,s:manual?4.8:2.8});if(pings.length>14)pings.shift();let heard=0;for(const a of apples){const dx=x-a.x,dy=y-a.y,dist=Math.hypot(dx,dy);if(dist<220){heard++;labels.push({x:a.x,y:a.y-6,text:messages[(Math.random()*messages.length)|0],a:1});if(labels.length>18)labels.shift();}}whispersEl.textContent=heard?heard+' reply'+(heard>1?'ies':''):'nothing but leaves';playTone(heard);}
+function playTone(heard){if(!window.AudioContext)return;if(!audioCtx && pointer.active){audioCtx=new AudioContext();}
+ if(!audioCtx||audioCtx.state==='suspended')return;const now=audioCtx.currentTime;const osc=audioCtx.createOscillator();const gain=audioCtx.createGain();const filter=audioCtx.createBiquadFilter();osc.type='sine';osc.frequency.value=160+heard*70+Math.random()*40;filter.type='bandpass';filter.frequency.value=500+heard*120;filter.Q.value=4;gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(.04+heard*.012,now+.02);gain.gain.exponentialRampToValueAtTime(.0001,now+.5);osc.connect(filter);filter.connect(gain);gain.connect(audioCtx.destination);osc.start(now);osc.stop(now+.55);}
+let audioCtx=null;
+function eventPoint(e){const p=e.touches?e.touches[0]:e;return{x:p.clientX,y:p.clientY};}
+function move(e){const p=eventPoint(e);pointer.x=p.x;pointer.y=p.y;pointer.active=true;}
+addEventListener('pointermove',move,{passive:true});
+addEventListener('pointerdown',e=>{move(e);ping(pointer.x,pointer.y,true);},{passive:true});
+addEventListener('touchstart',e=>{move(e);ping(pointer.x,pointer.y,true);},{passive:true});
+addEventListener('resize',reset);
+setInterval(()=>{const now=new Date();clockEl.textContent=now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});},250);
+setInterval(()=>{if(!pointer.active)ping(Math.random()*w,Math.random()*h,false);},2800);
+function drawApple(a){const bob=Math.sin(t*.0015+a.phase)*8;const x=a.x,y=a.y+bob;const g=ctx.createRadialGradient(x-a.r*.2,y-a.r*.35,2,x,y,a.r*1.2);g.addColorStop(0,'hsla('+(8+a.hue)+',90%,62%,0.9)');g.addColorStop(.55,'hsla('+(350+a.hue)+',78%,42%,0.45)');g.addColorStop(1,'hsla('+(130+a.hue)+',90%,60%,0.03)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,a.r,0,Math.PI*2);ctx.fill();ctx.strokeStyle='rgba(180,255,220,.12)';ctx.beginPath();ctx.moveTo(x,y-a.r*.7);ctx.quadraticCurveTo(x+4,y-a.r-8,x+10,y-a.r-12);ctx.stroke();}
+function frame(){t+=16;ctx.fillStyle='rgba(2,6,17,0.18)';ctx.fillRect(0,0,w,h);
+ const rg=ctx.createRadialGradient(w/2,h/2,10,w/2,h/2,Math.max(w,h)*.65);rg.addColorStop(0,'rgba(11,42,35,0.08)');rg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=rg;ctx.fillRect(0,0,w,h);
+ for(const s of sparks){ctx.fillStyle='rgba(210,255,230,'+(0.2+s.v*Math.sin(t*.001+s.x)) +')';ctx.fillRect(s.x,s.y,s.s,s.s);s.y+=s.v;s.x+=Math.sin(t*.0005+s.y)*.08;if(s.y>h+2){s.y=-2;s.x=Math.random()*w;}}
+ ctx.save();ctx.strokeStyle='rgba(110,255,205,.08)';ctx.lineWidth=1;
+ for(let r=70;r<Math.max(w,h);r+=70){ctx.beginPath();ctx.arc(w/2,h/2,r,0,Math.PI*2);ctx.stroke();}
+ ctx.beginPath();ctx.moveTo(w/2,0);ctx.lineTo(w/2,h);ctx.moveTo(0,h/2);ctx.lineTo(w,h/2);ctx.stroke();ctx.restore();
+ for(const a of apples)drawApple(a);
+ for(let i=pings.length-1;i>=0;i--){const p=pings[i];p.r+=p.s;p.a*=.985;ctx.strokeStyle='rgba(151,255,216,'+(p.a*.42)+')';ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.stroke();if(p.a<.03)pings.splice(i,1);}
+ for(let i=labels.length-1;i>=0;i--){const l=labels[i];l.y-=.18;l.a*=.987;ctx.fillStyle='rgba(214,255,235,'+l.a+')';ctx.font='12px Arial';ctx.fillText(l.text,l.x+8,l.y);if(l.a<.05)labels.splice(i,1);}
+ if(pointer.active){ctx.strokeStyle='rgba(255,255,255,.35)';ctx.beginPath();ctx.arc(pointer.x,pointer.y,10+Math.sin(t*.008)*2,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.moveTo(pointer.x-18,pointer.y);ctx.lineTo(pointer.x+18,pointer.y);ctx.moveTo(pointer.x,pointer.y-18);ctx.lineTo(pointer.x,pointer.y+18);ctx.stroke();}
+ requestAnimationFrame(frame);
+}
+reset();
+ping(w/2,h/2,false);
+frame();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
