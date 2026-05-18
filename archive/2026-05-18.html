@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>aapple.com — Maintenance Window for a Soft Machine</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#050816;
+  --bg2:#101631;
+  --glass:rgba(14,20,42,.7);
+  --line:rgba(255,255,255,.11);
+  --text:#eef3ff;
+  --muted:rgba(238,243,255,.62);
+  --apple:#ff6f7d;
+  --mint:#97ffd2;
+  --gold:#ffd88d;
+}
+html,body{height:100%;overflow:hidden;background:radial-gradient(circle at 20% 10%,#1a2553 0,#091127 32%,#04060f 100%);font-family:Arial,Helvetica,sans-serif;color:var(--text)}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.ui{position:fixed;inset:0;padding:14px 14px 84px;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none}
+.top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+.panel{pointer-events:auto;background:var(--glass);border:1px solid var(--line);border-radius:18px;backdrop-filter:blur(14px);box-shadow:0 20px 60px rgba(0,0,0,.28)}
+.hero{max-width:min(520px,92vw);padding:14px 16px}
+.kicker,.tiny,.statusline{font:10px/1.4 'Courier New',monospace;letter-spacing:.18em;text-transform:uppercase}
+.kicker{color:rgba(151,255,210,.8);margin-bottom:10px}
+h1{font:clamp(34px,8vw,74px)/.9 Georgia,serif;letter-spacing:-.07em;max-width:10ch}
+.copy{margin-top:12px;max-width:45ch;font-size:14px;line-height:1.58;color:var(--muted)}
+.readout{padding:12px 14px;min-width:min(320px,84vw)}
+.statusline{color:rgba(255,216,141,.84)}
+.metric{margin-top:8px;font-size:13px;line-height:1.55;color:rgba(238,243,255,.74)}
+.desktop{position:fixed;inset:0;padding:96px 12px 92px 12px}
+.iconDock{position:absolute;left:12px;top:110px;display:flex;flex-direction:column;gap:10px;pointer-events:auto;z-index:5}
+.icon{width:76px;padding:10px 8px;border:1px solid rgba(255,255,255,.09);background:rgba(10,16,34,.52);border-radius:16px;text-align:center;color:#dfe6ff;font-size:11px;line-height:1.3;backdrop-filter:blur(12px);cursor:pointer;user-select:none}
+.icon .glyph{display:block;font-size:22px;margin-bottom:5px}
+.note{position:absolute;width:min(230px,62vw);min-height:120px;padding:12px 12px 28px;border-radius:18px;border:1px solid rgba(255,255,255,.11);background:rgba(18,24,50,.78);box-shadow:0 18px 50px rgba(0,0,0,.28);pointer-events:auto;touch-action:none;user-select:none}
+.note.apple{background:linear-gradient(160deg,rgba(255,112,125,.85),rgba(110,15,32,.88));}
+.note.gold{background:linear-gradient(160deg,rgba(255,216,141,.9),rgba(118,72,7,.88));color:#23170a}
+.note.mint{background:linear-gradient(160deg,rgba(151,255,210,.88),rgba(20,78,63,.9));color:#071c17}
+.note .bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font:10px 'Courier New',monospace;letter-spacing:.16em;text-transform:uppercase;opacity:.8}
+.note .body{font-size:14px;line-height:1.45}
+.note .tag{position:absolute;left:12px;bottom:10px;font:10px 'Courier New',monospace;letter-spacing:.16em;text-transform:uppercase;opacity:.72}
+.composer{position:fixed;left:14px;right:14px;bottom:48px;display:flex;gap:10px;align-items:center;padding:10px 12px;pointer-events:auto}
+.composer input{flex:1;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:12px 14px;color:#fff;outline:none;font-size:14px}
+.composer button{border:0;border-radius:999px;padding:12px 16px;background:linear-gradient(135deg,#8cf4c4,#5e8fff);color:#07111f;font-weight:700;cursor:pointer}
+.footer{position:fixed;left:16px;right:16px;bottom:12px;display:flex;justify-content:space-between;align-items:flex-end;gap:14px;font-size:12px;z-index:8}
+.footer a{color:#d4fbff;pointer-events:auto}.credit{max-width:470px;color:rgba(255,255,255,.48);font-size:10px;line-height:1.35;text-align:right}
+.hint{position:fixed;left:16px;bottom:102px;color:rgba(238,243,255,.38);font:10px 'Courier New',monospace;letter-spacing:.15em;text-transform:uppercase;pointer-events:none}
+@media (max-width:720px){.top{flex-direction:column}.desktop{padding-top:180px}.iconDock{top:190px;flex-direction:row;left:14px;right:14px;overflow:auto}.icon{min-width:76px}.composer{bottom:62px}.footer{flex-direction:column;align-items:flex-start}.credit{text-align:left}.hint{bottom:118px;max-width:82vw}}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div class="ui">
+  <div class="top">
+    <div class="panel hero">
+      <div class="kicker">system upkeep for typo traffic, minor omens, and fruit-shaped software</div>
+      <h1>Maintenance Window for a Soft Machine</h1>
+      <div class="copy">Tonight the website became a janitor's cart for unfinished thoughts. Tap the desktop to drop service notes into orbit. Drag notes around like you almost know what broke. Type a private maintenance request and file it under the nearest star. Sound wakes after your first touch.</div>
+    </div>
+    <div class="panel readout">
+      <div class="statusline">03:00 internal orchard support queue</div>
+      <div class="metric" id="readout">0 notes filed, 0 apples patched, the machine is pretending to be calm.</div>
+      <div class="metric" id="mood">Current condition: velvet error, low urgency, excellent moonlight.</div>
+    </div>
+  </div>
+</div>
+<div class="desktop" id="desktop"></div>
+<div class="iconDock">
+  <div class="icon" data-kind="apple"><span class="glyph">🍎</span>spawn apple<br>ticket</div>
+  <div class="icon" data-kind="gold"><span class="glyph">✦</span>open hush<br>memo</div>
+  <div class="icon" data-kind="mint"><span class="glyph">◌</span>release ghost<br>patch</div>
+</div>
+<form class="panel composer" id="composer">
+  <input id="text" maxlength="90" placeholder="type a maintenance request for the soft machine" autocomplete="off">
+  <button type="submit">file it</button>
+</form>
+<div class="hint">tap the background, drag the notes, or type something the machine should remember</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const canvas=document.getElementById('bg'),ctx=canvas.getContext('2d');
+const desktop=document.getElementById('desktop');
+const readout=document.getElementById('readout');
+const mood=document.getElementById('mood');
+const composer=document.getElementById('composer');
+const textInput=document.getElementById('text');
+let w=0,h=0,dpr=Math.min(2,devicePixelRatio||1),t=0,appleCount=0,noteCount=0,z=1;
+let audioCtx=null;
+const pointer={x:innerWidth/2,y:innerHeight/2};
+const motes=[],rings=[],notes=[];
+const moods=[
+  'Current condition: velvet error, low urgency, excellent moonlight.',
+  'Current condition: three polite glitches and one glowing stem.',
+  'Current condition: stable enough to dream, unstable enough to sing.',
+  'Current condition: every warning light now rated romantic.',
+  'Current condition: patched with fruit, static, and borrowed dawn.'
+];
+const lines=[
+  'A loose page was found humming under the server rack.',
+  'The orchard accepted the update, but only in cursive.',
+  'One apple was replaced with a softer theory of gravity.',
+  'An error dissolved into perfume and left no logs.',
+  'The machine requested fewer passwords and more weather.',
+  'A tiny backup moon has been mounted behind the status bar.'
+];
+function ensureAudio(){if(audioCtx)return;const C=window.AudioContext||window.webkitAudioContext;if(C)audioCtx=new C();}
+function blip(freq=220,dur=.16,gainAmt=.015,type='sine'){if(!audioCtx)return;const now=audioCtx.currentTime,o=audioCtx.createOscillator(),g=audioCtx.createGain(),f=audioCtx.createBiquadFilter();o.type=type;o.frequency.setValueAtTime(freq,now);f.type='lowpass';f.frequency.setValueAtTime(1500,now);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(gainAmt,now+.02);g.gain.exponentialRampToValueAtTime(.0001,now+dur);o.connect(f);f.connect(g);g.connect(audioCtx.destination);o.start();o.stop(now+dur+.05);}
+function chord(base){[1,1.2,1.5].forEach((m,i)=>setTimeout(()=>blip(base*m,.18,.012-i*.002,i%2?'triangle':'sine'),i*55));}
+function resize(){w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);seedMotes();}
+function seedMotes(){motes.length=0;for(let i=0;i<90;i++)motes.push({x:Math.random()*w,y:Math.random()*h,r:1+Math.random()*3,s:.2+Math.random()*.8,p:Math.random()*6.28});}
+function spawnRing(x,y,color){rings.push({x,y,r:8,a:.7,color});if(rings.length>18)rings.shift();}
+function updateReadout(){readout.textContent=`${noteCount} note${noteCount===1?'':'s'} filed, ${appleCount} apple${appleCount===1?'':'s'} patched, the machine is ${noteCount<3?'pretending to be calm':noteCount<7?'accepting the situation':'openly becoming poetry'}.`;mood.textContent=moods[(Math.random()*moods.length)|0];}
+function makeNote(x,y,kind='apple',text=''){
+  const n=document.createElement('div');
+  n.className=`note ${kind}`;
+  n.style.left=Math.max(8,Math.min(w-240,x-100))+'px';
+  n.style.top=Math.max(90,Math.min(h-220,y-70))+'px';
+  n.style.zIndex=++z;
+  const label=kind==='apple'?'apple patch':kind==='gold'?'hush memo':'ghost patch';
+  const body=text||lines[(Math.random()*lines.length)|0];
+  n.innerHTML=`<div class="bar"><span>${label}</span><span>${String(noteCount+1).padStart(2,'0')}</span></div><div class="body">${body}</div><div class="tag">drag me somewhere safer</div>`;
+  desktop.appendChild(n);
+  notes.push(n);
+  if(kind==='apple')appleCount++;
+  noteCount++;
+  updateReadout();
+  dragify(n);
+  ensureAudio(); if(audioCtx&&audioCtx.resume)audioCtx.resume();
+  chord(kind==='apple'?180:kind==='gold'?260:320);
+  spawnRing(x,y,kind==='apple'?'255,111,125':kind==='gold'?'255,216,141':'151,255,210');
+}
+function dragify(el){
+  let sx=0,sy=0,ox=0,oy=0,down=false;
+  const start=e=>{down=true;el.style.zIndex=++z;const p=getPoint(e);sx=p.x;sy=p.y;ox=parseFloat(el.style.left);oy=parseFloat(el.style.top);e.preventDefault();};
+  const move=e=>{if(!down)return;const p=getPoint(e);el.style.left=Math.max(0,Math.min(w-el.offsetWidth,ox+p.x-sx))+'px';el.style.top=Math.max(72,Math.min(h-el.offsetHeight-62,oy+p.y-sy))+'px';pointer.x=p.x;pointer.y=p.y;};
+  const end=()=>down=false;
+  el.addEventListener('pointerdown',start);addEventListener('pointermove',move,{passive:false});addEventListener('pointerup',end);addEventListener('pointercancel',end);
+}
+function getPoint(e){return e.touches?e.touches[0]:e;}
+addEventListener('pointermove',e=>{pointer.x=e.clientX;pointer.y=e.clientY;},{passive:true});
+document.querySelectorAll('.icon').forEach(icon=>icon.addEventListener('click',e=>{const kind=icon.dataset.kind;makeNote(w*(.28+Math.random()*.44),h*(.28+Math.random()*.38),kind);}));
+desktop.addEventListener('pointerdown',e=>{if(e.target!==desktop)return;makeNote(e.clientX,e.clientY,['apple','gold','mint'][(Math.random()*3)|0]);});
+composer.addEventListener('submit',e=>{e.preventDefault();const text=textInput.value.trim();if(!text)return;makeNote(pointer.x||w*.5,pointer.y||h*.58,['apple','gold','mint'][(Math.random()*3)|0],text);textInput.value='';});
+textInput.addEventListener('keydown',e=>{if(e.key==='Enter')return;ensureAudio(); if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume(); blip(220+(e.key.charCodeAt?.(0)||0)%18*18,.08,.006,'triangle');});
+function bg(){
+  const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,'#091127');g.addColorStop(.55,'#070c1b');g.addColorStop(1,'#04060f');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+  const moon=ctx.createRadialGradient(w*.78,h*.18,10,w*.78,h*.18,120);moon.addColorStop(0,'rgba(255,230,178,.18)');moon.addColorStop(.5,'rgba(255,216,141,.07)');moon.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=moon;ctx.beginPath();ctx.arc(w*.78,h*.18,120,0,Math.PI*2);ctx.fill();
+}
+function drawGrid(){ctx.strokeStyle='rgba(151,255,210,.06)';ctx.lineWidth=1;for(let x=0;x<w;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}for(let y=0;y<h;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}}
+function drawMotes(){for(const m of motes){m.y-=m.s*.35;m.x+=Math.sin(t+m.p)*.12; if(m.y<-6){m.y=h+6;m.x=Math.random()*w;}ctx.fillStyle=`rgba(151,255,210,${0.08+m.r*.04})`;ctx.fillRect(m.x,m.y,m.r,m.r);}}
+function drawCore(){const x=w*.52+Math.sin(t*.7)*16,y=h*.62+Math.cos(t*.5)*12;const rg=ctx.createRadialGradient(x,y,12,x,y,180);rg.addColorStop(0,'rgba(255,111,125,.22)');rg.addColorStop(.5,'rgba(94,143,255,.1)');rg.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=rg;ctx.beginPath();ctx.arc(x,y,180,0,Math.PI*2);ctx.fill();ctx.strokeStyle='rgba(255,216,141,.12)';ctx.beginPath();ctx.ellipse(x,y,90+Math.sin(t)*10,110+Math.cos(t*.8)*10,0,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.moveTo(x,y-68);ctx.quadraticCurveTo(x+8,y-118,x+28,y-102);ctx.stroke();}
+function drawRings(){for(let i=rings.length-1;i>=0;i--){const r=rings[i];r.r+=1.9;r.a*=.97;ctx.strokeStyle=`rgba(${r.color},${r.a})`;ctx.lineWidth=2;ctx.beginPath();ctx.arc(r.x,r.y,r.r,0,Math.PI*2);ctx.stroke();if(r.a<.03)rings.splice(i,1);}}
+function loop(){t+=.01;bg();drawGrid();drawMotes();drawCore();drawRings();requestAnimationFrame(loop);} 
+resize();updateReadout();loop();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
