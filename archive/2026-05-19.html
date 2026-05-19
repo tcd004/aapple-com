@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>aapple.com — Ripeness Test for the First Minute</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#070710;
+  --panel:rgba(16,18,30,.76);
+  --line:rgba(255,255,255,.12);
+  --text:#f8f3ea;
+  --muted:rgba(248,243,234,.66);
+  --apple:#ff5d6c;
+  --gold:#ffd37c;
+  --mint:#98ffd4;
+}
+html,body{height:100%;background:radial-gradient(circle at top,#1b1d37 0,#0b0c18 42%,#05050b 100%);font-family:Arial,Helvetica,sans-serif;color:var(--text);overflow:hidden}
+body{display:flex;align-items:center;justify-content:center;padding:18px}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.shell{position:relative;z-index:2;width:min(960px,100%);display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:22px;backdrop-filter:blur(16px);box-shadow:0 18px 60px rgba(0,0,0,.32)}
+.hero{padding:18px 18px 16px}
+.kicker,.label,.readout{font:11px/1.5 'Courier New',monospace;letter-spacing:.18em;text-transform:uppercase}
+.kicker{color:rgba(255,211,124,.82);margin-bottom:10px}
+h1{font:clamp(32px,6vw,66px)/.9 Georgia,serif;letter-spacing:-.06em;max-width:10ch}
+.copy{margin-top:12px;color:var(--muted);font-size:14px;line-height:1.55;max-width:48ch}
+.lab{padding:16px;display:flex;flex-direction:column;gap:14px}
+.readout{color:rgba(152,255,212,.86)}
+.gauge{height:14px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden;border:1px solid rgba(255,255,255,.08)}
+.fill{height:100%;width:14%;background:linear-gradient(90deg,var(--apple),var(--gold),var(--mint));transition:width .25s ease}
+.score{font-size:40px;font-weight:700;letter-spacing:-.05em}
+.status{font-size:14px;line-height:1.5;color:var(--muted);min-height:42px}
+.controls{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+button{appearance:none;border:0;border-radius:16px;padding:14px 12px;background:linear-gradient(135deg,rgba(255,93,108,.95),rgba(255,211,124,.95));color:#1c130c;font-weight:800;cursor:pointer;transition:transform .15s ease,filter .2s ease}
+button.alt{background:linear-gradient(135deg,rgba(152,255,212,.92),rgba(147,179,255,.92))}
+button.dark{background:rgba(255,255,255,.08);color:var(--text);border:1px solid rgba(255,255,255,.1)}
+button:active{transform:scale(.98)}
+.specimen{padding:14px;display:flex;flex-direction:column;gap:12px}
+.stage{aspect-ratio:1/1.02;border-radius:22px;background:radial-gradient(circle at 50% 20%,rgba(255,255,255,.06),rgba(255,255,255,.015) 40%,rgba(0,0,0,.18) 80%);border:1px solid rgba(255,255,255,.08);position:relative;overflow:hidden}
+.stage:before{content:'';position:absolute;inset:auto 12% 8% 12%;height:18%;background:radial-gradient(circle,rgba(0,0,0,.35),rgba(0,0,0,0));filter:blur(10px)}
+.orb{position:absolute;left:50%;top:55%;width:44%;aspect-ratio:1;border-radius:47% 50% 44% 48%/48% 46% 55% 52%;transform:translate(-50%,-50%) rotate(-4deg);background:radial-gradient(circle at 35% 30%,rgba(255,241,220,.95),rgba(255,132,146,.9) 18%,rgba(237,58,84,.96) 42%,rgba(112,12,24,1) 88%);box-shadow:0 0 80px rgba(255,93,108,.24);transition:filter .25s ease,transform .25s ease,box-shadow .25s ease}
+.orb:before{content:'';position:absolute;left:50%;top:-10%;width:9%;height:18%;background:linear-gradient(#5a3817,#8f6640);border-radius:10px;transform:translateX(-40%) rotate(8deg)}
+.orb:after{content:'';position:absolute;left:56%;top:-6%;width:18%;height:11%;background:linear-gradient(135deg,#91e37e,#4f9a52);border-radius:100% 10% 100% 10%;transform:rotate(18deg)}
+.ring{position:absolute;border:1px dashed rgba(255,255,255,.16);border-radius:50%;pointer-events:none;animation:pulse 3.2s linear infinite}
+.note{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.chip{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.07);font-size:12px;color:var(--muted)}
+.footer{position:fixed;left:16px;right:16px;bottom:12px;display:flex;justify-content:space-between;align-items:flex-end;gap:14px;font-size:12px;z-index:3}
+.footer a{color:#d9f8ff}.credit{max-width:520px;color:rgba(255,255,255,.48);font-size:10px;line-height:1.35;text-align:right}
+@keyframes pulse{0%{transform:translate(-50%,-50%) scale(.85);opacity:.65}100%{transform:translate(-50%,-50%) scale(1.45);opacity:0}}
+@media (max-width:820px){.shell{grid-template-columns:1fr}.controls{grid-template-columns:1fr 1fr 1fr}.footer{flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<canvas id="sky"></canvas>
+<div class="shell">
+  <section class="panel hero">
+    <div class="kicker">00:05 a.m. quality assurance for typo fruit and newborn daylight</div>
+    <h1>Ripeness Test for the First Minute</h1>
+    <div class="copy">Every midnight deserves a small inspection. Press the instruments below to test whether this apple is ready for the day, too dramatic for breakfast, or secretly made of weather. The score is fake, the mood is precise, and the sound begins after your first tap.</div>
+  </section>
+  <section class="panel specimen">
+    <div class="stage" id="stage">
+      <div class="ring" style="left:50%;top:55%;width:42%;height:42%;animation-delay:0s"></div>
+      <div class="ring" style="left:50%;top:55%;width:42%;height:42%;animation-delay:1.1s"></div>
+      <div class="ring" style="left:50%;top:55%;width:42%;height:42%;animation-delay:2.2s"></div>
+      <div class="orb" id="orb"></div>
+    </div>
+    <div class="note">
+      <div class="chip" id="chip1">texture: velvet emergency</div>
+      <div class="chip" id="chip2">signal: low moon, high sugar</div>
+      <div class="chip" id="chip3">verdict: waiting for your opinion</div>
+      <div class="chip" id="chip4">ambient risk: sentimental gravity</div>
+    </div>
+  </section>
+  <section class="panel lab">
+    <div class="readout">lab console // tap, click, or press keys 1 2 3</div>
+    <div class="score"><span id="score">14</span>% ripe</div>
+    <div class="gauge"><div class="fill" id="fill"></div></div>
+    <div class="status" id="status">The specimen is blushing cautiously. It still believes in suspense.</div>
+    <div class="controls">
+      <button id="warm">shine a warmer sun</button>
+      <button class="alt" id="spin">ask for an omen</button>
+      <button class="dark" id="cool">add midnight wind</button>
+    </div>
+  </section>
+</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const sky=document.getElementById('sky'),ctx=sky.getContext('2d');
+const orb=document.getElementById('orb');
+const fill=document.getElementById('fill');
+const scoreEl=document.getElementById('score');
+const statusEl=document.getElementById('status');
+const stage=document.getElementById('stage');
+const chips=[...document.querySelectorAll('.chip')];
+let w=0,h=0,dpr=Math.min(2,devicePixelRatio||1),t=0,score=14,temp=0;
+let audioCtx=null;
+const motes=[];
+const statuses=[
+  'The specimen is humming like a lamp that just learned dawn exists.',
+  'Official result: emotionally ripe, nutritionally unverified.',
+  'The apple now contains a manageable amount of prophecy.',
+  'Texture report: glossy panic with a calm interior.',
+  'Lab note: this fruit would absolutely answer a question with another question.',
+  'The first minute of the day just signed the peel in invisible ink.'
+];
+const chipSets=[
+  ['texture: velvet emergency','signal: low moon, high sugar','verdict: theatrically edible','ambient risk: sentimental gravity'],
+  ['texture: polished comet','signal: orchard radio online','verdict: sunrise adjacent','ambient risk: flirtation with static'],
+  ['texture: weather lacquer','signal: stem receiving whispers','verdict: melodramatically ripe','ambient risk: excessive tenderness'],
+  ['texture: museum-grade blush','signal: one tiny bell inside','verdict: approved for impossible breakfasts','ambient risk: pocket-sized eclipse']
+];
+function ensureAudio(){if(audioCtx)return;const C=window.AudioContext||window.webkitAudioContext;if(C)audioCtx=new C();}
+function tone(freq,dur=.18,type='sine',gainAmt=.02){if(!audioCtx)return;const now=audioCtx.currentTime,o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(freq,now);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(gainAmt,now+.02);g.gain.exponentialRampToValueAtTime(.0001,now+dur);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(now+dur+.03);}
+function chord(base){[1,1.25,1.5].forEach((m,i)=>setTimeout(()=>tone(base*m,.2,i===1?'triangle':'sine',.018-i*.003),i*60));}
+function resize(){w=innerWidth;h=innerHeight;sky.width=w*dpr;sky.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);seed();}
+function seed(){motes.length=0;for(let i=0;i<90;i++)motes.push({x:Math.random()*w,y:Math.random()*h,r:1+Math.random()*2.5,s:.2+Math.random()*.8,p:Math.random()*6.28});}
+function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
+function paint(){const hue=score<30?0:score<70?22:140;orb.style.filter=`hue-rotate(${hue}deg) saturate(${1+score/160}) brightness(${.95+score/220})`;
+orb.style.transform=`translate(-50%,-50%) rotate(${temp*6-4}deg) scale(${1+score/500})`;
+orb.style.boxShadow=`0 0 ${40+score}px rgba(${score<50?'255,93,108':'152,255,212'},${score<50?'0.24':'0.2'})`;
+fill.style.width=score+'%';scoreEl.textContent=score;
+}
+function setChips(){const set=chipSets[(Math.random()*chipSets.length)|0];chips.forEach((chip,i)=>chip.textContent=set[i]);}
+function updateStatus(msg){statusEl.textContent=msg||statuses[(Math.random()*statuses.length)|0];}
+function adjust(delta,kind){score=clamp(score+delta,0,100);temp=clamp(temp+(kind==='warm'?0.16:kind==='cool'?-0.16:(Math.random()-.5)*.3),-1,1);paint();setChips();updateStatus();ensureAudio();if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();chord(kind==='cool'?180:kind==='spin'?240:320);burst(kind);}
+function burst(kind){for(let i=0;i<18;i++){motes.push({x:w*.72+Math.random()*90-45,y:h*.4+Math.random()*90-45,r:1+Math.random()*3,s:1+Math.random()*2,p:Math.random()*6.28,life:80+Math.random()*40,kind});}if(motes.length>180)motes.splice(0,motes.length-180);}
+function bg(){const grad=ctx.createLinearGradient(0,0,0,h);grad.addColorStop(0,'#0a0c19');grad.addColorStop(.5,'#090913');grad.addColorStop(1,'#030308');ctx.fillStyle=grad;ctx.fillRect(0,0,w,h);
+const halo=ctx.createRadialGradient(w*.78,h*.26,10,w*.78,h*.26,180);halo.addColorStop(0,'rgba(255,220,160,.17)');halo.addColorStop(.55,'rgba(255,120,150,.08)');halo.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=halo;ctx.beginPath();ctx.arc(w*.78,h*.26,180,0,Math.PI*2);ctx.fill();}
+function draw(){t+=.01;bg();for(const m of motes){if(m.life)m.life--;m.y-=m.life?m.s*.55:m.s*.18;m.x+=Math.sin(t+m.p)*(m.life?1.2:.18);if(m.life&&m.kind){ctx.fillStyle=m.kind==='warm'?'rgba(255,211,124,.65)':m.kind==='cool'?'rgba(152,255,212,.55)':'rgba(170,190,255,.55)';}else{ctx.fillStyle='rgba(255,255,255,.18)';}ctx.fillRect(m.x,m.y,m.r,m.r);if(m.y<-6||m.life===0&&m.y<-4){m.y=h+4;m.x=Math.random()*w;m.life=0;m.kind='';}}
+requestAnimationFrame(draw);}
+['warm','spin','cool'].forEach(id=>document.getElementById(id).addEventListener('click',()=>adjust(id==='warm'?18:id==='cool'?-16:(Math.random()*34|0)-8,id)));
+stage.addEventListener('pointerdown',e=>{const rect=stage.getBoundingClientRect();const x=(e.clientX-rect.left)/rect.width;score=clamp(Math.round(x*100),0,100);paint();updateStatus('Manual peel inspection accepted. The lab respects your instincts.');setChips();ensureAudio();if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();chord(210+score*2);burst('spin');});
+addEventListener('keydown',e=>{if(e.key==='1')adjust(18,'warm');if(e.key==='2')adjust((Math.random()*34|0)-8,'spin');if(e.key==='3')adjust(-16,'cool');});
+resize();paint();draw();
+addEventListener('resize',resize);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
