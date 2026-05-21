@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Temporary Moon Receipt</title>
+<style>
+:root{--bg:#0c1020;--panel:#151a2e;--ink:#d8e7ff;--soft:#7f96c9;--accent:#ffd36e;--danger:#ff7a8b}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:radial-gradient(circle at 20% 10%,#263050 0,#111628 32%,#090c17 70%,#05070d 100%);color:var(--ink);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow:hidden}
+body{display:flex;align-items:center;justify-content:center;padding:20px;touch-action:manipulation}
+body::before{content:"";position:fixed;inset:0;background:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:28px 28px;mask-image:radial-gradient(circle at center,black 35%,transparent 85%);opacity:.45;animation:grid 16s linear infinite}
+@keyframes grid{from{transform:translateY(0)}to{transform:translateY(28px)}}
+.shell{position:relative;width:min(92vw,780px);display:grid;grid-template-columns:1.1fr .9fr;gap:18px;z-index:1}
+.panel{background:rgba(18,22,39,.84);border:1px solid rgba(216,231,255,.16);border-radius:20px;box-shadow:0 24px 80px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.05);backdrop-filter:blur(8px)}
+.left{padding:18px 18px 14px}
+.right{padding:18px;display:flex;flex-direction:column;gap:16px}
+.marquee{font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--soft);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.screen{margin-top:14px;border-radius:16px;padding:18px;background:linear-gradient(180deg,rgba(8,12,24,.96),rgba(14,20,39,.94));border:1px solid rgba(255,255,255,.08);min-height:320px;position:relative;overflow:hidden}
+.headline{font-size:clamp(24px,4vw,42px);line-height:.95;letter-spacing:-.04em;margin:0 0 10px}
+.sub{color:#a6b8de;font-size:13px;line-height:1.5;max-width:28rem}
+.orb{width:min(42vw,170px);aspect-ratio:1;border-radius:50%;margin:28px auto 18px;background:radial-gradient(circle at 35% 30%,#fff7d4 0,#ffe9a0 16%,#ffd36e 28%,#ffab52 50%,rgba(255,130,79,.85) 58%,rgba(255,130,79,0) 70%);box-shadow:0 0 45px rgba(255,210,110,.45),0 0 120px rgba(255,170,90,.18);position:relative;transition:transform .6s ease,filter .6s ease}
+.orb::after{content:"";position:absolute;inset:12% 18% 18% 12%;border-radius:50%;background:radial-gradient(circle at 34% 30%,rgba(255,255,255,.65),rgba(255,255,255,0) 38%);mix-blend-mode:screen}
+.orb.wobble{animation:wobble .9s ease}
+@keyframes wobble{0%,100%{transform:translateY(0) scale(1)}20%{transform:translateY(-6px) scale(1.02)}40%{transform:translateY(5px) scale(.98)}60%{transform:translateY(-3px) scale(1.01)}80%{transform:translateY(2px) scale(.995)}}
+.prompt{font-size:12px;color:var(--soft);letter-spacing:.18em;text-transform:uppercase;text-align:center}
+.receipt-wrap{display:flex;align-items:flex-start;justify-content:center;min-height:380px}
+.receipt{width:min(100%,280px);background:#fbf5df;color:#161616;border-radius:10px;padding:16px 16px 18px;box-shadow:0 18px 40px rgba(0,0,0,.25);clip-path:polygon(0 0,100% 0,100% 97%,97% 100%,94% 97%,91% 100%,88% 97%,85% 100%,82% 97%,79% 100%,76% 97%,73% 100%,70% 97%,67% 100%,64% 97%,61% 100%,58% 97%,55% 100%,52% 97%,49% 100%,46% 97%,43% 100%,40% 97%,37% 100%,34% 97%,31% 100%,28% 97%,25% 100%,22% 97%,19% 100%,16% 97%,13% 100%,10% 97%,7% 100%,4% 97%,0 100%);transform-origin:top center;transition:transform .5s ease}
+.receipt h2,.receipt p{margin:0}
+.ticket-top{font-size:11px;text-transform:uppercase;letter-spacing:.16em;color:#555;text-align:center;margin-bottom:12px}
+.bigline{font-size:24px;line-height:1.05;text-align:center;margin:8px 0 12px}
+.small{font-size:12px;line-height:1.45;color:#454545}
+.rule{border-top:1px dashed #848484;margin:12px 0}
+.lines{display:grid;gap:8px;margin:12px 0}
+.line{display:flex;justify-content:space-between;gap:10px;font-size:13px}
+.tag{color:#666;text-transform:uppercase;font-size:10px;letter-spacing:.14em}
+button{border:0;border-radius:999px;padding:14px 18px;background:linear-gradient(180deg,#ffe18b,#f5bb43);color:#231500;font:inherit;font-weight:700;letter-spacing:.08em;text-transform:uppercase;box-shadow:0 10px 28px rgba(245,187,67,.35);cursor:pointer}
+button:active{transform:translateY(1px)}
+.controls{display:flex;gap:10px;flex-wrap:wrap}
+.ghost{background:rgba(255,255,255,.07);color:var(--ink);box-shadow:none;border:1px solid rgba(255,255,255,.08)}
+.note{font-size:12px;color:#9db0d9;line-height:1.5}
+.footer{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding:14px 18px;font-size:12px;color:rgba(255,255,255,.64);background:linear-gradient(180deg,rgba(5,7,13,0),rgba(5,7,13,.82) 42%,rgba(5,7,13,.96))}
+.footer a{color:#ffe18b;text-decoration:none}.credit{max-width:560px;text-align:right;font-size:10px;line-height:1.35;color:rgba(255,255,255,.42)}
+.floaters{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.floater{position:absolute;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.18);animation:drift linear infinite}
+@keyframes drift{from{transform:translateY(110vh)}to{transform:translateY(-20vh)}}
+@media (max-width:760px){body{padding:12px 12px 86px}.shell{grid-template-columns:1fr}.screen{min-height:280px}.receipt-wrap{min-height:unset}.footer{flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<div class="floaters" id="floaters"></div>
+<div class="shell">
+  <section class="panel left">
+    <div class="marquee"><span>lunar dispensing kiosk</span><span>tap to print</span></div>
+    <div class="screen">
+      <h1 class="headline">TEMPORARY<br>MOON<br>RECEIPT</h1>
+      <p class="sub">A small bureaucratic machine has agreed to issue you one glowing object for the remainder of the evening. Each printout is legally vague, emotionally specific, and not valid after sunrise.</p>
+      <div class="orb" id="orb"></div>
+      <div class="prompt" id="prompt">press dispense, or tap the moon itself</div>
+    </div>
+  </section>
+  <section class="panel right">
+    <div class="controls">
+      <button id="dispense">dispense</button>
+      <button id="shuffle" class="ghost">different mood</button>
+    </div>
+    <div class="note">This kiosk listens to touch, time, and a little bit of chance. If audio is allowed, it hums like fluorescent midnight.</div>
+    <div class="receipt-wrap">
+      <article class="receipt" id="receipt">
+        <div class="ticket-top">AAPPLE MUNICIPAL SKY OFFICE</div>
+        <div class="bigline" id="title">Pending moon assignment</div>
+        <p class="small" id="blurb">The machine is warming the paper and considering your silhouette.</p>
+        <div class="rule"></div>
+        <div class="lines">
+          <div class="line"><span class="tag">phase</span><span id="phase">unknown</span></div>
+          <div class="line"><span class="tag">borrowed for</span><span id="purpose">later</span></div>
+          <div class="line"><span class="tag">valid until</span><span id="expiry">dawn</span></div>
+          <div class="line"><span class="tag">small print</span><span id="fine">do not fold the horizon</span></div>
+        </div>
+        <div class="rule"></div>
+        <p class="small" id="footerline">Please carry your issued glow carefully through dark hallways and unnecessary thoughts.</p>
+      </article>
+    </div>
+  </section>
+</div>
+<div class="footer">
+  <a href="/archive/">archive</a>
+  <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+</div>
+<script>
+const sets=[
+  {
+    title:['Temporary Moon Receipt','Interim Lunar Voucher','Nightlight Authorization','One Portable Moon'],
+    blurb:['The machine found a moon with your fingerprints already on it.','This one was shelved behind a rainstorm and still smells electric.','A soft celestial object has been assigned to your evening on a compassionate basis.'],
+    phase:['thin as a rumor','half bureaucratic','full of side effects','gibbous and nosy','creased by weather'],
+    purpose:['late walk','kitchen haunting','gentle evasive maneuvers','checking on houseplants at 2:13 AM','staring out the wrong window'],
+    expiry:['first bird','official sunrise','the next yawn','when the streetlights surrender','04:44 local dream time'],
+    fine:['do not fold the horizon','keep away from suspicious oceans','not valid inside eclipses','may attract moths with opinions','do not compare to original sky']
+  },
+  {
+    title:['Moon for Indoor Use','After-Hours Glow Permit','Receipt for Borrowed Gravity','Pocket Celestial'],
+    blurb:['It is dim enough to be honest and bright enough to cause ideas.','This document certifies a manageable amount of wonder.','The kiosk apologizes for the previous darkness and offers a replacement.'],
+    phase:['pearly and overqualified','crooked by design','sleep-deprived silver','ripe for tides','slightly theatrical'],
+    purpose:['hallway navigation','balcony ceremonies','rehearsing your next excuse','keeping the couch company','remembering what the pond meant'],
+    expiry:['the end of blue hour','after one meaningful sigh','upon contact with noon','when your phone stops glowing','at the first useful email'],
+    fine:['contains trace amounts of orbit','do not microwave prophecy','not redeemable for certainty','issuer not liable for werewolves','store in cool astonishment']
+  }
+];
+const ids=['title','blurb','phase','purpose','expiry','fine'];
+const el=Object.fromEntries(ids.map(id=>[id,document.getElementById(id)]));
+const receipt=document.getElementById('receipt');
+const orb=document.getElementById('orb');
+const prompt=document.getElementById('prompt');
+let mood=0,ctx,audioReady=false;
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)]}
+function stamp(forceMood){if(typeof forceMood==='number') mood=forceMood; const s=sets[mood]; el.title.textContent=pick(s.title); el.blurb.textContent=pick(s.blurb); el.phase.textContent=pick(s.phase); el.purpose.textContent=pick(s.purpose); el.expiry.textContent=pick(s.expiry); el.fine.textContent=pick(s.fine); document.getElementById('footerline').textContent=`Issued at ${new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}. If questioned, say the kiosk insisted.`; receipt.style.transform='translateY(-8px) rotate(' + ((Math.random()*2)-1.2).toFixed(2) + 'deg)'; orb.classList.remove('wobble'); void orb.offsetWidth; orb.classList.add('wobble'); prompt.textContent='issued. tap again for a replacement moon'; hum();}
+function shuffleMood(){mood=(mood+1)%sets.length; stamp(mood)}
+function ensureAudio(){if(audioReady) return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return; ctx=new AC(); audioReady=true;}
+function hum(){ensureAudio(); if(!ctx) return; const now=ctx.currentTime; const o=ctx.createOscillator(),o2=ctx.createOscillator(),g=ctx.createGain(),lfo=ctx.createOscillator(),lg=ctx.createGain(); o.type='sine'; o2.type='triangle'; o.frequency.value=220+Math.random()*90; o2.frequency.value=o.frequency.value/2; g.gain.value=.0001; lfo.frequency.value=3+Math.random()*2; lg.gain.value=10; lfo.connect(lg); lg.connect(o.frequency); o.connect(g); o2.connect(g); g.connect(ctx.destination); o.start(now); o2.start(now); lfo.start(now); g.gain.exponentialRampToValueAtTime(.03,now+.03); g.gain.exponentialRampToValueAtTime(.0001,now+.55); o.stop(now+.58); o2.stop(now+.58); lfo.stop(now+.58);}
+for(let i=0;i<16;i++){const d=document.createElement('div');d.className='floater';d.textContent=pick(['void form','issued glow','night copy','sky office','moon stub','paper orbit']);d.style.left=Math.random()*100+'%';d.style.animationDuration=18+Math.random()*18+'s';d.style.animationDelay=-Math.random()*20+'s';d.style.opacity=.08+Math.random()*.18;document.getElementById('floaters').appendChild(d)}
+document.getElementById('dispense').addEventListener('click',()=>stamp());
+document.getElementById('shuffle').addEventListener('click',shuffleMood);
+orb.addEventListener('click',()=>stamp());
+window.addEventListener('pointerdown',ensureAudio,{once:true});
+stamp(0);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
