@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Browser Ouija for a Restless Orchard</title>
+<style>
+:root{
+  --bg1:#06030a;
+  --bg2:#120b1d;
+  --ink:#f8eecf;
+  --soft:rgba(248,238,207,.72);
+  --faint:rgba(248,238,207,.18);
+  --accent:#ff5f6d;
+  --accent2:#9be7ff;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:radial-gradient(circle at 50% 20%,#251337 0,#100918 40%,#06030a 100%);color:var(--ink);font-family:Georgia,serif;overflow:hidden}
+body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.shell{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none}
+.top{padding:18px 18px 0;display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.kicker,.status{font:11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.24em;text-transform:uppercase;color:var(--soft)}
+.copy{max-width:min(40rem,74vw);pointer-events:auto}
+h1{margin:.5rem 0;font-size:clamp(28px,5vw,64px);line-height:.9;letter-spacing:-.05em}
+p{margin:0;font-size:14px;line-height:1.55;color:rgba(248,238,207,.84)}
+.footer{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding:14px 18px;font-size:12px;color:rgba(255,255,255,.64);background:linear-gradient(180deg,rgba(6,3,10,0),rgba(6,3,10,.8) 44%,rgba(6,3,10,.96))}
+.footer a{color:#ffd48a;text-decoration:none;pointer-events:auto}.credit{max-width:560px;text-align:right;font-size:10px;line-height:1.35;color:rgba(255,255,255,.42)}
+.panel{position:fixed;left:18px;bottom:78px;display:flex;gap:10px;flex-wrap:wrap;pointer-events:auto}
+.badge{padding:10px 12px;border:1px solid var(--faint);border-radius:999px;background:rgba(255,255,255,.04);backdrop-filter:blur(8px);font:11px/1.1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;color:var(--soft)}
+button{pointer-events:auto;border:1px solid rgba(255,212,138,.34);background:rgba(255,212,138,.08);color:var(--ink);padding:10px 14px;border-radius:999px;font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.16em;text-transform:uppercase}
+@media (max-width:720px){
+  .top{padding:14px 14px 0;flex-direction:column}
+  .copy{max-width:none}
+  h1{font-size:clamp(28px,11vw,52px)}
+  .panel{left:14px;right:14px;bottom:86px}
+  .footer{padding:14px;flex-direction:column;align-items:flex-start}
+  .credit{text-align:left}
+}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div class="shell">
+  <div class="top">
+    <div class="copy">
+      <div class="kicker">midnight divination layer, 00:05 edt</div>
+      <h1>BROWSER OUIJA FOR A RESTLESS ORCHARD</h1>
+      <p>Place your finger on the planchette and drag gently. The orchard spells in fragments tonight. Hold still to let it think. Tap summon if the page grows shy.</p>
+    </div>
+    <div class="status" id="status">the board is listening</div>
+  </div>
+  <div class="footer">
+    <a href="/archive/">archive</a>
+    <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+  </div>
+</div>
+<div class="panel">
+  <div class="badge" id="message">message: WAITING FOR A SMALL HAUNTING</div>
+  <div class="badge" id="mood">mood: velvet static</div>
+  <button id="summon">summon</button>
+</div>
+<script>
+const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
+const statusEl=document.getElementById('status');
+const messageEl=document.getElementById('message');
+const moodEl=document.getElementById('mood');
+const summonBtn=document.getElementById('summon');
+const letters='ABCDEFGHIJKLM NOPQRSTUVWXYZ'.split('');
+const tokens=['YES','NO','MAYBE','SEED','MOON','PEEL','STATIC','HUSH','RED','ROOT','AGAIN','CLOSER','BELOW','SOON','LISTEN','TURN'];
+const moods=['velvet static','polite dread','candle software','rose noise','soft thunder','pearled panic'];
+let w=0,h=0,dpr=Math.min(devicePixelRatio||1,2),cx=0,cy=0,boardR=0,t=0;
+let pointer={x:0,y:0,down:false,active:false};
+let planchette={x:0,y:0,vx:0,vy:0,targetX:0,targetY:0};
+let glyphs=[],stars=[],phrase='WAITING FOR A SMALL HAUNTING',revealed='';
+let audioCtx,master;
+function resize(){w=innerWidth;h=innerHeight;cx=w/2;cy=h*.56;boardR=Math.min(w,h)*.34;canvas.width=w*dpr;canvas.height=h*dpr;canvas.style.width=w+'px';canvas.style.height=h+'px';ctx.setTransform(dpr,0,0,dpr,0,0); if(!stars.length){for(let i=0;i<90;i++)stars.push({x:Math.random()*w,y:Math.random()*h,a:Math.random(),s:1+Math.random()*2});} if(!planchette.x){planchette.x=cx;planchette.y=cy+boardR*.12;planchette.targetX=planchette.x;planchette.targetY=planchette.y;} seedGlyphs();}
+function seedGlyphs(){glyphs=[]; const rows=[['A','B','C','D','E','F','G'],['H','I','J','K','L','M','N'],['O','P','Q','R','S','T'],['U','V','W','X','Y','Z']]; rows.forEach((row,ri)=>{row.forEach((ch,ci)=>{const spread=(row.length-1)||1; const x=cx-boardR*.62+(ci/spread)*boardR*1.24; const y=cy-boardR*.48+ri*boardR*.28+(ri%2?12:0); glyphs.push({ch,x,y,r:18});});}); glyphs.push({ch:'YES',x:cx-boardR*.56,y:cy-boardR*.76,r:28}); glyphs.push({ch:'NO',x:cx+boardR*.56,y:cy-boardR*.76,r:28}); glyphs.push({ch:'🍎',x:cx,y:cy+boardR*.53,r:26});}
+function ensureAudio(){if(audioCtx)return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC)return; audioCtx=new AC(); master=audioCtx.createGain(); master.gain.value=.0001; master.connect(audioCtx.destination);} 
+function ping(freq=220,dur=.18,vol=.02){ensureAudio(); if(!audioCtx)return; const now=audioCtx.currentTime,o=audioCtx.createOscillator(),g=audioCtx.createGain(); o.type='triangle'; o.frequency.setValueAtTime(freq,now); o.frequency.exponentialRampToValueAtTime(Math.max(90,freq*.65),now+dur); g.gain.value=.0001; o.connect(g); g.connect(master); o.start(now); g.gain.exponentialRampToValueAtTime(vol,now+.02); g.gain.exponentialRampToValueAtTime(.0001,now+dur); o.stop(now+dur+.03);} 
+function dist(ax,ay,bx,by){return Math.hypot(ax-bx,ay-by)}
+function choosePhrase(){phrase=''; const count=2+Math.floor(Math.random()*4); for(let i=0;i<count;i++) phrase+=(i?' ':'')+tokens[Math.floor(Math.random()*tokens.length)]; revealed=''; moodEl.textContent='mood: '+moods[Math.floor(Math.random()*moods.length)]; statusEl.textContent='the board has an opinion';}
+function summon(){choosePhrase(); ping(280+Math.random()*180,.28,.028);}
+function nearestGlyph(){let best=null,bestD=1e9; for(const g of glyphs){const d=dist(planchette.x,planchette.y,g.x,g.y); if(d<bestD){bestD=d; best=g;}} return {glyph:best,d:bestD};}
+function updateMessage(){const n=nearestGlyph(); if(n.d<34){const ch=n.glyph.ch==='🍎'?'APPLE':n.glyph.ch; if(!revealed.endsWith(ch)){ revealed=(revealed+' '+ch).trim().slice(-52); messageEl.textContent='message: '+revealed; ping(180+n.glyph.x/w*260,.16,.015); } }
+ if(!revealed) messageEl.textContent='message: '+phrase;}
+function setPointer(x,y,active=true){pointer.x=x;pointer.y=y;pointer.active=active; if(pointer.down){planchette.targetX=x; planchette.targetY=y;}}
+function drift(){const idleX=cx+Math.sin(t*.00045)*boardR*.22+Math.cos(t*.00027)*boardR*.08; const idleY=cy+boardR*.1+Math.cos(t*.00033)*boardR*.18; if(!pointer.down){planchette.targetX=idleX; planchette.targetY=idleY;}}
+function physics(){drift(); const pull=.045; planchette.vx+=(planchette.targetX-planchette.x)*pull; planchette.vy+=(planchette.targetY-planchette.y)*pull; planchette.vx*=.86; planchette.vy*=.86; planchette.x+=planchette.vx; planchette.y+=planchette.vy; const dx=planchette.x-cx,dy=planchette.y-cy; const maxR=boardR*.78; const len=Math.hypot(dx,dy); if(len>maxR){planchette.x=cx+dx/len*maxR; planchette.y=cy+dy/len*maxR; planchette.vx*=.6; planchette.vy*=.6;}}
+function drawBg(){const g=ctx.createRadialGradient(cx,cy-boardR*.2,30,cx,cy,h*.9); g.addColorStop(0,'rgba(69,31,104,.35)'); g.addColorStop(.5,'rgba(15,8,23,.16)'); g.addColorStop(1,'rgba(6,3,10,1)'); ctx.fillStyle=g; ctx.fillRect(0,0,w,h); stars.forEach((s,i)=>{const a=.18+.38*Math.sin(t*.001+s.a*8+i); ctx.fillStyle='rgba(255,255,255,'+a.toFixed(3)+')'; ctx.fillRect(s.x,s.y,s.s,s.s);});}
+function drawBoard(){ctx.save(); ctx.translate(cx,cy); const wood=ctx.createRadialGradient(0,-boardR*.15,10,0,0,boardR); wood.addColorStop(0,'rgba(86,48,38,.92)'); wood.addColorStop(.7,'rgba(45,22,21,.96)'); wood.addColorStop(1,'rgba(15,8,12,1)'); ctx.fillStyle=wood; ctx.beginPath(); ctx.ellipse(0,0,boardR*.92,boardR*.78,0,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='rgba(248,238,207,.18)'; ctx.lineWidth=2; ctx.stroke(); ctx.restore(); glyphs.forEach(g=>{const glow=Math.max(0,1-dist(planchette.x,planchette.y,g.x,g.y)/120); ctx.fillStyle='rgba(248,238,207,'+(.56+glow*.4)+')'; ctx.font=(g.ch.length>1? '600 18px ui-monospace,monospace':'600 24px Georgia,serif'); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(g.ch,g.x,g.y); if(glow>.05){ctx.strokeStyle='rgba(155,231,255,'+(glow*.35)+')'; ctx.beginPath(); ctx.arc(g.x,g.y,g.r+glow*10,0,Math.PI*2); ctx.stroke();}});}
+function drawPlanchette(){const x=planchette.x,y=planchette.y,ang=Math.atan2(planchette.vy,planchette.vx)+Math.PI/2; ctx.save(); ctx.translate(x,y); ctx.rotate(ang); ctx.shadowColor='rgba(255,95,109,.28)'; ctx.shadowBlur=28; ctx.fillStyle='rgba(237,213,176,.93)'; ctx.beginPath(); ctx.moveTo(0,-54); ctx.quadraticCurveTo(36,-12,26,34); ctx.quadraticCurveTo(0,58,-26,34); ctx.quadraticCurveTo(-36,-12,0,-54); ctx.fill(); ctx.shadowBlur=0; ctx.strokeStyle='rgba(77,31,24,.45)'; ctx.lineWidth=2; ctx.stroke(); ctx.beginPath(); ctx.arc(0,-5,13,0,Math.PI*2); ctx.fillStyle='rgba(20,12,18,.82)'; ctx.fill(); ctx.strokeStyle='rgba(255,243,208,.55)'; ctx.stroke(); ctx.restore();}
+function drawTrails(){ctx.strokeStyle='rgba(255,95,109,.15)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(planchette.x,planchette.y); for(let i=0;i<12;i++){const a=t*.001+i*.45; ctx.lineTo(planchette.x+Math.cos(a)*16,planchette.y+Math.sin(a*1.2)*16);} ctx.stroke();}
+function animate(ts){t=ts; physics(); if(Math.floor(t/2400)!==Math.floor((t-16)/2400)) choosePhrase(); if(Math.floor(t/1400)!==Math.floor((t-16)/1400) && !pointer.down) updateMessage(); drawBg(); drawBoard(); drawTrails(); drawPlanchette(); if(pointer.active){ctx.strokeStyle='rgba(255,212,138,.2)'; ctx.beginPath(); ctx.arc(pointer.x,pointer.y,16+Math.sin(t*.01)*4,0,Math.PI*2); ctx.stroke();} requestAnimationFrame(animate);} 
+addEventListener('resize',resize,{passive:true});
+addEventListener('pointermove',e=>{setPointer(e.clientX,e.clientY,true); if(pointer.down) updateMessage();},{passive:true});
+addEventListener('pointerdown',e=>{ensureAudio(); pointer.down=true; setPointer(e.clientX,e.clientY,true); choosePhrase(); statusEl.textContent='drag gently'; ping(330,.24,.024);},{passive:true});
+addEventListener('pointerup',()=>{pointer.down=false; statusEl.textContent='the board is listening';},{passive:true});
+addEventListener('pointercancel',()=>{pointer.down=false;},{passive:true});
+addEventListener('touchstart',()=>ensureAudio(),{once:true,passive:true});
+summonBtn.addEventListener('click',()=>{ensureAudio(); summon();});
+resize(); choosePhrase(); requestAnimationFrame(animate);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
