@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Sunrise Receipt for a Pocket Universe</title>
+<style>
+:root{--bg:#060814;--bg2:#10162d;--ink:#eef4ff;--soft:rgba(238,244,255,.7);--line:rgba(238,244,255,.14);--gold:#ffca70;--rose:#ff8ea1;--cyan:#8de8ff}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:radial-gradient(circle at 50% 18%,#243158 0,#10162d 34%,#060814 100%);color:var(--ink);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow:hidden}body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.shell{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none}
+.top{padding:18px 18px 0;display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.copy{max-width:min(39rem,74vw);pointer-events:auto}.kicker,.status{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--soft)}h1{margin:10px 0 10px;font-size:clamp(30px,5vw,64px);line-height:.9;letter-spacing:-.06em}p{margin:0;font-size:13px;line-height:1.55;color:rgba(238,244,255,.84)}
+.panel{position:fixed;left:18px;right:18px;bottom:76px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;pointer-events:auto}.badge,.prompt{padding:11px 12px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.05);backdrop-filter:blur(10px);font-size:11px;letter-spacing:.08em;color:var(--soft)}.prompt{border-radius:16px;display:flex;align-items:center;gap:10px;max-width:min(520px,100%)}input{flex:1;min-width:140px;background:transparent;border:0;outline:0;color:var(--ink);font:inherit}button{border:1px solid rgba(255,202,112,.28);background:rgba(255,202,112,.12);color:var(--ink);padding:11px 14px;border-radius:999px;font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.16em;text-transform:uppercase;cursor:pointer}
+.footer{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding:14px 18px;font-size:12px;color:rgba(255,255,255,.64);background:linear-gradient(180deg,rgba(6,8,20,0),rgba(6,8,20,.82) 42%,rgba(6,8,20,.97))}.footer a{color:var(--gold);text-decoration:none;pointer-events:auto}.credit{max-width:560px;text-align:right;font-size:10px;line-height:1.35;color:rgba(255,255,255,.42)}
+@media (max-width:720px){.top{padding:14px 14px 0;flex-direction:column}.copy{max-width:none}h1{font-size:clamp(28px,11vw,54px)}.panel{left:14px;right:14px;bottom:84px}.footer{padding:14px;flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div class="shell">
+  <div class="top">
+    <div class="copy">
+      <div class="kicker">department of impossible mornings, 00:05 edt</div>
+      <h1>SUNRISE RECEIPT FOR A POCKET UNIVERSE</h1>
+      <p>Type one small thing you want the morning to keep. The page prints it as a glowing receipt, then folds it into a tiny cosmos. Drag to bend the sky. Tap anywhere to wake the sound.</p>
+    </div>
+    <div class="status" id="status">printer warming, horizon pending</div>
+  </div>
+  <div class="footer">
+    <a href="/archive/">archive</a>
+    <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+  </div>
+</div>
+<div class="panel">
+  <div class="prompt"><span>keep:</span><input id="wish" maxlength="48" placeholder="a laugh, a secret, a color, a minute"></div>
+  <button id="print">print dawn</button>
+  <button id="scatter">scatter</button>
+  <div class="badge" id="ledger">ledger: NOTHING FILED YET</div>
+  <div class="badge" id="skyline">horizon: folded blue</div>
+</div>
+<script>
+const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
+const wish=document.getElementById('wish'),printBtn=document.getElementById('print'),scatterBtn=document.getElementById('scatter');
+const statusEl=document.getElementById('status'),ledgerEl=document.getElementById('ledger'),skylineEl=document.getElementById('skyline');
+let w=0,h=0,dpr=Math.min(devicePixelRatio||1,2),t=0; let pointer={x:.5,y:.5,down:false,active:false};
+let receipt={text:'',flash:0};
+const stars=[],dust=[],bands=[]; const moods=['folded blue','nectar static','pink arithmetic','soft voltage','apricot hush','golden error'];
+let audioCtx,master;
+function resize(){w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;canvas.style.width=w+'px';canvas.style.height=h+'px';ctx.setTransform(dpr,0,0,dpr,0,0); if(!stars.length) seed();}
+function seed(){for(let i=0;i<120;i++)stars.push({x:Math.random(),y:Math.random(),z:.3+Math.random()*1.4,r:.4+Math.random()*1.8,p:Math.random()*6.28}); for(let i=0;i<5;i++)bands.push({y:.18+i*.1,h:.09+Math.random()*.07,a:.08+Math.random()*.08,s:Math.random()*6.28}); for(let i=0;i<90;i++)dust.push(makeDust(Math.random()*w,Math.random()*h,Math.random()*2-1));}
+function makeDust(x,y,bias){return{x,y,vx:bias,vy:-.5-Math.random()*1.3,life:50+Math.random()*120,size:1+Math.random()*3,hue:Math.random()}}
+function ensureAudio(){if(audioCtx)return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC)return; audioCtx=new AC(); master=audioCtx.createGain(); master.gain.value=.0001; master.connect(audioCtx.destination);}
+function chime(freq=260,spread=1,vol=.025,dur=1.8){ensureAudio(); if(!audioCtx)return; const now=audioCtx.currentTime; const tones=[1,1.25,1.5]; tones.forEach((m,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain(); o.type=i===0?'sine':'triangle'; o.frequency.value=freq*m*spread; g.gain.value=.0001; o.connect(g); g.connect(master); o.start(now); g.gain.exponentialRampToValueAtTime(vol/(i+1),now+.04); g.gain.exponentialRampToValueAtTime(.0001,now+dur); o.stop(now+dur+.03);});}
+function printWish(){const text=(wish.value.trim()||['a little mercy','a brave minute','one clear color','less noise please'][Math.floor(Math.random()*4)]).toUpperCase(); receipt.text=text; receipt.flash=1; ledgerEl.textContent='ledger: '+text; skylineEl.textContent='horizon: '+moods[Math.floor(Math.random()*moods.length)]; statusEl.textContent='filing '+text.toLowerCase(); for(let i=0;i<36;i++)dust.push(makeDust(w*.5+(Math.random()*120-60),h*.58+(Math.random()*26-13),Math.random()*2-1)); chime(220+text.length*8,1,.03,2); chime(330+text.length*4,1,.018,2.1);}
+function scatter(){receipt.text=''; ledgerEl.textContent='ledger: NOTHING FILED YET'; statusEl.textContent='paper drift restored'; for(let i=0;i<44;i++)dust.push(makeDust(pointer.x*w,pointer.y*h,Math.random()*2-1)); chime(180,1,.018,1.2);}
+function drawSky(){const g=ctx.createLinearGradient(0,0,0,h); g.addColorStop(0,'#080b18'); g.addColorStop(.35,'#19274d'); g.addColorStop(.68,'#6c4f74'); g.addColorStop(1,'#ffbc7d'); ctx.fillStyle=g; ctx.fillRect(0,0,w,h); bands.forEach((b,i)=>{ctx.fillStyle='rgba(255,255,255,'+(b.a+Math.sin(t*.0003+b.s)*.03)+')'; ctx.beginPath(); const yy=h*(b.y+Math.sin(t*.0002+b.s)*.03); ctx.ellipse(w*.5,yy,w*.7,h*b.h,0,0,Math.PI*2); ctx.fill();});}
+function drawStars(){stars.forEach((s,i)=>{const px=(s.x-.5)*(20*s.z)*(pointer.active?(pointer.x-.5):0)+s.x*w; const py=s.y*h*.72+(pointer.active?(pointer.y-.5)*10*s.z:0); const a=.25+.55*(Math.sin(t*.001+s.p+i)+1)/2; ctx.fillStyle='rgba(255,245,230,'+a.toFixed(3)+')'; ctx.beginPath(); ctx.arc(px,py,s.r*s.z,0,Math.PI*2); ctx.fill();});}
+function drawHorizon(){ctx.fillStyle='rgba(7,8,14,.25)'; ctx.fillRect(0,h*.72,w,h*.28); const sunY=h*.72-Math.min(110,receipt.flash*80+20); const rg=ctx.createRadialGradient(w*.5,sunY,12,w*.5,sunY,170); rg.addColorStop(0,'rgba(255,248,219,.95)'); rg.addColorStop(.22,'rgba(255,200,135,.75)'); rg.addColorStop(1,'rgba(255,170,120,0)'); ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(w*.5,sunY,170,0,Math.PI*2); ctx.fill();}
+function drawReceipt(){const rw=Math.min(360,w*.78),rh=Math.min(220,h*.3),x=w*.5-rw/2,y=h*.57-rh/2-Math.sin(t*.001)*4; ctx.save(); ctx.translate(x,y); ctx.rotate((pointer.x-.5)*.08); ctx.fillStyle='rgba(255,251,243,.93)'; ctx.fillRect(0,0,rw,rh); ctx.strokeStyle='rgba(0,0,0,.1)'; ctx.strokeRect(0,0,rw,rh); ctx.fillStyle='#2a2d38'; ctx.font='12px ui-monospace,monospace'; const lines=['POCKET UNIVERSE RECEIPT','-----------------------','DATE 2026-05-25','TIME 00:05 EDT','ITEM '+(receipt.text||'PENDING MORNING'),'QTY  1','TOTAL  sunrise']; lines.forEach((line,i)=>ctx.fillText(line,18,30+i*22)); if(receipt.text){ctx.fillStyle='rgba(255,142,161,'+receipt.flash.toFixed(3)+')'; ctx.fillRect(16,112,Math.min(rw-32,14+receipt.text.length*8),20); ctx.fillStyle='#fffaf4'; ctx.fillText(receipt.text,20,126);} for(let i=0;i<10;i++){ctx.fillStyle='rgba(0,0,0,'+(0.05+Math.random()*0.04)+')'; ctx.fillRect(18,160+i*5,rw-36,1);} ctx.restore();}
+function drawDust(){for(let i=dust.length-1;i>=0;i--){const d=dust[i]; d.x+=d.vx; d.y+=d.vy; d.life-=1; d.vy-=.002; if(d.life<=0||d.y<-40||d.x<-40||d.x>w+40){dust.splice(i,1); continue;} const c=d.hue<.33?'255,202,112':d.hue<.66?'141,232,255':'255,142,161'; ctx.fillStyle='rgba('+c+','+(d.life/170).toFixed(3)+')'; ctx.beginPath(); ctx.arc(d.x,d.y,d.size,0,Math.PI*2); ctx.fill();}}
+function animate(ts){t=ts; if(receipt.flash>0) receipt.flash*=.984; drawSky(); drawStars(); drawHorizon(); if(receipt.text||receipt.flash>.03) drawReceipt(); drawDust(); if(pointer.down&&Math.random()<.45) dust.push(makeDust(pointer.x*w+(Math.random()*16-8),pointer.y*h+(Math.random()*16-8),Math.random()*2-1)); requestAnimationFrame(animate);}
+addEventListener('resize',resize,{passive:true});
+addEventListener('pointermove',e=>{pointer.x=e.clientX/w; pointer.y=e.clientY/h; pointer.active=true;},{passive:true});
+addEventListener('pointerdown',e=>{ensureAudio(); pointer.down=true; pointer.x=e.clientX/w; pointer.y=e.clientY/h; if(!receipt.text&&Math.random()<.4) statusEl.textContent='sky bending politely'; chime(200+pointer.x*120,1,.01,.8);},{passive:true});
+addEventListener('pointerup',()=>pointer.down=false,{passive:true});
+addEventListener('pointercancel',()=>pointer.down=false,{passive:true});
+addEventListener('touchstart',()=>ensureAudio(),{once:true,passive:true});
+printBtn.addEventListener('click',()=>{ensureAudio(); printWish();});
+scatterBtn.addEventListener('click',()=>scatter());
+wish.addEventListener('keydown',e=>{if(e.key==='Enter'){ensureAudio(); printWish();}});
+resize(); requestAnimationFrame(animate);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
