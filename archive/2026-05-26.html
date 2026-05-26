@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>The Orchard Teaches Your Shadow to Bloom</title>
+<style>
+:root{--bg:#050816;--sky:#101a38;--violet:#8773ff;--rose:#ff7ea8;--gold:#ffd26e;--leaf:#7cffc4;--ink:#f7f5ff;--soft:rgba(247,245,255,.72);--line:rgba(247,245,255,.14)}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:radial-gradient(circle at 50% 20%,#1e2b58 0,#0b122b 34%,#050816 100%);color:var(--ink);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow:hidden}body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.ui{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none}
+.top{padding:18px 18px 0;display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.copy{max-width:min(42rem,78vw);pointer-events:auto}.kicker,.status{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--soft)}h1{margin:10px 0 10px;font-size:clamp(30px,5.2vw,68px);line-height:.92;letter-spacing:-.055em}p{margin:0;font-size:13px;line-height:1.55;color:rgba(247,245,255,.82)}
+.controls{position:fixed;left:18px;right:18px;bottom:76px;display:flex;flex-wrap:wrap;gap:10px;pointer-events:auto;align-items:center}.chip,.field,button{border:1px solid var(--line);background:rgba(255,255,255,.05);backdrop-filter:blur(10px);border-radius:999px;color:var(--ink);font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;text-transform:uppercase}.chip{padding:11px 13px;color:var(--soft)}.field{display:flex;align-items:center;gap:10px;padding:0 12px;border-radius:16px;min-width:min(440px,100%)}.field span{color:var(--soft)}input{flex:1;min-width:120px;background:transparent;border:0;outline:0;color:var(--ink);font:12px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;padding:12px 0;text-transform:none;letter-spacing:normal}button{padding:12px 15px;cursor:pointer}.footer{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding:14px 18px;font-size:12px;color:rgba(255,255,255,.64);background:linear-gradient(180deg,rgba(5,8,22,0),rgba(5,8,22,.82) 42%,rgba(5,8,22,.97))}.footer a{color:var(--gold);text-decoration:none;pointer-events:auto}.credit{max-width:560px;text-align:right;font-size:10px;line-height:1.35;color:rgba(255,255,255,.42)}
+@media (max-width:720px){.top{padding:14px 14px 0;flex-direction:column}.copy{max-width:none}h1{font-size:clamp(28px,11vw,54px)}.controls{left:14px;right:14px;bottom:84px}.field{min-width:100%}.footer{padding:14px;flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div class="ui">
+  <div class="top">
+    <div class="copy">
+      <div class="kicker">orchard rehearsal, 2026-05-26</div>
+      <h1>THE ORCHARD TEACHES YOUR SHADOW TO BLOOM</h1>
+      <p>Move slowly and your shadow plants a field of luminous stems. Type a private weather report, then press bloom. The orchard will answer with a color, an apple, and a soft little choir. Tap anywhere to wake the sound.</p>
+    </div>
+    <div class="status" id="status">shadow listening for seeds</div>
+  </div>
+  <div class="footer">
+    <a href="/archive/">archive</a>
+    <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+  </div>
+</div>
+<div class="controls">
+  <div class="field"><span>weather:</span><input id="phrase" maxlength="44" placeholder="example: thunder in my pocket, cherry-colored calm"></div>
+  <button id="bloom">bloom</button>
+  <button id="clear">night wind</button>
+  <div class="chip" id="ledger">orchard reply: pending</div>
+  <div class="chip" id="count">blooms: 0</div>
+</div>
+<script>
+const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
+const phrase=document.getElementById('phrase'),bloomBtn=document.getElementById('bloom'),clearBtn=document.getElementById('clear');
+const statusEl=document.getElementById('status'),ledgerEl=document.getElementById('ledger'),countEl=document.getElementById('count');
+let w=0,h=0,dpr=Math.min(devicePixelRatio||1,2),t=0;
+const pointer={x:.5,y:.62,active:false,down:false};
+const motes=[],stems=[],apples=[]; let bloomCount=0; let flash=0;
+const moods=['violet pollen','golden static','rose thunder','green hush','midnight nectar','soft alarm'];
+let audioCtx,master;
+function resize(){w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;canvas.style.width=w+'px';canvas.style.height=h+'px';ctx.setTransform(dpr,0,0,dpr,0,0); if(!motes.length) seed();}
+function seed(){for(let i=0;i<90;i++)motes.push({x:Math.random()*w,y:Math.random()*h,vx:(Math.random()-.5)*.18,vy:-.08-Math.random()*.16,r:1+Math.random()*2,a:.12+Math.random()*.35}); for(let i=0;i<28;i++)spawnStem(Math.random()*w,h*(.66+.28*Math.random()),Math.random()*30+24,true);}
+function spawnStem(x,y,size=24,quiet=false){if(stems.length>120)stems.shift(); const hue=Math.random(); stems.push({x,y,size,grow:0,tilt:(Math.random()-.5)*.65,sway:Math.random()*6.28,hue,petals:4+Math.floor(Math.random()*4),apple:Math.random()<.18,quiet}); if(!quiet){bloomCount++; countEl.textContent='blooms: '+bloomCount;}}
+function spawnApple(x,y,scale=1){if(apples.length>36)apples.shift(); apples.push({x,y,scale,vy:-1.2-Math.random()*.8,life:110+Math.random()*70,seed:Math.random()*6.28});}
+function ensureAudio(){if(audioCtx)return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC)return; audioCtx=new AC(); master=audioCtx.createGain(); master.gain.value=.0001; master.connect(audioCtx.destination);} 
+function tone(freq=240,dur=1.4,vol=.02){ensureAudio(); if(!audioCtx)return; const now=audioCtx.currentTime; [1,1.25,1.5].forEach((m,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain(); o.type=i===0?'sine':'triangle'; o.frequency.value=freq*m; g.gain.value=.0001; o.connect(g); g.connect(master); o.start(now); g.gain.exponentialRampToValueAtTime(vol/(i+1.2),now+.04); g.gain.exponentialRampToValueAtTime(.0001,now+dur); o.stop(now+dur+.03);});}
+function orchardReply(text){const cleaned=(text.trim()||'unreported weather'); const mood=moods[Math.floor(Math.random()*moods.length)]; ledgerEl.textContent='orchard reply: '+mood; statusEl.textContent='forecast accepted: '+cleaned.toLowerCase(); flash=1; for(let i=0;i<18;i++){const angle=(Math.PI*2*i)/18; spawnStem(w*.5+Math.cos(angle)*(80+Math.random()*140),h*.73+Math.sin(angle)*22,28+Math.random()*26,false);} for(let i=0;i<10;i++)spawnApple(w*.5+(Math.random()*220-110),h*.5+Math.random()*80,.8+Math.random()*.6); tone(180+cleaned.length*4,1.8,.028); tone(320+cleaned.length*2,2.2,.018);}
+function clearField(){stems.splice(28); apples.length=0; bloomCount=0; countEl.textContent='blooms: 0'; ledgerEl.textContent='orchard reply: pending'; statusEl.textContent='night wind passed through'; tone(150,1,.014);}
+function drawSky(){const g=ctx.createLinearGradient(0,0,0,h); g.addColorStop(0,'#050816'); g.addColorStop(.4,'#101a38'); g.addColorStop(.75,'#311b49'); g.addColorStop(1,'#130d18'); ctx.fillStyle=g; ctx.fillRect(0,0,w,h); const halo=ctx.createRadialGradient(pointer.x*w,pointer.y*h,10,pointer.x*w,pointer.y*h,220); halo.addColorStop(0,'rgba(255,255,255,.17)'); halo.addColorStop(1,'rgba(255,255,255,0)'); ctx.fillStyle=halo; ctx.fillRect(0,0,w,h);}
+function drawMotes(){motes.forEach(m=>{m.x=(m.x+m.vx+w)%w; m.y+=m.vy; if(m.y<-20)m.y=h+20; ctx.fillStyle='rgba(255,255,255,'+m.a.toFixed(3)+')'; ctx.beginPath(); ctx.arc(m.x,m.y,m.r,0,Math.PI*2); ctx.fill();});}
+function drawGround(){ctx.fillStyle='rgba(6,10,18,.42)'; ctx.fillRect(0,h*.72,w,h*.28); ctx.fillStyle='rgba(255,210,110,'+(.08+flash*.06).toFixed(3)+')'; ctx.fillRect(0,h*.72,w,2);}
+function drawShadow(){const x=pointer.x*w,y=pointer.y*h; ctx.save(); ctx.globalCompositeOperation='lighter'; const grd=ctx.createRadialGradient(x,y,12,x,y,160); grd.addColorStop(0,'rgba(124,255,196,.18)'); grd.addColorStop(1,'rgba(124,255,196,0)'); ctx.fillStyle=grd; ctx.beginPath(); ctx.ellipse(x,y,110,150,0,0,Math.PI*2); ctx.fill(); ctx.restore(); ctx.fillStyle='rgba(0,0,0,.26)'; ctx.beginPath(); ctx.ellipse(x,y+70,52,18,0,0,Math.PI*2); ctx.fill(); ctx.fillStyle='rgba(255,255,255,.07)'; ctx.beginPath(); ctx.arc(x,y-10,20,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.ellipse(x,y+42,18,34,0,0,Math.PI*2); ctx.fill(); ctx.fillRect(x-9,y+72,8,40); ctx.fillRect(x+1,y+72,8,40); ctx.fillRect(x-43,y+26,86,8); ctx.fill(); }
+function petalColor(h){return h<.33?'255,126,168':h<.66?'135,115,255':'124,255,196';}
+function drawStems(){for(const s of stems){s.grow=Math.min(1,s.grow+.018); const len=s.size*(.5+s.grow*2.6); const sway=Math.sin(t*.0012+s.sway)*5+s.tilt*18; const topX=s.x+sway, topY=s.y-len; ctx.strokeStyle='rgba(124,255,196,.6)'; ctx.lineWidth=1.4; ctx.beginPath(); ctx.moveTo(s.x,s.y); ctx.quadraticCurveTo(s.x+sway*.3,s.y-len*.45,topX,topY); ctx.stroke(); ctx.fillStyle='rgba(124,255,196,.4)'; ctx.beginPath(); ctx.ellipse(s.x+sway*.15,s.y-len*.35,6,3,.8,0,Math.PI*2); ctx.fill(); const pc=petalColor(s.hue),open=Math.min(1,Math.max(0,(s.grow-.38)/.62)); for(let i=0;i<s.petals;i++){const ang=(Math.PI*2*i)/s.petals+t*.0004; const px=topX+Math.cos(ang)*(6+open*11), py=topY+Math.sin(ang)*(6+open*11); ctx.fillStyle='rgba('+pc+','+(.16+open*.55).toFixed(3)+')'; ctx.beginPath(); ctx.ellipse(px,py,4+open*5,8+open*8,ang,0,Math.PI*2); ctx.fill();} ctx.fillStyle='rgba(255,240,205,'+(.3+open*.5).toFixed(3)+')'; ctx.beginPath(); ctx.arc(topX,topY,3+open*4,0,Math.PI*2); ctx.fill(); if(s.apple&&open>.8&&Math.random()<.006) spawnApple(topX,topY, .55+Math.random()*.35);}}
+function drawApples(){for(let i=apples.length-1;i>=0;i--){const a=apples[i]; a.y+=a.vy; a.vy+=.015; a.life--; if(a.life<=0){apples.splice(i,1); continue;} const alpha=Math.min(.85,a.life/100); ctx.save(); ctx.translate(a.x,a.y); ctx.scale(a.scale,a.scale); ctx.fillStyle='rgba(255,84,84,'+alpha.toFixed(3)+')'; ctx.beginPath(); ctx.arc(-5,0,8,0,Math.PI*2); ctx.arc(5,0,8,0,Math.PI*2); ctx.fill(); ctx.fillStyle='rgba(255,170,170,'+(alpha*.4).toFixed(3)+')'; ctx.beginPath(); ctx.ellipse(0,4,10,8,0,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='rgba(101,255,191,'+(alpha*.8).toFixed(3)+')'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(0,-7); ctx.quadraticCurveTo(2,-14,8,-16); ctx.stroke(); ctx.restore(); }}
+function maybePlant(){if(!pointer.down&&pointer.active&&Math.random()<.075) spawnStem(pointer.x*w+(Math.random()*28-14),h*.72+Math.random()*h*.2,20+Math.random()*22,false); else if(pointer.down&&Math.random()<.26) spawnStem(pointer.x*w+(Math.random()*30-15),h*.72+Math.random()*h*.22,24+Math.random()*26,false);}
+function animate(ts){t=ts; if(flash>0)flash*=.985; drawSky(); drawMotes(); drawGround(); maybePlant(); drawStems(); drawApples(); drawShadow(); requestAnimationFrame(animate);} 
+addEventListener('resize',resize,{passive:true});
+addEventListener('pointermove',e=>{pointer.x=e.clientX/w; pointer.y=Math.min(.78,Math.max(.22,e.clientY/h)); pointer.active=true;},{passive:true});
+addEventListener('pointerdown',e=>{ensureAudio(); pointer.down=true; pointer.x=e.clientX/w; pointer.y=Math.min(.78,Math.max(.22,e.clientY/h)); tone(190+pointer.x*120,.9,.012); if(Math.random()<.35)statusEl.textContent='shadow rooted for a second';},{passive:true});
+addEventListener('pointerup',()=>pointer.down=false,{passive:true});
+addEventListener('pointercancel',()=>pointer.down=false,{passive:true});
+addEventListener('touchstart',()=>ensureAudio(),{once:true,passive:true});
+bloomBtn.addEventListener('click',()=>{ensureAudio(); orchardReply(phrase.value);});
+clearBtn.addEventListener('click',()=>clearField());
+phrase.addEventListener('keydown',e=>{if(e.key==='Enter'){ensureAudio(); orchardReply(phrase.value);}});
+resize(); requestAnimationFrame(animate);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
