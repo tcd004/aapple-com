@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Applecore Observatory</title>
+<style>
+:root{--bg:#060816;--panel:rgba(13,18,38,.72);--line:rgba(157,197,255,.18);--text:#eef4ff;--muted:rgba(238,244,255,.66);--gold:#ffd36a;--red:#ff6b76;--cyan:#8bf2ff}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:radial-gradient(circle at 50% 24%,#1c2851 0,#0a1026 42%,#060816 100%);color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow:hidden}body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.ui{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none}
+.top{padding:18px 18px 0;display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.copy{max-width:min(42rem,80vw)}.kicker,.readout{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}h1{margin:10px 0 10px;font-size:clamp(30px,5vw,68px);line-height:.92;letter-spacing:-.05em}p{margin:0;font-size:13px;line-height:1.55;color:rgba(238,244,255,.84)}
+.panel{position:fixed;left:18px;right:18px;bottom:76px;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(240px,.8fr);gap:12px;pointer-events:auto}.card{background:var(--panel);border:1px solid var(--line);backdrop-filter:blur(14px);border-radius:18px;padding:14px 14px 12px;box-shadow:0 12px 30px rgba(0,0,0,.22)}.scope{display:flex;flex-direction:column;gap:10px}.dialRow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.label{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}input[type=range]{flex:1;min-width:140px;-webkit-appearance:none;appearance:none;height:6px;border-radius:999px;background:linear-gradient(90deg,rgba(139,242,255,.35),rgba(255,107,118,.55));outline:none}input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:radial-gradient(circle at 32% 32%,#fff 0,#ffe19a 22%,#ff8d70 52%,#63213c 100%);box-shadow:0 0 0 2px rgba(255,255,255,.08)}button{border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--text);border-radius:999px;padding:11px 14px;font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.15em;text-transform:uppercase;cursor:pointer}.signals{display:grid;grid-template-columns:1fr 1fr;gap:10px}.chip{padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.04);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}.phrase{min-height:118px;display:flex;flex-direction:column;justify-content:space-between}.phrase strong{display:block;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:8px}.phraseText{font-size:14px;line-height:1.5;color:rgba(238,244,255,.92)}
+.footer{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding:14px 18px;font-size:12px;color:rgba(255,255,255,.64);background:linear-gradient(180deg,rgba(6,8,22,0),rgba(6,8,22,.82) 42%,rgba(6,8,22,.97))}.footer a{color:var(--gold);text-decoration:none;pointer-events:auto}.credit{max-width:560px;text-align:right;font-size:10px;line-height:1.35;color:rgba(255,255,255,.42)}
+@media (max-width:760px){.top{padding:14px 14px 0;flex-direction:column}.copy{max-width:none}h1{font-size:clamp(30px,11vw,54px)}.panel{left:14px;right:14px;bottom:84px;grid-template-columns:1fr}.signals{grid-template-columns:1fr}.footer{padding:14px;flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div class="ui">
+  <div class="top">
+    <div class="copy">
+      <div class="kicker">deep night instrument, 2026-05-29</div>
+      <h1>APPLECORE OBSERVATORY</h1>
+      <p>Drag the tuner slowly. Somewhere between radio static and fruit memory, the sky begins filing reports. Each frequency reveals a different impossible signal. Tap anywhere to wake the quiet drone.</p>
+    </div>
+    <div class="readout" id="readout">dish angle steady, signal waiting</div>
+  </div>
+  <div class="footer">
+    <a href="/archive/">archive</a>
+    <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+  </div>
+</div>
+<div class="panel">
+  <div class="card scope">
+    <div class="dialRow">
+      <div class="label">frequency</div>
+      <input id="tuner" type="range" min="0" max="1000" value="480">
+      <button id="scan">scan</button>
+      <button id="drift">let it drift</button>
+    </div>
+    <div class="signals">
+      <div class="chip" id="station">station: dormant red channel</div>
+      <div class="chip" id="noise">noise: 48%</div>
+      <div class="chip" id="objects">objects: 3 false moons</div>
+      <div class="chip" id="timeChip">local night: 00:00</div>
+    </div>
+  </div>
+  <div class="card phrase">
+    <div>
+      <strong>intercepted note</strong>
+      <div class="phraseText" id="phrase">The telescope mistakes an apple seed for a star and refuses to apologize.</div>
+    </div>
+    <div class="label">move the dial to gather stranger evidence</div>
+  </div>
+</div>
+<script>
+const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
+const tuner=document.getElementById('tuner'),scanBtn=document.getElementById('scan'),driftBtn=document.getElementById('drift');
+const readout=document.getElementById('readout'),stationEl=document.getElementById('station'),noiseEl=document.getElementById('noise'),objectsEl=document.getElementById('objects'),timeChip=document.getElementById('timeChip'),phraseEl=document.getElementById('phrase');
+let w=0,h=0,dpr=Math.min(devicePixelRatio||1,2),t=0,drifting=false,targetFreq=480,freq=480;
+const pointer={x:.5,y:.45};
+const stars=[],rings=[],echoes=[];
+const notes=[
+  'A peeled horizon keeps blinking in Morse code.',
+  'Three polite comets queue behind a bruised apple core.',
+  'The telescope mistakes an apple seed for a star and refuses to apologize.',
+  'A hidden orchard is broadcasting weather from six minutes ahead.',
+  'Someone has filed the moon under produce and static.',
+  'The vacuum of space smells faintly of cider and burnt copper.',
+  'A red signal asks whether gravity can be rescheduled.',
+  'Tonight\'s brightest object is a fruit with administrative power.'
+];
+const stations=[
+  'dormant red channel','seed halo array','cider static relay','bruise atlas repeater','orchard ghost band','lunar produce desk','core memory beacon','midnight peel frequency'
+];
+let audioCtx,master,oscA,oscB,lfo;
+function ensureAudio(){if(audioCtx)return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC)return; audioCtx=new AC(); master=audioCtx.createGain(); master.gain.value=.0001; master.connect(audioCtx.destination); oscA=audioCtx.createOscillator(); oscB=audioCtx.createOscillator(); lfo=audioCtx.createOscillator(); const gainA=audioCtx.createGain(),gainB=audioCtx.createGain(),lfoGain=audioCtx.createGain(); oscA.type='triangle'; oscB.type='sine'; lfo.type='sine'; gainA.gain.value=.012; gainB.gain.value=.008; lfoGain.gain.value=8; lfo.connect(lfoGain); lfoGain.connect(oscA.frequency); oscA.connect(gainA); oscB.connect(gainB); gainA.connect(master); gainB.connect(master); oscA.start(); oscB.start(); lfo.start(); updateAudio(); master.gain.exponentialRampToValueAtTime(.045,audioCtx.currentTime+.4);} 
+function updateAudio(){if(!audioCtx)return; const norm=freq/1000; oscA.frequency.setTargetAtTime(110+norm*180,audioCtx.currentTime,.08); oscB.frequency.setTargetAtTime(220+norm*260,audioCtx.currentTime,.08); lfo.frequency.setTargetAtTime(.08+norm*.7,audioCtx.currentTime,.12);} 
+function resize(){w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;canvas.style.width=w+'px';canvas.style.height=h+'px';ctx.setTransform(dpr,0,0,dpr,0,0); if(!stars.length) seed();}
+function seed(){for(let i=0;i<140;i++)stars.push({x:Math.random()*w,y:Math.random()*h*.78,r:Math.random()*1.8+.4,p:Math.random()*Math.PI*2,s:Math.random()*.8+.2}); for(let i=0;i<5;i++)rings.push({r:90+i*42,a:0});}
+function pickSignal(force=false){const idx=Math.floor((freq/1000)*stations.length)%stations.length; stationEl.textContent='station: '+stations[idx]; phraseEl.textContent=notes[idx]; const noise=Math.round(18+Math.abs(Math.sin(freq*.018+t*.0008))*72); noiseEl.textContent='noise: '+noise+'%'; objectsEl.textContent='objects: '+(2+Math.floor((idx*3+noise)%7))+' false moons'; readout.textContent=(force?'manual scan, ':'dish angle ') + ['signal bending','static flowering','core warming','night translating'][idx%4]; if(force||Math.random()<.34) echoes.push({x:pointer.x*w,y:pointer.y*h*.78,r:10,a:.65});}
+function updateTime(){const now=new Date(); timeChip.textContent='local night: '+now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',hour12:false});}
+function burst(){for(let i=0;i<9;i++)echoes.push({x:Math.random()*w,y:Math.random()*h*.72,r:12+Math.random()*26,a:.6}); pickSignal(true); ensureAudio(); if(audioCtx){master.gain.cancelScheduledValues(audioCtx.currentTime); master.gain.setTargetAtTime(.065,audioCtx.currentTime,.04); master.gain.setTargetAtTime(.045,audioCtx.currentTime+.3,.2);}}
+function drawBackground(){const g=ctx.createLinearGradient(0,0,0,h); g.addColorStop(0,'#060816'); g.addColorStop(.45,'#0d1531'); g.addColorStop(.78,'#140e1f'); g.addColorStop(1,'#09060d'); ctx.fillStyle=g; ctx.fillRect(0,0,w,h); const dishGlow=ctx.createRadialGradient(pointer.x*w,pointer.y*h,4,pointer.x*w,pointer.y*h,190); dishGlow.addColorStop(0,'rgba(139,242,255,.18)'); dishGlow.addColorStop(1,'rgba(139,242,255,0)'); ctx.fillStyle=dishGlow; ctx.fillRect(0,0,w,h);}
+function drawStars(){for(const s of stars){const tw=.35+Math.sin(t*.0016*s.s+s.p)*.35+s.r*.05; ctx.fillStyle='rgba(238,244,255,'+(0.18+tw).toFixed(3)+')'; ctx.beginPath(); ctx.arc(s.x,s.y,s.r+tw*.3,0,Math.PI*2); ctx.fill();}}
+function drawDish(){const cx=w*.5,cy=h*.79; ctx.strokeStyle='rgba(157,197,255,.16)'; ctx.lineWidth=2; for(const ring of rings){ctx.beginPath(); ctx.ellipse(cx,cy,ring.r*1.08,ring.r*.24,0,0,Math.PI*2); ctx.stroke();}
+ const ang=(freq/1000)*Math.PI*1.2+Math.PI*.9; const tipX=cx+Math.cos(ang)*190, tipY=cy-110+Math.sin(ang)*55; ctx.strokeStyle='rgba(139,242,255,.52)'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(cx,cy-18); ctx.lineTo(tipX,tipY); ctx.stroke(); ctx.fillStyle='rgba(255,211,106,.9)'; ctx.beginPath(); ctx.arc(tipX,tipY,6,0,Math.PI*2); ctx.fill(); pointer.x=tipX/w; pointer.y=tipY/h; ctx.strokeStyle='rgba(255,107,118,.25)'; ctx.beginPath(); ctx.moveTo(tipX,tipY); ctx.quadraticCurveTo(w*.5,h*.08,w*.5,0); ctx.stroke();}
+function drawAppleConstellation(){const baseX=w*.18,baseY=h*.22,size=40+Math.sin(t*.0011)*5; ctx.save(); ctx.translate(baseX,baseY); ctx.globalAlpha=.75; ctx.strokeStyle='rgba(255,107,118,.45)'; ctx.lineWidth=1.4; ctx.beginPath(); ctx.arc(-size*.24,0,size*.28,0,Math.PI*2); ctx.arc(size*.24,0,size*.28,0,Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.ellipse(0,size*.18,size*.38,size*.28,0,0,Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,-size*.35); ctx.quadraticCurveTo(size*.04,-size*.62,size*.22,-size*.72); ctx.stroke(); ctx.restore();}
+function drawWave(){const y=h*.62; ctx.beginPath(); for(let x=0;x<=w;x+=6){const n=freq*.012+x*.013+t*.0024; const amp=18+Math.sin(freq*.01)*14; const yy=y+Math.sin(n)*amp+Math.sin(n*.37)*amp*.6; if(x===0)ctx.moveTo(x,yy); else ctx.lineTo(x,yy);} ctx.strokeStyle='rgba(139,242,255,.5)'; ctx.lineWidth=1.5; ctx.stroke();}
+function drawEchoes(){for(let i=echoes.length-1;i>=0;i--){const e=echoes[i]; e.r+=1.3; e.a*=.984; if(e.a<.02){echoes.splice(i,1);continue;} ctx.strokeStyle='rgba(255,211,106,'+e.a.toFixed(3)+')'; ctx.lineWidth=1.2; ctx.beginPath(); ctx.arc(e.x,e.y,e.r,0,Math.PI*2); ctx.stroke();}}
+function animate(ts){t=ts; if(drifting){targetFreq=(targetFreq+Math.sin(t*.0003)*1.8+.4)%1000; tuner.value=targetFreq.toFixed(0);} freq += (targetFreq-freq)*.075; updateAudio(); if((ts|0)%1200<18) pickSignal(false); drawBackground(); drawStars(); drawAppleConstellation(); drawWave(); drawDish(); drawEchoes(); requestAnimationFrame(animate);}
+function setFreq(v){targetFreq=Number(v); pickSignal(false);}
+tuner.addEventListener('input',e=>setFreq(e.target.value));
+scanBtn.addEventListener('click',burst);
+driftBtn.addEventListener('click',()=>{drifting=!drifting; driftBtn.textContent=drifting?'hold orbit':'let it drift'; readout.textContent=drifting?'dish drifting through rumor':'dish angle steady, signal waiting';});
+addEventListener('pointerdown',()=>ensureAudio(),{passive:true});
+addEventListener('touchstart',()=>ensureAudio(),{once:true,passive:true});
+addEventListener('resize',resize,{passive:true});
+resize(); updateTime(); setInterval(updateTime,10000); pickSignal(true); requestAnimationFrame(animate);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
