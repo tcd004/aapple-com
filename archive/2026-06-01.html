@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Carousel for Unclaimed Apples</title>
+<style>
+:root{--bg:#0c0f17;--bg2:#161b28;--panel:rgba(17,22,35,.76);--line:rgba(212,230,255,.14);--text:#eef4ff;--muted:rgba(238,244,255,.68);--gold:#ffd56f;--red:#ff6f7f;--mint:#91ffd8}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:radial-gradient(circle at 50% 18%,#24304d 0,#111724 34%,#0c0f17 100%);color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow:hidden}body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.ui{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none}
+.top{padding:18px 18px 0;display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.copy{max-width:min(42rem,80vw);pointer-events:auto}.kicker,.status{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}h1{margin:10px 0 10px;font-size:clamp(30px,5vw,66px);line-height:.92;letter-spacing:-.055em}p{margin:0;font-size:13px;line-height:1.55;color:rgba(238,244,255,.84)}
+.panel{position:fixed;left:18px;right:18px;bottom:76px;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(260px,.8fr);gap:12px;pointer-events:auto}.card{background:var(--panel);border:1px solid var(--line);backdrop-filter:blur(14px);border-radius:18px;padding:14px;box-shadow:0 14px 30px rgba(0,0,0,.24)}.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.chip{padding:11px 12px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.04);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}button{border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--text);border-radius:999px;padding:11px 14px;font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.15em;text-transform:uppercase;cursor:pointer}.note{min-height:118px;display:flex;flex-direction:column;justify-content:space-between}.note strong{display:block;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:8px}.noteText{font-size:14px;line-height:1.5;color:rgba(238,244,255,.92)}
+.footer{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding:14px 18px;font-size:12px;color:rgba(255,255,255,.64);background:linear-gradient(180deg,rgba(12,15,23,0),rgba(12,15,23,.82) 42%,rgba(12,15,23,.97))}.footer a{color:var(--gold);text-decoration:none;pointer-events:auto}.credit{max-width:560px;text-align:right;font-size:10px;line-height:1.35;color:rgba(255,255,255,.42)}
+@media (max-width:760px){.top{padding:14px 14px 0;flex-direction:column}.copy{max-width:none}h1{font-size:clamp(28px,11vw,54px)}.panel{left:14px;right:14px;bottom:84px;grid-template-columns:1fr}.footer{padding:14px;flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div class="ui">
+  <div class="top">
+    <div class="copy">
+      <div class="kicker">late-night baggage claim, 2026-06-01</div>
+      <h1>CAROUSEL FOR UNCLAIMED APPLES</h1>
+      <p>Somewhere after midnight, the airport begins returning luggage to fruit. Drag left or right to spin the belt. Tap a drifting tag to rename the shipment. Press page if you want the loudspeaker to get strange about it.</p>
+    </div>
+    <div class="status" id="status">belt turning at a respectful, haunted speed</div>
+  </div>
+  <div class="footer">
+    <a href="/archive/">archive</a>
+    <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+  </div>
+</div>
+<div class="panel">
+  <div class="card controls">
+    <div class="chip" id="beltChip">belt speed: 42%</div>
+    <div class="chip" id="claimChip">claim: pending cider paperwork</div>
+    <div class="chip" id="tagChip">tag: APPLE / GATE C7</div>
+    <button id="pageBtn">page owner</button>
+    <button id="shuffleBtn">misroute</button>
+  </div>
+  <div class="card note">
+    <div>
+      <strong>overhead announcement</strong>
+      <div class="noteText" id="announcement">Passenger Apple, your red suitcase is circling with unusual dignity.</div>
+    </div>
+    <div class="status">touch a tag to relabel the cargo</div>
+  </div>
+</div>
+<script>
+const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
+const statusEl=document.getElementById('status'),beltChip=document.getElementById('beltChip'),claimChip=document.getElementById('claimChip'),tagChip=document.getElementById('tagChip'),announcementEl=document.getElementById('announcement');
+const pageBtn=document.getElementById('pageBtn'),shuffleBtn=document.getElementById('shuffleBtn');
+let w=0,h=0,dpr=Math.min(devicePixelRatio||1,2),t=0,speed=.42,targetSpeed=.42,dragging=false,lastX=0;
+const pointer={x:0,y:0,active:false};
+const notices=[
+  'Passenger Apple, your red suitcase is circling with unusual dignity.',
+  'Now arriving from gate C7, one weather system in carry-on form.',
+  'Unclaimed item: a pocket orchard humming softly near carousel two.',
+  'Security would like to remind the moon that fruit is not a boarding group.',
+  'A polished apple core has been promoted to priority luggage.'
+];
+const tagWords=['APPLE','MOON','STATIC','SEED','DREAM','CIDER','ECHO','BAGGAGE','NIGHT','PEEL','GATE C7','FRAGILE','RETURN','RIPENING','ORBIT'];
+const fruits=[]; let hovered=null;
+let audioCtx,master;
+function ensureAudio(){if(audioCtx)return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC)return; audioCtx=new AC(); master=audioCtx.createGain(); master.gain.value=.0001; master.connect(audioCtx.destination);}
+function blip(freq=220,dur=.18,vol=.02,type='triangle'){ensureAudio(); if(!audioCtx)return; const now=audioCtx.currentTime,o=audioCtx.createOscillator(),g=audioCtx.createGain(); o.type=type; o.frequency.setValueAtTime(freq,now); o.frequency.exponentialRampToValueAtTime(Math.max(90,freq*.72),now+dur); g.gain.value=.0001; o.connect(g); g.connect(master); o.start(now); g.gain.exponentialRampToValueAtTime(vol,now+.02); g.gain.exponentialRampToValueAtTime(.0001,now+dur); o.stop(now+dur+.03);}
+function resize(){w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;canvas.style.width=w+'px';canvas.style.height=h+'px';ctx.setTransform(dpr,0,0,dpr,0,0); if(!fruits.length) seed();}
+function pick(){return tagWords[Math.floor(Math.random()*tagWords.length)]}
+function seed(){for(let i=0;i<9;i++){fruits.push({lane:i%3,offset:i/9*Math.PI*2,tag:pick()+' / '+pick(),blink:Math.random()*6.28,hue:Math.random(),r:28+Math.random()*16});}}
+function laneY(lane){return h*.52+lane*46}
+function itemPos(item){const a=item.offset+t*.0002*(.3+speed*2.2); return {x:w*.5+Math.cos(a)*w*.34,y:laneY(item.lane)+Math.sin(a)*18,scale:.72+((Math.sin(a)+1)/2)*.45,depth:(Math.sin(a)+1)/2,a};}
+function drawBackground(){const g=ctx.createLinearGradient(0,0,0,h); g.addColorStop(0,'#0c0f17'); g.addColorStop(.45,'#161b28'); g.addColorStop(.8,'#11131e'); g.addColorStop(1,'#0a0c13'); ctx.fillStyle=g; ctx.fillRect(0,0,w,h); for(let i=0;i<22;i++){const y=h*.14+i*26; ctx.strokeStyle='rgba(255,255,255,'+(.02+(i%3)*.01)+')'; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();}}
+function drawSigns(){ctx.fillStyle='rgba(255,255,255,.04)'; ctx.fillRect(w*.08,h*.24,w*.24,54); ctx.fillRect(w*.68,h*.24,w*.2,54); ctx.strokeStyle='rgba(255,255,255,.09)'; ctx.strokeRect(w*.08,h*.24,w*.24,54); ctx.strokeRect(w*.68,h*.24,w*.2,54); ctx.fillStyle='rgba(238,244,255,.7)'; ctx.font='12px ui-monospace,monospace'; ctx.fillText('ARRIVALS 00:05',w*.1,h*.275); ctx.fillText('BELT 02 / FRUIT',w*.1,h*.308); ctx.fillText('UNCLAIMED',w*.71,h*.275); ctx.fillText('HANDLE GENTLY',w*.71,h*.308);}
+function drawCarousel(){const y=h*.67; ctx.fillStyle='rgba(0,0,0,.24)'; ctx.beginPath(); ctx.roundRect(w*.08,y,w*.84,86,26); ctx.fill(); ctx.strokeStyle='rgba(255,255,255,.12)'; ctx.stroke(); for(let i=0;i<18;i++){const x=w*.1+i*(w*.78/17)+((t*.08*speed)%42); ctx.fillStyle='rgba(255,255,255,.05)'; ctx.fillRect((x% (w*.84))+w*.08,y+10,26,66);} }
+function appleShape(x,y,s,hue){ctx.save(); ctx.translate(x,y); ctx.scale(s,s); const reds=hue<.33?['#ff5e74','#ff9e8f']:hue<.66?['#ffd36f','#ff8b6f']:['#91ffd8','#6fc6ff']; ctx.fillStyle=reds[0]; ctx.beginPath(); ctx.arc(-10,0,16,0,Math.PI*2); ctx.arc(10,0,16,0,Math.PI*2); ctx.fill(); ctx.fillStyle=reds[1]; ctx.beginPath(); ctx.ellipse(0,7,19,14,0,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='rgba(255,255,255,.18)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(1,-15); ctx.quadraticCurveTo(4,-26,14,-30); ctx.stroke(); ctx.strokeStyle='rgba(145,255,216,.8)'; ctx.beginPath(); ctx.ellipse(15,-24,9,4,.45,0,Math.PI*2); ctx.stroke(); ctx.restore();}
+function drawTag(x,y,text,active){const pad=10; ctx.font='11px ui-monospace,monospace'; const tw=ctx.measureText(text).width; const ww=tw+pad*2; ctx.fillStyle=active?'rgba(255,213,111,.96)':'rgba(248,251,255,.9)'; ctx.beginPath(); ctx.roundRect(x-ww/2,y-12,ww,24,8); ctx.fill(); ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.stroke(); ctx.fillStyle='#172034'; ctx.fillText(text,x-tw/2,y+4); return {x:x-ww/2,y:y-12,w:ww,h:24};}
+function drawFruit(item){const p=itemPos(item); const active=hovered===item; const alpha=.25+p.depth*.85; ctx.globalAlpha=alpha; appleShape(p.x,p.y,p.scale,item.hue); const tagBox=drawTag(p.x,p.y+38*p.scale,item.tag,active); item.hit=tagBox; item.cx=p.x; item.cy=p.y; item.depth=p.depth; ctx.globalAlpha=1;}
+function render(){drawBackground(); drawSigns(); drawCarousel(); fruits.slice().sort((a,b)=>a.depth-b.depth).forEach(drawFruit); if(hovered){ctx.strokeStyle='rgba(145,255,216,.65)'; ctx.beginPath(); ctx.arc(hovered.cx,hovered.cy,hovered.r*1.45,0,Math.PI*2); ctx.stroke();}}
+function updateUI(){beltChip.textContent='belt speed: '+Math.round(speed*100)+'%'; claimChip.textContent='claim: '+['pending cider paperwork','gate agent mildly concerned','soft customs delay','approved for re-entry','moon signature missing'][Math.floor((speed*10)%5)]; if(hovered) tagChip.textContent='tag: '+hovered.tag;}
+function renameHovered(){if(!hovered)return; hovered.tag=pick()+' / '+pick(); tagChip.textContent='tag: '+hovered.tag; announcementEl.textContent=notices[Math.floor(Math.random()*notices.length)]; statusEl.textContent='tag rewritten in polite airport handwriting'; blip(260+Math.random()*180,.22,.02,'sine');}
+function shuffle(){fruits.forEach(f=>{f.offset=Math.random()*Math.PI*2; f.lane=Math.floor(Math.random()*3); f.hue=Math.random();}); announcementEl.textContent=notices[Math.floor(Math.random()*notices.length)]; statusEl.textContent='the carousel has chosen a different reality'; blip(180,.4,.03);}
+function pageOwner(){announcementEl.textContent=notices[Math.floor(Math.random()*notices.length)]; statusEl.textContent='overhead speaker clears its throat'; blip(420,.12,.018,'square'); setTimeout(()=>blip(280,.22,.02,'triangle'),90);}
+function hitTest(x,y){hovered=null; for(const item of fruits){const h=item.hit; if(h&&x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h){hovered=item; break;}} updateUI();}
+function animate(ts){t=ts; speed += (targetSpeed-speed)*.08; render(); if((ts|0)%1600<18) updateUI(); requestAnimationFrame(animate);} 
+canvas.addEventListener('pointermove',e=>{pointer.x=e.clientX; pointer.y=e.clientY; pointer.active=true; if(dragging){const dx=e.clientX-lastX; targetSpeed=Math.max(.06,Math.min(1, targetSpeed+dx*.0022)); lastX=e.clientX; statusEl.textContent='belt responding to your suspiciously confident hand';} hitTest(e.clientX,e.clientY);},{passive:true});
+canvas.addEventListener('pointerdown',e=>{ensureAudio(); dragging=true; lastX=e.clientX; hitTest(e.clientX,e.clientY); if(hovered){renameHovered(); dragging=false;} else blip(160+targetSpeed*220,.12,.012);},{passive:true});
+addEventListener('pointerup',()=>{dragging=false; statusEl.textContent='belt turning at a respectful, haunted speed';},{passive:true});
+addEventListener('pointercancel',()=>dragging=false,{passive:true});
+addEventListener('touchstart',()=>ensureAudio(),{once:true,passive:true});
+pageBtn.addEventListener('click',()=>{ensureAudio(); pageOwner();});
+shuffleBtn.addEventListener('click',()=>{ensureAudio(); shuffle();});
+resize(); updateUI(); requestAnimationFrame(animate);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
