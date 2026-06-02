@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Magnet for a Fruit Mistaken for the Moon</title>
+<style>
+:root{--bg:#05070d;--bg2:#10182a;--panel:rgba(11,16,28,.72);--line:rgba(202,221,255,.14);--text:#edf3ff;--muted:rgba(237,243,255,.68);--gold:#ffd96b;--red:#ff6a7a;--blue:#7bddff;--mint:#97ffd5}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:radial-gradient(circle at 50% 20%,#1a274a 0,#0d1424 38%,#05070d 100%);color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow:hidden}body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.ui{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none}.top{padding:18px 18px 0;display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.copy{max-width:min(44rem,80vw);pointer-events:auto}.kicker,.status{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}h1{margin:10px 0;font-size:clamp(30px,5vw,66px);line-height:.92;letter-spacing:-.055em}p{margin:0;font-size:13px;line-height:1.55;color:rgba(237,243,255,.84)}
+.panel{position:fixed;left:18px;right:18px;bottom:76px;display:flex;flex-wrap:wrap;gap:10px;pointer-events:auto;align-items:center}.chip,button{border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(12px);border-radius:999px;color:var(--text);font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.14em;text-transform:uppercase}.chip{padding:11px 12px;color:var(--muted)}button{padding:11px 14px;cursor:pointer}
+.footer{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding:14px 18px;font-size:12px;color:rgba(255,255,255,.64);background:linear-gradient(180deg,rgba(5,7,13,0),rgba(5,7,13,.82) 42%,rgba(5,7,13,.97))}.footer a{color:var(--gold);text-decoration:none;pointer-events:auto}.credit{max-width:560px;text-align:right;font-size:10px;line-height:1.35;color:rgba(255,255,255,.42)}
+@media (max-width:760px){.top{padding:14px 14px 0;flex-direction:column}.copy{max-width:none}h1{font-size:clamp(28px,11vw,54px)}.panel{left:14px;right:14px;bottom:84px}.footer{padding:14px;flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div class="ui">
+  <div class="top">
+    <div class="copy">
+      <div class="kicker">field test 06.02, just after midnight</div>
+      <h1>MAGNET FOR A FRUIT MISTAKEN FOR THE MOON</h1>
+      <p>Move slowly and a metallic orchard assembles itself around your cursor. Hold to charge the field. Press invert if you want the moon-apple to remember it was falling a second ago. Tap anywhere to wake the hum.</p>
+    </div>
+    <div class="status" id="status">field idle, moon pretending to be harmless</div>
+  </div>
+  <div class="footer">
+    <a href="/archive/">archive</a>
+    <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+  </div>
+</div>
+<div class="panel">
+  <div class="chip" id="modeChip">mode: attract</div>
+  <div class="chip" id="chargeChip">charge: 18%</div>
+  <div class="chip" id="moonChip">moonfruit: stable red</div>
+  <button id="invertBtn">invert gravity</button>
+  <button id="scatterBtn">scatter filings</button>
+</div>
+<script>
+const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
+const statusEl=document.getElementById('status'),modeChip=document.getElementById('modeChip'),chargeChip=document.getElementById('chargeChip'),moonChip=document.getElementById('moonChip');
+const invertBtn=document.getElementById('invertBtn'),scatterBtn=document.getElementById('scatterBtn');
+let w=0,h=0,dpr=Math.min(devicePixelRatio||1,2),t=0,polarity=1,charge=.18;
+const pointer={x:.5,y:.5,down:false,active:false};
+const dust=[],sparks=[];
+const moods=['stable red','bruised silver','tidal gold','soft static','cold cider','blue magnetism'];
+let audioCtx,master,oscA,oscB;
+function resize(){w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;canvas.style.width=w+'px';canvas.style.height=h+'px';ctx.setTransform(dpr,0,0,dpr,0,0);if(!dust.length)seed();}
+function seed(){for(let i=0;i<900;i++){const a=Math.random()*Math.PI*2,r=Math.sqrt(Math.random())*Math.min(w,h)*.32;dust.push({x:w*.5+Math.cos(a)*r,y:h*.52+Math.sin(a)*r*.9,vx:0,vy:0,size:.7+Math.random()*1.8,hue:Math.random(),homeA:a,homeR:r,jitter:Math.random()*6.28});}}
+function ensureAudio(){if(audioCtx)return;const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;audioCtx=new AC();master=audioCtx.createGain();master.gain.value=.0001;master.connect(audioCtx.destination);oscA=audioCtx.createOscillator();oscB=audioCtx.createOscillator();const g1=audioCtx.createGain(),g2=audioCtx.createGain();oscA.type='sine';oscB.type='triangle';g1.gain.value=.018;g2.gain.value=.012;oscA.connect(g1);oscB.connect(g2);g1.connect(master);g2.connect(master);oscA.start();oscB.start();master.gain.exponentialRampToValueAtTime(.045,audioCtx.currentTime+.4);}
+function updateAudio(){if(!audioCtx)return;const now=audioCtx.currentTime;oscA.frequency.setTargetAtTime(96+charge*180+(1-polarity)*30,now,.08);oscB.frequency.setTargetAtTime(148+pointer.x*120+charge*90,now,.08);} 
+function moonCenter(){return{x:w*.5+Math.sin(t*.00022)*w*.05,y:h*.46+Math.cos(t*.00018)*h*.04};}
+function appleShape(px,py,s){ctx.save();ctx.translate(px,py);ctx.scale(s,s);const g=ctx.createRadialGradient(-4,-8,3,0,2,32);g.addColorStop(0,polarity>0?'rgba(255,178,182,.95)':'rgba(145,221,255,.95)');g.addColorStop(.55,polarity>0?'rgba(255,100,120,.92)':'rgba(114,184,255,.92)');g.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(-12,0,18,0,Math.PI*2);ctx.arc(12,0,18,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.ellipse(0,8,22,16,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(1,-18);ctx.quadraticCurveTo(4,-28,14,-32);ctx.stroke();ctx.strokeStyle='rgba(151,255,213,.75)';ctx.beginPath();ctx.ellipse(17,-25,9,4,.4,0,Math.PI*2);ctx.stroke();ctx.restore();}
+function spark(x,y){for(let i=0;i<14;i++)sparks.push({x,y,vx:(Math.random()-.5)*2.8,vy:(Math.random()-.5)*2.8,life:28+Math.random()*20,hue:Math.random()});}
+function scatter(){const c=moonCenter();dust.forEach((p,i)=>{const a=Math.atan2(p.y-c.y,p.x-c.x)+((i%5)-2)*.08;p.vx=Math.cos(a)*(1+Math.random()*3.2);p.vy=Math.sin(a)*(1+Math.random()*3.2);});statusEl.textContent='filings briefly forgot their assignment';moonChip.textContent='moonfruit: '+moods[Math.floor(Math.random()*moods.length)];spark(c.x,c.y);blip(180,.22,.03);} 
+function blip(freq=220,dur=.2,vol=.02){ensureAudio();if(!audioCtx)return;const now=audioCtx.currentTime,o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='triangle';o.frequency.setValueAtTime(freq,now);o.frequency.exponentialRampToValueAtTime(Math.max(90,freq*.72),now+dur);g.gain.value=.0001;o.connect(g);g.connect(master);o.start(now);g.gain.exponentialRampToValueAtTime(vol,now+.02);g.gain.exponentialRampToValueAtTime(.0001,now+dur);o.stop(now+dur+.03);} 
+function invert(){polarity*=-1;modeChip.textContent='mode: '+(polarity>0?'attract':'repel');statusEl.textContent=polarity>0?'field now gathering what it can':'field now politely refusing gravity';moonChip.textContent='moonfruit: '+moods[Math.floor(Math.random()*moods.length)];spark(pointer.x*w,pointer.y*h);blip(polarity>0?240:140,.28,.03);} 
+function drawBackground(){const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,'#05070d');g.addColorStop(.48,'#10182a');g.addColorStop(1,'#06080f');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);for(let i=0;i<16;i++){const y=h*.12+i*34;ctx.strokeStyle='rgba(255,255,255,'+(.025+(i%4)*.008)+')';ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}for(let i=0;i<10;i++){const x=w*.1+i*w*.09+Math.sin(t*.00008+i)*18;ctx.strokeStyle='rgba(125,164,255,.05)';ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}}
+function drawMoon(){const c=moonCenter(),pulse=.96+Math.sin(t*.002)*.04;const halo=ctx.createRadialGradient(c.x,c.y,12,c.x,c.y,180+charge*80);halo.addColorStop(0,polarity>0?'rgba(255,120,140,.28)':'rgba(123,221,255,.24)');halo.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=halo;ctx.beginPath();ctx.arc(c.x,c.y,180+charge*80,0,Math.PI*2);ctx.fill();appleShape(c.x,c.y,1.5*pulse);ctx.save();ctx.globalCompositeOperation='screen';ctx.strokeStyle='rgba(255,255,255,.16)';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(c.x,c.y,74+Math.sin(t*.0013)*5,0,Math.PI*2);ctx.stroke();ctx.restore();return c;}
+function updateDust(c){const mx=pointer.x*w,my=pointer.y*h;const fieldR=Math.min(w,h)*(.15+.12*charge);for(const p of dust){const homeX=c.x+Math.cos(p.homeA+t*.00012*(polarity>0?1:-1))*p.homeR;const homeY=c.y+Math.sin(p.homeA+t*.00015)*p.homeR*.82;let ax=(homeX-p.x)*.0035,ay=(homeY-p.y)*.0035;const dx=mx-p.x,dy=my-p.y,dist=Math.hypot(dx,dy)+.001;if(pointer.active&&dist<fieldR){const force=(1-dist/fieldR)*(.38+charge*.7)*polarity;ax+=dx/dist*force;ay+=dy/dist*force;}if(pointer.down){const cdx=c.x-p.x,cdy=c.y-p.y,cd=Math.hypot(cdx,cdy)+.001;ax+=cdx/cd*(.018+charge*.045);ay+=cdy/cd*(.018+charge*.045);}p.vx=(p.vx+ax)*.94;p.vy=(p.vy+ay)*.94;p.x+=p.vx;p.y+=p.vy;if(p.x<-20||p.x>w+20||p.y<-20||p.y>h+20){p.x=homeX;p.y=homeY;p.vx=p.vy=0;}}
+}
+function drawDust(){for(const p of dust){const c=p.hue<.33?(polarity>0?'255,113,133':'123,221,255'):p.hue<.66?'255,217,107':'151,255,213';ctx.fillStyle='rgba('+c+','+(.18+Math.min(.72,Math.abs(p.vx)+Math.abs(p.vy))* .12).toFixed(3)+')';ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();}}
+function drawField(c){if(!pointer.active)return;const x=pointer.x*w,y=pointer.y*h;ctx.strokeStyle=polarity>0?'rgba(255,120,140,.22)':'rgba(123,221,255,.22)';for(let i=0;i<5;i++){ctx.beginPath();ctx.ellipse(x,y,34+i*18,24+i*14,Math.sin(t*.0004+i)*.3,0,Math.PI*2);ctx.stroke();}ctx.strokeStyle='rgba(255,255,255,.08)';ctx.beginPath();ctx.moveTo(c.x,c.y);ctx.lineTo(x,y);ctx.stroke();}
+function drawSparks(){for(let i=sparks.length-1;i>=0;i--){const s=sparks[i];s.x+=s.vx;s.y+=s.vy;s.vx*=.97;s.vy*=.97;s.life--;if(s.life<=0){sparks.splice(i,1);continue;}const c=s.hue<.5?'255,217,107':'151,255,213';ctx.fillStyle='rgba('+c+','+(s.life/48).toFixed(3)+')';ctx.fillRect(s.x,s.y,2,2);}}
+function animate(ts){t=ts;charge+=(pointer.down?.006:-.003);charge=Math.max(.18,Math.min(.98,charge));const c=drawMoon();updateDust(c);drawBackground();drawField(c);drawDust();drawMoon();drawSparks();chargeChip.textContent='charge: '+Math.round(charge*100)+'%';updateAudio();requestAnimationFrame(animate);} 
+addEventListener('resize',resize,{passive:true});
+addEventListener('pointermove',e=>{pointer.x=e.clientX/w;pointer.y=e.clientY/h;pointer.active=true;},{passive:true});
+addEventListener('pointerdown',e=>{ensureAudio();pointer.down=true;pointer.x=e.clientX/w;pointer.y=e.clientY/h;statusEl.textContent='field charging, filings changing their story';blip(210,.16,.018);},{passive:true});
+addEventListener('pointerup',()=>{pointer.down=false;statusEl.textContent='field relaxing into a believable lie';},{passive:true});
+addEventListener('pointercancel',()=>pointer.down=false,{passive:true});
+addEventListener('touchstart',()=>ensureAudio(),{once:true,passive:true});
+invertBtn.addEventListener('click',()=>invert());
+scatterBtn.addEventListener('click',()=>scatter());
+resize();requestAnimationFrame(animate);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
