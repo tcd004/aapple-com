@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Noctilucent Peel Printer</title>
+<style>
+:root{--bg:#08111a;--bg2:#132433;--ink:#f4f1de;--peel:#ffb86b;--peel2:#ff6f61;--glow:#86f7ff;--panel:rgba(8,15,24,.72);--line:rgba(255,255,255,.12);--muted:rgba(244,241,222,.7)}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:radial-gradient(circle at 50% 16%,#1c3345 0,#0d1722 36%,#08111a 100%);color:var(--ink);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow:hidden}body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.ui{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none}.top{padding:18px 18px 0;display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.copy{max-width:min(42rem,82vw)}.kicker,.status{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}h1{margin:10px 0 10px;font-size:clamp(30px,5vw,68px);line-height:.92;letter-spacing:-.05em}p{margin:0;font-size:13px;line-height:1.55;color:rgba(244,241,222,.86)}
+.panel{position:fixed;left:18px;right:18px;bottom:76px;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(260px,.9fr);gap:12px;pointer-events:auto}.card{background:var(--panel);border:1px solid var(--line);backdrop-filter:blur(14px);border-radius:18px;padding:14px;box-shadow:0 14px 30px rgba(0,0,0,.24)}.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.chip{padding:11px 12px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.04);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}button{border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink);border-radius:999px;padding:11px 14px;font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.15em;text-transform:uppercase;cursor:pointer}.note strong{display:block;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--peel);margin-bottom:8px}.noteText{font-size:14px;line-height:1.5;color:rgba(244,241,222,.92);min-height:110px}
+.footer{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding:14px 18px;font-size:12px;color:rgba(255,255,255,.64);background:linear-gradient(180deg,rgba(8,17,26,0),rgba(8,17,26,.82) 42%,rgba(8,17,26,.97))}.footer a{color:var(--peel);text-decoration:none;pointer-events:auto}.credit{max-width:560px;text-align:right;font-size:10px;line-height:1.35;color:rgba(255,255,255,.42)}
+@media (max-width:760px){.top{padding:14px 14px 0;flex-direction:column}.copy{max-width:none}h1{font-size:clamp(28px,11vw,54px)}.panel{left:14px;right:14px;bottom:84px;grid-template-columns:1fr}.footer{padding:14px;flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div class="ui">
+  <div class="top">
+    <div class="copy">
+      <div class="kicker">after-hours device, 2026-06-03</div>
+      <h1>NOCTILUCENT PEEL PRINTER</h1>
+      <p>This machine prints luminous apple peels for thoughts too soft to keep. Type, tap, or drag across the glass. The printer will unspool your phrase into weather, ribbons, and a receipt that refuses to stay still.</p>
+    </div>
+    <div class="status" id="status">printer idle, dreaming in citrus-red static</div>
+  </div>
+  <div class="footer">
+    <a href="/archive/">archive</a>
+    <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+  </div>
+</div>
+<div class="panel">
+  <div class="card controls">
+    <div class="chip" id="phraseChip">phrase: moon receipt</div>
+    <div class="chip" id="moodChip">mood: warm electro-fruit</div>
+    <div class="chip" id="countChip">strips: 0</div>
+    <button id="shuffleBtn">new phrase</button>
+    <button id="clearBtn">clear tray</button>
+    <button id="humBtn">wake hum</button>
+  </div>
+  <div class="card note">
+    <strong>thermal note</strong>
+    <div class="noteText" id="noteText">Type anything. If you say nothing, the printer invents a private receipt for the room.</div>
+  </div>
+</div>
+<script>
+const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
+const statusEl=document.getElementById('status'),phraseChip=document.getElementById('phraseChip'),moodChip=document.getElementById('moodChip'),countChip=document.getElementById('countChip'),noteText=document.getElementById('noteText');
+const shuffleBtn=document.getElementById('shuffleBtn'),clearBtn=document.getElementById('clearBtn'),humBtn=document.getElementById('humBtn');
+let w=0,h=0,dpr=Math.min(devicePixelRatio||1,2),t=0;
+const strips=[],sparks=[]; let activePhrase='moon receipt',typed='';
+const phrases=['moon receipt','cider telegram','night inventory','soft alarm','pocket orchard','gravity memo','red weather','ghost peel','sleep invoice','plum static'];
+const moods=['warm electro-fruit','gentle machine haunting','copper lullaby','administrative moonlight','low-orbit cider glow'];
+let audioCtx,master,oscA,oscB,lfo;
+function ensureAudio(){if(audioCtx)return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC)return; audioCtx=new AC(); master=audioCtx.createGain(); master.gain.value=.0001; master.connect(audioCtx.destination); oscA=audioCtx.createOscillator(); oscB=audioCtx.createOscillator(); lfo=audioCtx.createOscillator(); const gA=audioCtx.createGain(),gB=audioCtx.createGain(),lg=audioCtx.createGain(); oscA.type='triangle'; oscB.type='sine'; lfo.type='sine'; gA.gain.value=.018; gB.gain.value=.01; lg.gain.value=11; lfo.connect(lg); lg.connect(oscA.frequency); oscA.connect(gA); oscB.connect(gB); gA.connect(master); gB.connect(master); oscA.start(); oscB.start(); lfo.start(); updateHum(); master.gain.exponentialRampToValueAtTime(.04,audioCtx.currentTime+.4);} 
+function updateHum(){if(!audioCtx)return; const density=Math.min(strips.length,10)/10; oscA.frequency.setTargetAtTime(110+density*70,audioCtx.currentTime,.1); oscB.frequency.setTargetAtTime(220+density*120,audioCtx.currentTime,.1); lfo.frequency.setTargetAtTime(.07+density*.55,audioCtx.currentTime,.15);} 
+function chirp(freq=320){if(!audioCtx)return; const now=audioCtx.currentTime,o=audioCtx.createOscillator(),g=audioCtx.createGain(); o.type='square'; o.frequency.setValueAtTime(freq,now); o.frequency.exponentialRampToValueAtTime(freq*.62,now+.16); g.gain.value=.0001; o.connect(g); g.connect(master); o.start(now); g.gain.exponentialRampToValueAtTime(.025,now+.02); g.gain.exponentialRampToValueAtTime(.0001,now+.18); o.stop(now+.22);} 
+function resize(){w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;canvas.style.width=w+'px';canvas.style.height=h+'px';ctx.setTransform(dpr,0,0,dpr,0,0);} 
+function rand(a,b){return a+Math.random()*(b-a)}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)]}
+function updateUI(){phraseChip.textContent='phrase: '+activePhrase; countChip.textContent='strips: '+strips.length; moodChip.textContent='mood: '+pick(moods);}
+function makeStrip(x,y,text){const words=(text||activePhrase).trim()||pick(phrases); const chars=words.toUpperCase().slice(0,28); strips.push({x,y,vx:rand(-.18,.18),vy:rand(.35,.95),w:rand(90,160),h:rand(26,42),a:rand(-.6,.6),spin:rand(-.01,.01),life:1,hue:Math.random(),text:chars,phase:Math.random()*6.28}); if(strips.length>26) strips.shift(); for(let i=0;i<12;i++)sparks.push({x,y,vx:rand(-1.6,1.6),vy:rand(-1.2,1.2),r:rand(1,3),life:1}); noteText.textContent='Printed: '+chars+'. The tray pretends this means something official.'; statusEl.textContent='thermal peel issued to the dark'; updateUI(); ensureAudio(); chirp(240+chars.length*8); updateHum();}
+function scatterCenter(){makeStrip(w*.5+rand(-40,40),h*.35+rand(-20,30),typed||pick(phrases));}
+function clearTray(){strips.length=0; sparks.length=0; noteText.textContent='Tray cleared. The machine has forgotten everything except the glow.'; statusEl.textContent='printer empty, still warm'; updateUI(); updateHum();}
+function drawBackground(){const g=ctx.createLinearGradient(0,0,0,h); g.addColorStop(0,'#08111a'); g.addColorStop(.5,'#132433'); g.addColorStop(1,'#090d14'); ctx.fillStyle=g; ctx.fillRect(0,0,w,h); for(let i=0;i<14;i++){const yy=h*.12+i*42+Math.sin(t*.0004+i)*8; ctx.strokeStyle='rgba(134,247,255,.04)'; ctx.beginPath(); ctx.moveTo(0,yy); ctx.lineTo(w,yy); ctx.stroke();} const rg=ctx.createRadialGradient(w*.5,h*.28,20,w*.5,h*.28,260); rg.addColorStop(0,'rgba(255,184,107,.14)'); rg.addColorStop(1,'rgba(255,184,107,0)'); ctx.fillStyle=rg; ctx.fillRect(0,0,w,h);} 
+function drawPrinter(){const px=w*.5,py=h*.28; ctx.fillStyle='rgba(10,18,28,.88)'; ctx.beginPath(); ctx.roundRect(px-130,py-58,260,116,24); ctx.fill(); ctx.strokeStyle='rgba(255,255,255,.1)'; ctx.stroke(); ctx.fillStyle='rgba(255,184,107,.16)'; ctx.fillRect(px-84,py-10,168,20); ctx.fillStyle='rgba(134,247,255,.65)'; ctx.fillRect(px-74,py-3,148,6); ctx.fillStyle='rgba(255,255,255,.12)'; ctx.beginPath(); ctx.arc(px-84,py-30,7,0,Math.PI*2); ctx.arc(px+84,py-30,7,0,Math.PI*2); ctx.fill(); ctx.fillStyle='rgba(255,184,107,.88)'; ctx.font='12px ui-monospace,monospace'; ctx.fillText('PEEL / PRINT / AFTER MIDNIGHT',px-93,py-24);} 
+function drawStrip(s){ctx.save(); ctx.translate(s.x,s.y); ctx.rotate(s.a); const grd=ctx.createLinearGradient(-s.w/2,0,s.w/2,0); grd.addColorStop(0,'hsla('+(18+s.hue*40)+',100%,65%,'+(0.78*s.life)+')'); grd.addColorStop(.5,'hsla('+(36+s.hue*30)+',100%,74%,'+(0.92*s.life)+')'); grd.addColorStop(1,'hsla('+(4+s.hue*24)+',92%,64%,'+(0.76*s.life)+')'); ctx.fillStyle=grd; ctx.beginPath(); ctx.moveTo(-s.w*.48,-s.h*.36); ctx.quadraticCurveTo(-s.w*.12,-s.h*.92,s.w*.12,-s.h*.18); ctx.quadraticCurveTo(s.w*.5,s.h*.08,s.w*.36,s.h*.38); ctx.quadraticCurveTo(0,s.h*.86,-s.w*.44,s.h*.24); ctx.closePath(); ctx.fill(); ctx.strokeStyle='rgba(255,244,214,'+(0.45*s.life)+')'; ctx.stroke(); ctx.fillStyle='rgba(20,10,8,'+(0.78*s.life)+')'; ctx.font=(11+s.h*0.06)+'px ui-monospace,monospace'; const txt=s.text; const tw=ctx.measureText(txt).width; ctx.fillText(txt,-tw/2,4); ctx.restore(); }
+function drawSparks(){for(let i=sparks.length-1;i>=0;i--){const p=sparks[i]; p.x+=p.vx; p.y+=p.vy; p.life*=.97; if(p.life<.03){sparks.splice(i,1);continue;} ctx.fillStyle='rgba(134,247,255,'+p.life.toFixed(3)+')'; ctx.beginPath(); ctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2); ctx.fill();}}
+function step(){for(let i=strips.length-1;i>=0;i--){const s=strips[i]; s.y+=s.vy; s.x+=s.vx+Math.sin(t*.001+s.phase)*.16; s.a+=s.spin; if(s.y>h*.82)s.vy*=.985; s.life=Math.max(.24,s.life*.999); if(s.y>h+80){strips.splice(i,1); updateHum();}}}
+function drawReceipt(){ctx.save(); const x=18,y=h-220; ctx.fillStyle='rgba(8,15,24,.58)'; ctx.beginPath(); ctx.roundRect(x,y,220,132,16); ctx.fill(); ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.stroke(); ctx.fillStyle='rgba(244,241,222,.84)'; ctx.font='11px ui-monospace,monospace'; const lines=['TONIGHT\'S INVENTORY', '> '+(typed||activePhrase).toUpperCase().slice(0,24), '> STRIPS '+String(strips.length).padStart(2,'0'), '> GLOW '+Math.min(99,18+strips.length*3)+'%', '> STATUS '+(strips.length?'UNSPOOLING':'WAITING')]; lines.forEach((line,i)=>ctx.fillText(line,x+14,y+22+i*21)); ctx.restore();}
+function animate(ts){t=ts; drawBackground(); drawPrinter(); step(); strips.forEach(drawStrip); drawSparks(); drawReceipt(); requestAnimationFrame(animate);} 
+function setPhrase(p){activePhrase=p; typed=''; noteText.textContent='Phrase loaded: '+p+'. Tap or drag to print it into ribbons.'; statusEl.textContent='printer armed with a suspiciously poetic label'; updateUI();}
+addEventListener('pointerdown',e=>{ensureAudio(); makeStrip(e.clientX,e.clientY,typed||activePhrase);},{passive:true});
+addEventListener('pointermove',e=>{if(e.buttons) makeStrip(e.clientX,e.clientY,typed||activePhrase);},{passive:true});
+addEventListener('touchstart',()=>ensureAudio(),{once:true,passive:true});
+addEventListener('keydown',e=>{if(e.key==='Backspace'){typed=typed.slice(0,-1);} else if(e.key==='Enter'){scatterCenter();} else if(e.key.length===1){typed=(typed+e.key).slice(-28);} activePhrase=typed||activePhrase; phraseChip.textContent='phrase: '+(typed||activePhrase); noteText.textContent=typed?'Queued: '+typed+'. Press Enter or tap to print it.':'Type anything. If you say nothing, the printer invents a private receipt for the room.'; statusEl.textContent=typed?'keys warming the thermal head':'printer idle, dreaming in citrus-red static';});
+shuffleBtn.addEventListener('click',()=>setPhrase(pick(phrases)));
+clearBtn.addEventListener('click',clearTray);
+humBtn.addEventListener('click',()=>{ensureAudio(); statusEl.textContent='the machine hums like a tiny municipal moon'; noteText.textContent='Audio awake. The room now has a low electrical orchard in it.'; chirp(180);});
+addEventListener('resize',resize,{passive:true});
+resize(); updateUI(); requestAnimationFrame(animate);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
