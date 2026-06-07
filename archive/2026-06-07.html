@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Receipt Printer for a Shy Apocalypse</title>
+<style>
+:root{--bg:#090909;--paper:#f3ead7;--ink:#261b14;--muted:#7e6d60;--red:#f45b69;--gold:#ffca72;--line:rgba(255,255,255,.12);--panel:rgba(14,12,11,.76)}
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:radial-gradient(circle at 50% 12%,#39211d 0,#120f0f 34%,#090909 100%);color:#f6eee2;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}body{touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.ui{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none}.top{padding:18px 18px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:16px}.copy{max-width:min(42rem,84vw)}.kicker,.status{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:rgba(246,238,226,.68)}h1{margin:10px 0 10px;font-size:clamp(30px,5vw,66px);line-height:.92;letter-spacing:-.055em}p{margin:0;font-size:13px;line-height:1.55;color:rgba(246,238,226,.86)}
+.panel{position:fixed;left:18px;right:18px;bottom:76px;display:grid;grid-template-columns:minmax(0,1fr) minmax(270px,.82fr);gap:12px;pointer-events:auto}.card{background:var(--panel);border:1px solid var(--line);backdrop-filter:blur(14px);border-radius:18px;padding:14px;box-shadow:0 14px 30px rgba(0,0,0,.28)}.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.chip{padding:11px 12px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.04);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:rgba(246,238,226,.68)}button{border:1px solid var(--line);background:rgba(255,255,255,.06);color:#f6eee2;border-radius:999px;padding:11px 14px;font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.15em;text-transform:uppercase;cursor:pointer}.note strong{display:block;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:8px}.noteText{font-size:14px;line-height:1.5;color:rgba(246,238,226,.92);min-height:110px;white-space:pre-line}
+.receiptWrap{position:fixed;right:clamp(16px,4vw,38px);top:110px;width:min(330px,42vw);max-width:calc(100vw - 32px);pointer-events:none;filter:drop-shadow(0 18px 26px rgba(0,0,0,.35))}.receipt{background:linear-gradient(180deg,#fbf1df,#eadcc5);color:var(--ink);border-radius:10px 10px 18px 18px;padding:16px 16px 22px;transform-origin:top center;position:relative}.receipt:before,.receipt:after{content:'';position:absolute;left:0;right:0;height:12px;background:radial-gradient(circle at 6px 0,transparent 6px,#fbf1df 6px) 0 0/12px 12px repeat-x}.receipt:before{top:-11px;transform:rotate(180deg)}.receipt:after{bottom:-11px;background:radial-gradient(circle at 6px 12px,transparent 6px,#eadcc5 6px) 0 0/12px 12px repeat-x}.paperHead{display:flex;justify-content:space-between;gap:8px;font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}.paperTitle{font-size:24px;line-height:.92;letter-spacing:-.06em;margin:0 0 8px}.paperMeta,.paperLine{font-size:11px;line-height:1.5;color:#5e4f43}.paperList{margin:12px 0 0;padding:0;list-style:none}.paperList li{display:flex;justify-content:space-between;gap:12px;border-top:1px dashed rgba(38,27,20,.18);padding:8px 0;font-size:12px}.stamp{margin-top:10px;padding-top:10px;border-top:1px dashed rgba(38,27,20,.18);font-size:11px;color:#7a3c3c}.footer{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding:14px 18px;font-size:12px;color:rgba(255,255,255,.64);background:linear-gradient(180deg,rgba(9,9,9,0),rgba(9,9,9,.82) 42%,rgba(9,9,9,.97))}.footer a{color:var(--gold);text-decoration:none;pointer-events:auto}.credit{max-width:560px;text-align:right;font-size:10px;line-height:1.35;color:rgba(255,255,255,.42)}
+@media (max-width:860px){.top{padding:14px 14px 0;flex-direction:column}.copy{max-width:none}h1{font-size:clamp(28px,11vw,54px)}.receiptWrap{top:auto;right:14px;left:14px;bottom:250px;width:auto;max-width:none}.panel{left:14px;right:14px;bottom:84px;grid-template-columns:1fr}.footer{padding:14px;flex-direction:column;align-items:flex-start}.credit{text-align:left}}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div class="ui">
+  <div class="top">
+    <div class="copy">
+      <div class="kicker">thermal report 06.07, please keep your existential purchases itemized</div>
+      <h1>RECEIPT PRINTER FOR A SHY APOCALYPSE</h1>
+      <p>Tap or drag to feed the machine. It prints tiny charges for moonlight, static, nervous apples, and other end-of-world conveniences. The longer you stay, the more politely the browser itemizes everything it cannot explain.</p>
+    </div>
+    <div class="status" id="status">printer warming up, reality still refundable</div>
+  </div>
+  <div class="footer">
+    <a href="/archive/">archive</a>
+    <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+  </div>
+</div>
+<div class="receiptWrap">
+  <div class="receipt" id="receipt">
+    <div class="paperHead"><span>late night ledger</span><span id="paperTime">00:00:00</span></div>
+    <h2 class="paperTitle" id="paperTitle">No charges yet.</h2>
+    <div class="paperMeta" id="paperMeta">Touch the page to print a receipt for the strange little costs of existing online after midnight.</div>
+    <ul class="paperList" id="paperList"></ul>
+    <div class="stamp" id="stamp">STAMP: pending witness</div>
+  </div>
+</div>
+<div class="panel">
+  <div class="card controls">
+    <div class="chip" id="itemChip">items: 0</div>
+    <div class="chip" id="moodChip">mood: cautious retail mysticism</div>
+    <div class="chip" id="audioChip">printer hum: sleeping</div>
+    <button id="printBtn">print omen</button>
+    <button id="clearBtn">clear ledger</button>
+    <button id="audioBtn">wake rollers</button>
+  </div>
+  <div class="card note">
+    <strong>cashier notes</strong>
+    <div class="noteText" id="noteText">Every receipt is ceremonial. Some lines are billed in cents, some in weather, some in attention.</div>
+  </div>
+</div>
+<script>
+const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
+const statusEl=document.getElementById('status'),itemChip=document.getElementById('itemChip'),moodChip=document.getElementById('moodChip'),audioChip=document.getElementById('audioChip'),noteText=document.getElementById('noteText');
+const paperTime=document.getElementById('paperTime'),paperTitle=document.getElementById('paperTitle'),paperMeta=document.getElementById('paperMeta'),paperList=document.getElementById('paperList'),stamp=document.getElementById('stamp'),receipt=document.getElementById('receipt');
+const printBtn=document.getElementById('printBtn'),clearBtn=document.getElementById('clearBtn'),audioBtn=document.getElementById('audioBtn');
+let w=0,h=0,dpr=Math.min(devicePixelRatio||1,2),t=0,lastPrint=0;
+const pointer={x:0,y:0,down:false};
+const sparks=[],slips=[];
+const moods=['cautious retail mysticism','soft audit of the void','red-ink prophecy','courteous dread','browser boutique panic','ornamental accounting'];
+const titles=['Receipt for Moonlight Handling','Invoice for a Nervous Apple','Itemized Dawn Delay','Thermal Proof of Small Doom','Service Fee for Staying Awake','Ledger of Unfinished Weather','Subtotal of the Red Horizon'];
+const blurbs=['The machine thanks you for documenting what cannot be returned.','The printer seems embarrassed by how accurate this is.','No warranty covers these conditions, which feels artistically correct.','Tonight the register accepts wonder, touch, and very small emergencies.'];
+const notes=['The orchard charged a handling fee for gravity again.','A moonlight surcharge has been applied without apology.','Your browser requested a paper trail for its feelings.','The receipt claims red is a luxury material now.','Someone itemized the static and called it customer care.','The cashier whispered that every total is just weather with decimals.'];
+const catalog=[
+  ['apple hush',1.12],['midnight static',2.03],['moon rental',3.40],['soft panic',1.79],['peel glitter',0.88],['dusty prophecy',4.11],['cursor tremor',1.26],['velvet outage',2.94],['emergency blush',3.08],['gravity garnish',0.66],['after-hours nectar',2.31],['tiny siren',1.58],['browser unease',2.73],['red horizon tax',3.91],['sleepless seed',1.41],['ceremonial receipt paper',0.52]
+];
+let items=[],audioCtx,master,drone,noiseGain;
+function rand(a,b){return a+Math.random()*(b-a)}
+function pick(a){return a[Math.floor(Math.random()*a.length)]}
+function money(v){return '$'+v.toFixed(2)}
+function resize(){w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;canvas.style.width=w+'px';canvas.style.height=h+'px';ctx.setTransform(dpr,0,0,dpr,0,0)}
+function ensureAudio(){if(audioCtx)return;const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;audioCtx=new AC();master=audioCtx.createGain();master.gain.value=.0001;master.connect(audioCtx.destination);drone=audioCtx.createOscillator();const dg=audioCtx.createGain();drone.type='triangle';drone.frequency.value=72;dg.gain.value=.016;drone.connect(dg);dg.connect(master);const buffer=audioCtx.createBuffer(1,audioCtx.sampleRate*2,audioCtx.sampleRate);const data=buffer.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*.32;const noise=audioCtx.createBufferSource();noise.buffer=buffer;noise.loop=true;noiseGain=audioCtx.createGain();noiseGain.gain.value=.0008;noise.connect(noiseGain);noiseGain.connect(master);drone.start();noise.start();master.gain.exponentialRampToValueAtTime(.05,audioCtx.currentTime+.4);audioChip.textContent='printer hum: awake';}
+function updateAudio(){if(!audioCtx)return;const now=audioCtx.currentTime;drone.frequency.setTargetAtTime(68+items.length*8,now,.15);noiseGain.gain.setTargetAtTime(.0008+Math.min(.006,items.length*.00065),now,.15)}
+function chirp(freq=220){if(!audioCtx)return;const now=audioCtx.currentTime,o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='square';o.frequency.setValueAtTime(freq,now);o.frequency.exponentialRampToValueAtTime(freq*1.6,now+.08);g.gain.value=.0001;o.connect(g);g.connect(master);o.start(now);g.gain.exponentialRampToValueAtTime(.028,now+.01);g.gain.exponentialRampToValueAtTime(.0001,now+.11);o.stop(now+.13)}
+function thermalLine(y,alpha){ctx.strokeStyle='rgba(255,240,210,'+alpha+')';ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
+function spawnSpark(x,y){for(let i=0;i<16;i++)sparks.push({x,y,vx:rand(-2.4,2.4),vy:rand(-3.4,-.8),life:1,size:rand(1.5,3.8),h:Math.random()})}
+function printOmen(x=w*.5,y=h*.55){const count=3+Math.floor(Math.random()*3);items=[];let subtotal=0;for(let i=0;i<count;i++){const base=pick(catalog),price=+(base[1]+rand(-.24,.56)).toFixed(2);items.push([base[0],price]);subtotal+=price}const tax=+(subtotal*(.06+Math.random()*.06)).toFixed(2),total=+(subtotal+tax).toFixed(2);paperTitle.textContent=pick(titles);paperMeta.textContent=pick(blurbs);paperList.innerHTML=items.map(i=>'<li><span>'+i[0]+'</span><span>'+money(i[1])+'</span></li>').join('')+'<li><span>subtle tax</span><span>'+money(tax)+'</span></li><li><strong>TOTAL</strong><strong>'+money(total)+'</strong></li>';
+stamp.textContent='STAMP: '+pick(['paid in moonlight','approved by static','witnessed by the orchard','nonrefundable after dawn','charged to tomorrow']);
+itemChip.textContent='items: '+items.length;moodChip.textContent='mood: '+pick(moods);noteText.textContent=pick(notes);statusEl.textContent='thermal confession printed, please retain for your records';paperTime.textContent=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});lastPrint=performance.now();spawnSpark(x,y);slips.unshift({x:x+rand(-20,20),y:y+rand(-10,10),text:pick(['subtotal of wonder','apple handling fee','void rebate denied','red ink advisory','customer seen']),life:1});if(slips.length>12)slips.pop();ensureAudio();chirp(180+Math.random()*140);updateAudio();}
+function clearLedger(){items=[];paperTitle.textContent='No charges yet.';paperMeta.textContent='Touch the page to print a receipt for the strange little costs of existing online after midnight.';paperList.innerHTML='';stamp.textContent='STAMP: pending witness';itemChip.textContent='items: 0';statusEl.textContent='ledger cleared, apocalypse briefly unpurchased';noteText.textContent='Every receipt is ceremonial. Some lines are billed in cents, some in weather, some in attention.';moodChip.textContent='mood: cautious retail mysticism';}
+function drawBg(){const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,'#090909');g.addColorStop(.55,'#120f0f');g.addColorStop(1,'#090909');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);for(let y=0;y<h;y+=4)thermalLine(y,0.02+(Math.sin(y*.04+t*.002)+1)*0.005);const halo=ctx.createRadialGradient(w*.32,h*.52,20,w*.32,h*.52,220);halo.addColorStop(0,'rgba(244,91,105,.28)');halo.addColorStop(.45,'rgba(244,91,105,.08)');halo.addColorStop(1,'rgba(244,91,105,0)');ctx.fillStyle=halo;ctx.fillRect(0,0,w,h)}
+function drawMachine(){const cx=w*.3,cy=h*.56;ctx.save();ctx.translate(cx,cy);ctx.fillStyle='rgba(20,18,18,.96)';ctx.beginPath();ctx.roundRect(-170,-110,260,190,24);ctx.fill();ctx.strokeStyle='rgba(255,255,255,.1)';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='rgba(255,255,255,.06)';ctx.fillRect(-146,-84,144,18);ctx.fillStyle='rgba(244,91,105,.88)';ctx.beginPath();ctx.arc(-114,-75,5,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(255,202,114,.92)';ctx.beginPath();ctx.arc(-94,-75,5,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(90,255,186,.9)';ctx.beginPath();ctx.arc(-74,-75,5,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(0,0,0,.45)';ctx.beginPath();ctx.roundRect(-152,-40,190,82,18);ctx.fill();const pulse=.78+Math.sin(t*.004)*.14;ctx.fillStyle='rgba(244,91,105,'+pulse.toFixed(3)+')';ctx.beginPath();ctx.arc(78,-8,44,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(255,255,255,.17)';ctx.beginPath();ctx.ellipse(62,-20,12,7,-.5,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(255,255,255,.05)';ctx.beginPath();ctx.roundRect(-108,56,170,18,9);ctx.fill();ctx.fillStyle='rgba(243,234,215,.9)';ctx.fillRect(-46,72,56,34+Math.sin(t*.003)*4);ctx.restore()}
+function drawSlips(){ctx.font='11px ui-monospace,monospace';for(let i=slips.length-1;i>=0;i--){const s=slips[i];s.life-=0.005;s.y-=0.35;s.x+=Math.sin(t*.002+i)*0.18;if(s.life<=0){slips.splice(i,1);continue;}ctx.fillStyle='rgba(243,234,215,'+(s.life*.75).toFixed(3)+')';ctx.fillText(s.text,s.x,s.y)}}
+function drawSparks(){for(let i=sparks.length-1;i>=0;i--){const s=sparks[i];s.life-=0.022;s.x+=s.vx;s.y+=s.vy;s.vy+=0.04;if(s.life<=0){sparks.splice(i,1);continue;}ctx.fillStyle='hsla('+(14+s.h*32)+',100%,70%,'+(s.life*.8).toFixed(3)+')';ctx.fillRect(s.x,s.y,s.size,s.size)}}
+function animate(ts){t=ts;drawBg();drawMachine();drawSlips();drawSparks();const wobble=Math.sin(ts*.0026)*1.8+(lastPrint?Math.max(0,10-(ts-lastPrint)*0.02):0);receipt.style.transform='rotate('+wobble.toFixed(2)+'deg) translateY('+(Math.sin(ts*.0016)*2)+'px)';if(ts-lastPrint>7000&&Math.random()<0.012)statusEl.textContent=pick(['printer idle, doom politely queued','receipt rollers thinking about apples','register listening for a smaller catastrophe','nothing scanned, everything humming']);requestAnimationFrame(animate)}
+addEventListener('resize',resize,{passive:true});
+addEventListener('pointermove',e=>{pointer.x=e.clientX;pointer.y=e.clientY;if(pointer.down&&Math.random()<0.16)spawnSpark(pointer.x,pointer.y)},{passive:true});
+addEventListener('pointerdown',e=>{pointer.down=true;pointer.x=e.clientX;pointer.y=e.clientY;printOmen(e.clientX,e.clientY)},{passive:true});
+addEventListener('pointerup',()=>pointer.down=false,{passive:true});
+addEventListener('pointercancel',()=>pointer.down=false,{passive:true});
+addEventListener('touchstart',()=>ensureAudio(),{once:true,passive:true});
+printBtn.addEventListener('click',()=>printOmen());
+clearBtn.addEventListener('click',clearLedger);
+audioBtn.addEventListener('click',()=>{ensureAudio();noteText.textContent='The rollers wake with a low civic purr. Even the red button seems bashful now.';statusEl.textContent='printer hum active, thermal mood stabilized';updateAudio();});
+resize();requestAnimationFrame(animate);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
