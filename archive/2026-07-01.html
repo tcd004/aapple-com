@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Cicada Choir for an Apple Moon</title>
+<style>
+:root{
+  --sky1:#07111f;
+  --sky2:#12314e;
+  --sky3:#f09c54;
+  --glow:#ffd978;
+  --leaf:#132c22;
+  --leaf2:#204739;
+  --text:#fff7e8;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:linear-gradient(180deg,var(--sky1),var(--sky2) 56%,var(--sky3));color:var(--text);font-family:Georgia,"Times New Roman",serif}
+body{touch-action:none}
+canvas,.veil,.grain,.hud{position:fixed;inset:0}
+.veil{
+  background:
+    radial-gradient(circle at 50% 18%,rgba(255,244,190,.18),transparent 26%),
+    radial-gradient(circle at 18% 16%,rgba(125,202,255,.12),transparent 24%),
+    linear-gradient(180deg,rgba(5,7,12,.1),rgba(5,7,12,.02) 38%,rgba(5,7,12,.18));
+  pointer-events:none;
+}
+.grain{
+  opacity:.08;
+  background-image:radial-gradient(rgba(255,255,255,.9) .5px,transparent .7px);
+  background-size:5px 5px;
+  mix-blend-mode:soft-light;
+  pointer-events:none;
+}
+.hud{
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  pointer-events:none;
+}
+.top{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:16px;
+  padding:18px 18px 0;
+}
+.copy{max-width:min(40rem,82vw)}
+.kicker,.status,.chip,button,.footer{font-family:"Courier New",Courier,monospace}
+.kicker,.status{
+  font-size:11px;
+  letter-spacing:.22em;
+  text-transform:uppercase;
+  color:rgba(255,247,232,.74);
+}
+h1{
+  margin:10px 0;
+  font-size:clamp(34px,6.6vw,76px);
+  line-height:.9;
+  letter-spacing:-.065em;
+  font-weight:600;
+}
+p{
+  margin:0;
+  font-size:14px;
+  line-height:1.55;
+  max-width:42rem;
+  color:rgba(255,247,232,.9);
+}
+.status{
+  max-width:min(18rem,32vw);
+  text-align:right;
+}
+.panel{
+  margin:0 16px 84px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(240px,.8fr);
+  gap:12px;
+  pointer-events:auto;
+}
+.card{
+  padding:14px;
+  border-radius:22px;
+  border:1px solid rgba(255,255,255,.14);
+  background:rgba(10,16,22,.26);
+  backdrop-filter:blur(12px);
+  box-shadow:0 16px 36px rgba(0,0,0,.2);
+}
+.controls{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:center;
+}
+.chip,button{
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.14);
+  padding:11px 13px;
+  font-size:11px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+.chip{
+  background:rgba(255,255,255,.07);
+  color:rgba(255,247,232,.78);
+}
+button{
+  background:rgba(255,255,255,.1);
+  color:var(--text);
+  cursor:pointer;
+}
+.note strong{
+  display:block;
+  margin-bottom:8px;
+  color:var(--glow);
+  font-size:12px;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  font-family:"Courier New",Courier,monospace;
+}
+.noteText{
+  min-height:94px;
+  font-size:15px;
+  line-height:1.5;
+  color:rgba(255,247,232,.94);
+}
+.footer{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  gap:12px;
+  padding:14px 18px;
+  font-size:12px;
+  color:rgba(255,247,232,.68);
+  background:linear-gradient(180deg,rgba(7,17,31,0),rgba(7,17,31,.5) 26%,rgba(7,17,31,.92));
+}
+.footer a{color:var(--glow);text-decoration:none;pointer-events:auto}
+.credit{
+  max-width:560px;
+  text-align:right;
+  font-size:10px;
+  line-height:1.35;
+  color:rgba(255,247,232,.44);
+}
+@media (max-width:820px){
+  .top{padding:14px 14px 0;flex-direction:column}
+  .status{text-align:left;max-width:none}
+  .panel{grid-template-columns:1fr;margin:0 14px 86px}
+  .footer{padding:14px;flex-direction:column;align-items:flex-start}
+  .credit{text-align:left}
+}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div class="veil"></div>
+<div class="grain"></div>
+
+<div class="hud">
+  <div class="top">
+    <div class="copy">
+      <div class="kicker">field recording 07.01, summer arrives wearing static and gold dust</div>
+      <h1>CICADA CHOIR FOR AN APPLE MOON</h1>
+      <p>Drag across the orchard to stir up fireflies. They gather like improvised sheet music, waking the trees, the insects, and a suspiciously apple-shaped moon that has been pretending to be ordinary.</p>
+    </div>
+    <div class="status" id="status">orchard listening, choir asleep in the leaves</div>
+  </div>
+
+  <div class="panel">
+    <div class="card controls">
+      <div class="chip" id="swarmChip">fireflies: 0</div>
+      <div class="chip" id="choirChip">choir: hush</div>
+      <div class="chip" id="moonChip">moon: unbothered</div>
+      <button id="bloomBtn">stir the trees</button>
+      <button id="settleBtn">let night settle</button>
+      <button id="audioBtn">wake cicadas</button>
+    </div>
+    <div class="card note">
+      <strong>night note</strong>
+      <div class="noteText" id="noteText">The first minute of July arrives all at once: green-black leaves, amber noise, and a moon trying not to look edible.</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <a href="/archive/">archive</a>
+    <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+  </div>
+</div>
+
+<script>
+const canvas=document.getElementById('scene');
+const ctx=canvas.getContext('2d');
+const statusEl=document.getElementById('status');
+const swarmChip=document.getElementById('swarmChip');
+const choirChip=document.getElementById('choirChip');
+const moonChip=document.getElementById('moonChip');
+const noteText=document.getElementById('noteText');
+const bloomBtn=document.getElementById('bloomBtn');
+const settleBtn=document.getElementById('settleBtn');
+const audioBtn=document.getElementById('audioBtn');
+
+const notes=[
+  'The first minute of July arrives all at once: green-black leaves, amber noise, and a moon trying not to look edible.',
+  'Every firefly behaves like a tiny stage direction for the trees.',
+  'The orchard keeps composing around your hand as if touch were a tuning fork.',
+  'Somewhere above the branches, the moon is working very hard to pass as a lantern with a stem.',
+  'Night insects treat the whole sky like a score written in sugar and static.'
+];
+
+let w=0,h=0,dpr=Math.min(2,window.devicePixelRatio||1);
+let t=0;
+let pointer={x:0,y:0,down:false};
+let idle=0;
+let audioCtx,master,drone,noiseGain,voices=[],audioOn=false;
+const fireflies=[];
+const ripples=[];
+const stars=[];
+const hills=[];
+const treeBands=[];
+
+function rand(a,b){return a+Math.random()*(b-a)}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)]}
+
+function resize(){
+  w=innerWidth;
+  h=innerHeight;
+  canvas.width=w*dpr;
+  canvas.height=h*dpr;
+  canvas.style.width=w+'px';
+  canvas.style.height=h+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  buildLandscape();
+}
+
+function buildLandscape(){
+  stars.length=0;
+  hills.length=0;
+  treeBands.length=0;
+  const skyCount=Math.max(36,Math.floor(w/28));
+  for(let i=0;i<skyCount;i++)stars.push({x:rand(0,w),y:rand(0,h*.52),r:rand(.6,2.2),a:rand(.2,.9),s:rand(.2,1)});
+  hills.push({y:h*.62,color:'#13271f',amp:h*.032,freq:.012,phase:0});
+  hills.push({y:h*.71,color:'#173428',amp:h*.04,freq:.016,phase:1.4});
+  hills.push({y:h*.82,color:'#102219',amp:h*.05,freq:.02,phase:2.2});
+  for(let band=0;band<3;band++){
+    const row=[];
+    const count=Math.max(10,Math.floor(w/(band===0?86:band===1?72:58)));
+    for(let i=0;i<=count;i++){
+      row.push({
+        x:i*(w/count)+rand(-10,10),
+        h:rand(h*(.11+band*.018),h*(.2+band*.028)),
+        sway:rand(.6,1.5),
+        crown:rand(18,40)
+      });
+    }
+    treeBands.push(row);
+  }
+}
+
+function moonCenter(){
+  return {x:w*.76,y:h*.23,r:Math.min(w,h)*.1};
+}
+
+function appleMoonMaskPath(cx,cy,r){
+  ctx.beginPath();
+  ctx.arc(cx-r*.28,cy+r*.02,r*.72,0,Math.PI*2);
+  ctx.arc(cx+r*.28,cy+r*.02,r*.72,0,Math.PI*2);
+  ctx.arc(cx,cy+r*.28,r*.7,0,Math.PI);
+  ctx.closePath();
+}
+
+function drawSky(){
+  const g=ctx.createLinearGradient(0,0,0,h);
+  g.addColorStop(0,'#07111f');
+  g.addColorStop(.5,'#12314e');
+  g.addColorStop(.78,'#26586a');
+  g.addColorStop(1,'#f09c54');
+  ctx.fillStyle=g;
+  ctx.fillRect(0,0,w,h);
+
+  const dawn=ctx.createRadialGradient(w*.5,h*.98,10,w*.5,h*.98,h*.68);
+  dawn.addColorStop(0,'rgba(255,210,132,.45)');
+  dawn.addColorStop(.45,'rgba(255,168,96,.16)');
+  dawn.addColorStop(1,'rgba(255,168,96,0)');
+  ctx.fillStyle=dawn;
+  ctx.fillRect(0,0,w,h);
+
+  stars.forEach(s=>{
+    const pulse=s.a+(Math.sin(t*.0012*s.s+s.x)*.16);
+    ctx.fillStyle='rgba(255,248,220,'+Math.max(.08,pulse).toFixed(3)+')';
+    ctx.beginPath();
+    ctx.arc(s.x,s.y,s.r+Math.sin(t*.0015+s.y)*.12,0,Math.PI*2);
+    ctx.fill();
+  });
+
+  const m=moonCenter();
+  const moonGlow=ctx.createRadialGradient(m.x,m.y,m.r*.18,m.x,m.y,m.r*1.55);
+  moonGlow.addColorStop(0,'rgba(255,246,188,.96)');
+  moonGlow.addColorStop(.35,'rgba(255,222,126,.75)');
+  moonGlow.addColorStop(.72,'rgba(255,203,115,.12)');
+  moonGlow.addColorStop(1,'rgba(255,203,115,0)');
+  ctx.fillStyle=moonGlow;
+  ctx.beginPath();
+  ctx.arc(m.x,m.y,m.r*1.55,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.save();
+  appleMoonMaskPath(m.x,m.y,m.r);
+  ctx.clip();
+  const moonFill=ctx.createLinearGradient(m.x,m.y-m.r,m.x,m.y+m.r);
+  moonFill.addColorStop(0,'#fff4c9');
+  moonFill.addColorStop(.6,'#ffd98a');
+  moonFill.addColorStop(1,'#ffbf67');
+  ctx.fillStyle=moonFill;
+  ctx.fillRect(m.x-m.r*1.2,m.y-m.r*1.2,m.r*2.4,m.r*2.4);
+  for(let i=0;i<6;i++){
+    ctx.fillStyle='rgba(255,186,102,'+(0.07+i*.02).toFixed(2)+')';
+    ctx.beginPath();
+    ctx.arc(m.x+rand(-m.r*.4,m.r*.4),m.y+rand(-m.r*.3,m.r*.5),rand(m.r*.09,m.r*.2),0,Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  ctx.strokeStyle='rgba(110,74,28,.7)';
+  ctx.lineWidth=Math.max(2,m.r*.06);
+  ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(m.x+m.r*.06,m.y-m.r*.7);
+  ctx.quadraticCurveTo(m.x+m.r*.1,m.y-m.r*.98,m.x+m.r*.28,m.y-m.r*.88);
+  ctx.stroke();
+}
+
+function drawHill(baseY,color,amp,freq,phase){
+  ctx.fillStyle=color;
+  ctx.beginPath();
+  ctx.moveTo(0,h);
+  ctx.lineTo(0,baseY);
+  for(let x=0;x<=w;x+=8){
+    const y=baseY+Math.sin(x*freq+phase+t*.00012)*(amp*.4)+Math.sin(x*(freq*.33)+phase*2)*(amp*.6);
+    ctx.lineTo(x,y);
+  }
+  ctx.lineTo(w,h);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawTrees(row,index){
+  const base=h*(.67+index*.085);
+  ctx.fillStyle=index===0?'#0f231b':index===1?'#143026':'#0b1a14';
+  row.forEach((tree,i)=>{
+    const sway=Math.sin(t*.001*tree.sway+i)*5;
+    const trunkW=Math.max(3,tree.crown*.16);
+    ctx.fillRect(tree.x+sway,base-tree.h,trunkW,tree.h);
+    ctx.beginPath();
+    ctx.arc(tree.x+sway+trunkW*.5,base-tree.h+tree.crown*.4,tree.crown,0,Math.PI*2);
+    ctx.arc(tree.x+sway-tree.crown*.55+trunkW*.5,base-tree.h+tree.crown*.72,tree.crown*.78,0,Math.PI*2);
+    ctx.arc(tree.x+sway+tree.crown*.58+trunkW*.5,base-tree.h+tree.crown*.72,tree.crown*.74,0,Math.PI*2);
+    ctx.arc(tree.x+sway+trunkW*.5,base-tree.h+tree.crown*1.05,tree.crown*.84,0,Math.PI*2);
+    ctx.fill();
+  });
+}
+
+function addFireflies(x,y,count,burst){
+  for(let i=0;i<count;i++){
+    fireflies.push({
+      x:x+rand(-24,24),
+      y:y+rand(-18,18),
+      vx:rand(-.8,.8),
+      vy:rand(-1.1,1.1),
+      life:1,
+      age:0,
+      seed:Math.random()*10,
+      hue:rand(42,58),
+      targetX:null,
+      targetY:null,
+      burst
+    });
+  }
+  while(fireflies.length>160)fireflies.shift();
+}
+
+function spiralBloom(){
+  const cx=w*.48,cy=h*.56;
+  for(let i=0;i<54;i++){
+    const a=i*.44;
+    const r=8+i*4.3;
+    const x=cx+Math.cos(a)*r;
+    const y=cy+Math.sin(a)*r*.56;
+    addFireflies(x,y,1,true);
+  }
+  ripple(cx,cy,1.2);
+  noteText.textContent=pick(notes);
+  statusEl.textContent='the trees answer in amber punctuation';
+  ensureAudio();
+  chirp(480);
+}
+
+function ripple(x,y,strength){
+  ripples.push({x,y,r:8,life:1,s:strength});
+  if(ripples.length>12)ripples.shift();
+}
+
+function ensureAudio(){
+  if(audioCtx)return;
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC)return;
+  audioCtx=new AC();
+  master=audioCtx.createGain();
+  master.gain.value=.0001;
+  master.connect(audioCtx.destination);
+
+  drone=audioCtx.createOscillator();
+  const droneGain=audioCtx.createGain();
+  drone.type='triangle';
+  drone.frequency.value=117;
+  droneGain.gain.value=.016;
+  drone.connect(droneGain);
+  droneGain.connect(master);
+  drone.start();
+
+  const buffer=audioCtx.createBuffer(1,audioCtx.sampleRate*2,audioCtx.sampleRate);
+  const data=buffer.getChannelData(0);
+  for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*.2;
+  const noise=audioCtx.createBufferSource();
+  noise.buffer=buffer;
+  noise.loop=true;
+  noiseGain=audioCtx.createGain();
+  noiseGain.gain.value=.0001;
+  noise.connect(noiseGain);
+  noiseGain.connect(master);
+  noise.start();
+
+  const scale=[523.25,659.25,783.99,880,1046.5];
+  for(let i=0;i<4;i++){
+    const osc=audioCtx.createOscillator();
+    const gain=audioCtx.createGain();
+    osc.type=i%2?'sine':'triangle';
+    osc.frequency.value=scale[i];
+    gain.gain.value=.0001;
+    osc.connect(gain);
+    gain.connect(master);
+    osc.start();
+    voices.push({osc,gain});
+  }
+  master.gain.exponentialRampToValueAtTime(.06,audioCtx.currentTime+.5);
+  audioOn=true;
+  choirChip.textContent='choir: awake';
+}
+
+function chirp(freq){
+  if(!audioCtx)return;
+  const now=audioCtx.currentTime;
+  const osc=audioCtx.createOscillator();
+  const gain=audioCtx.createGain();
+  osc.type='triangle';
+  osc.frequency.setValueAtTime(freq,now);
+  osc.frequency.exponentialRampToValueAtTime(freq*1.5,now+.04);
+  osc.frequency.exponentialRampToValueAtTime(freq*.72,now+.17);
+  gain.gain.value=.0001;
+  osc.connect(gain);
+  gain.connect(master);
+  osc.start(now);
+  gain.gain.exponentialRampToValueAtTime(.018,now+.01);
+  gain.gain.exponentialRampToValueAtTime(.0001,now+.22);
+  osc.stop(now+.24);
+}
+
+function updateAudio(){
+  if(!audioCtx)return;
+  const now=audioCtx.currentTime;
+  const density=Math.min(1,fireflies.length/120);
+  drone.frequency.setTargetAtTime(110+density*32+Math.sin(t*.00035)*4,now,.14);
+  noiseGain.gain.setTargetAtTime(.001+density*.006,now,.2);
+  voices.forEach((voice,i)=>{
+    const lift=.001+(density*.008*(i===0?1:i===1?.9:i===2?.7:.5));
+    voice.gain.gain.setTargetAtTime(lift,now,.22);
+    voice.osc.detune.setTargetAtTime(Math.sin(t*.0008+i*2.2)*18,now,.18);
+  });
+}
+
+function drawRipples(){
+  for(let i=ripples.length-1;i>=0;i--){
+    const p=ripples[i];
+    p.r+=1.4+p.s;
+    p.life-=0.02;
+    if(p.life<=0){ripples.splice(i,1);continue;}
+    ctx.strokeStyle='rgba(255,225,140,'+(p.life*.35).toFixed(3)+')';
+    ctx.lineWidth=1.2;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.stroke();
+  }
+}
+
+function updateFireflies(){
+  const m=moonCenter();
+  let clustered=0;
+  for(let i=fireflies.length-1;i>=0;i--){
+    const f=fireflies[i];
+    f.age+=1;
+    f.life=Math.max(.18,f.life-.0012);
+    const dx=pointer.x-f.x;
+    const dy=pointer.y-f.y;
+    const dist=Math.hypot(dx,dy)||1;
+    if(pointer.down&&dist<120){
+      f.vx+=(dx/dist)*.014;
+      f.vy+=(dy/dist)*.014;
+    }
+    const mdx=m.x-f.x;
+    const mdy=m.y-f.y;
+    const md=Math.hypot(mdx,mdy)||1;
+    if(md<m.r*2.2){
+      f.vx+=(mdx/md)*.01;
+      f.vy+=(mdy/md)*.01;
+      clustered++;
+    }
+    f.vx+=Math.sin(t*.0014+f.seed)*.006;
+    f.vy+=Math.cos(t*.0011+f.seed*1.7)*.004;
+    f.vx*=.986;
+    f.vy*=.986;
+    f.x+=f.vx;
+    f.y+=f.vy;
+    if(f.x<0)f.x+=w;
+    if(f.x>w)f.x-=w;
+    if(f.y<0)f.y=0;
+    if(f.y>h*.94)f.y=h*.94;
+  }
+  moonChip.textContent=clustered>24?'moon: humming':clustered>10?'moon: listening':'moon: unbothered';
+}
+
+function drawFireflies(){
+  fireflies.forEach((f,i)=>{
+    const pulse=.45+Math.sin(t*.005+f.seed*4+i)*.35;
+    const glow=2.5+pulse*6;
+    const grad=ctx.createRadialGradient(f.x,f.y,0,f.x,f.y,glow);
+    grad.addColorStop(0,'hsla('+f.hue+',100%,74%,'+Math.min(.95,.4+pulse).toFixed(3)+')');
+    grad.addColorStop(.45,'hsla('+f.hue+',100%,65%,'+(.18+pulse*.12).toFixed(3)+')');
+    grad.addColorStop(1,'hsla('+f.hue+',100%,60%,0)');
+    ctx.fillStyle=grad;
+    ctx.beginPath();
+    ctx.arc(f.x,f.y,glow,0,Math.PI*2);
+    ctx.fill();
+  });
+}
+
+function drawLandscape(){
+  hills.forEach(hill=>drawHill(hill.y,hill.color,hill.amp,hill.freq,hill.phase));
+  treeBands.forEach((row,index)=>drawTrees(row,index));
+}
+
+function updateUI(){
+  swarmChip.textContent='fireflies: '+fireflies.length;
+  if(fireflies.length>110)statusEl.textContent='the whole orchard has become sheet music';
+  else if(fireflies.length>58)statusEl.textContent='cicadas arguing lovingly with the moon';
+  else if(pointer.down)statusEl.textContent='your hand is rewriting the summer air';
+  if(audioOn)updateAudio();
+}
+
+function animate(ts){
+  t=ts;
+  drawSky();
+  drawRipples();
+  drawLandscape();
+  updateFireflies();
+  drawFireflies();
+  updateUI();
+  idle++;
+  if(!pointer.down&&idle%240===0&&fireflies.length<40){
+    addFireflies(rand(w*.18,w*.82),rand(h*.35,h*.8),8,false);
+  }
+  requestAnimationFrame(animate);
+}
+
+function stirAt(x,y){
+  addFireflies(x,y,8+Math.floor(Math.random()*5),false);
+  ripple(x,y,.35);
+  idle=0;
+  if(audioOn&&Math.random()<.5)chirp(420+Math.random()*200);
+}
+
+addEventListener('pointerdown',e=>{
+  pointer.down=true;
+  pointer.x=e.clientX;
+  pointer.y=e.clientY;
+  stirAt(pointer.x,pointer.y);
+  ensureAudio();
+},{passive:true});
+
+addEventListener('pointermove',e=>{
+  pointer.x=e.clientX;
+  pointer.y=e.clientY;
+  if(pointer.down&&Math.random()<.92)stirAt(pointer.x,pointer.y);
+},{passive:true});
+
+addEventListener('pointerup',()=>pointer.down=false,{passive:true});
+addEventListener('pointercancel',()=>pointer.down=false,{passive:true});
+addEventListener('resize',resize,{passive:true});
+
+bloomBtn.addEventListener('click',spiralBloom);
+settleBtn.addEventListener('click',()=>{
+  fireflies.splice(0,Math.max(0,fireflies.length-12));
+  ripples.length=0;
+  noteText.textContent='The orchard exhales. Even the bugs begin sounding like velvet instead of sparks.';
+  statusEl.textContent='night settling back into the branches';
+  moonChip.textContent='moon: unbothered';
+});
+audioBtn.addEventListener('click',()=>{
+  ensureAudio();
+  noteText.textContent='The cicadas wake politely, then immediately forget how to be subtle.';
+  statusEl.textContent='choir active, leaves contributing percussion';
+  chirp(530);
+});
+
+resize();
+spiralBloom();
+requestAnimationFrame(animate);
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
