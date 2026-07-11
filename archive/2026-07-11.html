@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>00:05 and the Minute Hand Starts Snacking</title>
+<style>
+:root{
+  --paper:#f4efe2;
+  --ink:#111111;
+  --red:#d94a2f;
+  --gold:#d2a146;
+  --line:rgba(17,17,17,.14);
+  --soft:rgba(17,17,17,.62);
+}
+*{box-sizing:border-box}
+html,body{
+  margin:0;
+  min-height:100%;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(255,255,255,.6), transparent 28%),
+    linear-gradient(180deg,#f8f5ec 0,#efe8d7 45%,#e7ddc4 100%);
+  color:var(--ink);
+  font-family:Georgia,"Times New Roman",serif;
+}
+body{overflow:hidden;touch-action:none}
+.grain,.halo,.hud,.footer,.veil{position:fixed;inset:0}
+.grain{
+  background-image:radial-gradient(rgba(0,0,0,.09) .65px,transparent .8px);
+  background-size:6px 6px;
+  opacity:.18;
+  mix-blend-mode:multiply;
+  pointer-events:none;
+}
+.halo{
+  background:
+    radial-gradient(circle at 50% 50%, rgba(210,161,70,.22), transparent 24%),
+    radial-gradient(circle at 50% 52%, rgba(217,74,47,.1), transparent 36%);
+  pointer-events:none;
+}
+.veil{
+  background:linear-gradient(180deg,rgba(255,255,255,.1),transparent 26%,rgba(0,0,0,.08) 100%);
+  pointer-events:none;
+}
+.hud{
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+}
+.top{
+  display:flex;
+  justify-content:space-between;
+  gap:18px;
+  padding:18px 18px 0;
+  position:relative;
+  z-index:3;
+}
+.copy{max-width:min(44rem,82vw)}
+.kicker,.status,.chip,button,.footer,.tiny,.legend{font-family:"Courier New",Courier,monospace}
+.kicker,.status,.tiny{
+  font-size:11px;
+  letter-spacing:.22em;
+  text-transform:uppercase;
+  color:var(--soft);
+}
+h1{
+  margin:10px 0 10px;
+  font-size:clamp(34px,6.8vw,82px);
+  line-height:.9;
+  letter-spacing:-.07em;
+  font-weight:600;
+}
+p{
+  margin:0;
+  max-width:42rem;
+  font-size:15px;
+  line-height:1.55;
+  color:rgba(17,17,17,.84);
+}
+.status{
+  max-width:min(18rem,33vw);
+  text-align:right;
+}
+.stage{
+  flex:1;
+  display:grid;
+  place-items:center;
+  padding:20px 16px 98px;
+  position:relative;
+}
+.clock{
+  width:min(80vw,80vh,760px);
+  aspect-ratio:1;
+  border-radius:50%;
+  border:1px solid rgba(17,17,17,.18);
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,.72) 0 22%, transparent 22.5%),
+    radial-gradient(circle at 50% 50%, transparent 0 48%, rgba(17,17,17,.03) 48.2% 48.8%, transparent 49%),
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,.46), rgba(255,255,255,.12) 58%, rgba(0,0,0,.04) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.55),
+    0 30px 70px rgba(90,60,10,.12);
+  position:relative;
+}
+.face{
+  position:absolute;
+  inset:0;
+}
+.mark{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:2px;
+  height:18px;
+  margin-left:-1px;
+  transform-origin:50% calc(50% + min(40vw,40vh,380px));
+  background:rgba(17,17,17,.18);
+}
+.mark.major{height:28px;background:rgba(17,17,17,.32)}
+.num{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform-origin:center center;
+  font:12px/1 "Courier New",monospace;
+  color:rgba(17,17,17,.54);
+}
+.hand{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform-origin:18px 50%;
+  pointer-events:none;
+}
+.hand::before{
+  content:"";
+  display:block;
+  width:min(31vw,31vh,290px);
+  height:36px;
+  border-radius:999px;
+  background:linear-gradient(90deg,var(--ink) 0 70%,rgba(17,17,17,.24) 100%);
+  box-shadow:0 10px 24px rgba(0,0,0,.15);
+  clip-path:polygon(0 44%,88% 0,100% 50%,88% 100%,0 56%);
+}
+.hand::after{
+  content:"";
+  position:absolute;
+  right:4px;
+  top:50%;
+  width:34px;
+  height:34px;
+  margin-top:-17px;
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 35%, #ffb783, var(--red) 58%, #8d2614 100%);
+  box-shadow:inset -6px -6px 10px rgba(0,0,0,.16),0 4px 12px rgba(0,0,0,.14);
+}
+.pivot{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:32px;
+  height:32px;
+  margin:-16px;
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 35%, #fff7df, var(--gold) 60%, #8e6d2a 100%);
+  box-shadow:0 0 0 7px rgba(255,255,255,.6),0 8px 18px rgba(0,0,0,.12);
+}
+.apple{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:min(38vw,38vh,330px);
+  aspect-ratio:1/1.12;
+  transform:translate(-50%,-45%);
+  display:grid;
+  grid-template-columns:repeat(18,1fr);
+  gap:2px;
+  padding:8px;
+  pointer-events:none;
+  filter:drop-shadow(0 18px 30px rgba(0,0,0,.08));
+}
+.cell{
+  display:grid;
+  place-items:center;
+  font:700 clamp(8px,1vw,12px)/1 "Courier New",monospace;
+  color:rgba(17,17,17,.56);
+  border-radius:5px;
+  background:rgba(255,255,255,.24);
+  transition:transform .24s ease,background .24s ease,color .24s ease,opacity .24s ease;
+}
+.cell.hot{
+  color:#fff9ef;
+  background:var(--red);
+  transform:translateY(-1px);
+}
+.cell.glow{
+  background:var(--gold);
+  color:#271300;
+}
+.cell.ghost{
+  opacity:.12;
+  background:transparent;
+}
+.panel{
+  position:absolute;
+  left:50%;
+  bottom:88px;
+  transform:translateX(-50%);
+  width:min(980px,calc(100vw - 28px));
+  display:grid;
+  grid-template-columns:minmax(0,1.1fr) minmax(260px,.9fr);
+  gap:12px;
+  z-index:3;
+}
+.card{
+  padding:14px;
+  border-radius:24px;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.5);
+  backdrop-filter:blur(12px);
+  box-shadow:0 20px 40px rgba(77,53,17,.08);
+}
+.controls{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:center;
+}
+.chip,button{
+  border-radius:999px;
+  border:1px solid rgba(17,17,17,.14);
+  padding:11px 13px;
+  font-size:11px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+.chip{background:rgba(255,255,255,.62);color:rgba(17,17,17,.72)}
+button{
+  background:rgba(17,17,17,.07);
+  color:var(--ink);
+  cursor:pointer;
+}
+.note strong{
+  display:block;
+  margin-bottom:8px;
+  font:700 12px/1 "Courier New",monospace;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--red);
+}
+.noteText{
+  min-height:94px;
+  font-size:15px;
+  line-height:1.5;
+  color:rgba(17,17,17,.9);
+}
+.legend{
+  margin-top:10px;
+  font-size:10px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:rgba(17,17,17,.42);
+}
+.footer{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  gap:12px;
+  padding:14px 18px;
+  font-size:12px;
+  color:rgba(17,17,17,.62);
+  background:linear-gradient(180deg,rgba(244,239,226,0),rgba(244,239,226,.74) 34%,rgba(244,239,226,.96));
+  z-index:3;
+}
+.footer a{color:var(--red);text-decoration:none}
+.credit{
+  max-width:560px;
+  text-align:right;
+  font-size:10px;
+  line-height:1.35;
+  color:rgba(17,17,17,.42);
+}
+@media (max-width:820px){
+  .top{padding:14px 14px 0;flex-direction:column}
+  .status{text-align:left;max-width:none}
+  .stage{padding:8px 12px 182px}
+  .clock{width:min(92vw,76vh)}
+  .panel{
+    width:calc(100vw - 24px);
+    bottom:80px;
+    grid-template-columns:1fr;
+  }
+  .footer{padding:14px;flex-direction:column;align-items:flex-start}
+  .credit{text-align:left}
+  .apple{width:min(44vw,30vh,280px)}
+}
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<div class="halo"></div>
+<div class="veil"></div>
+
+<div class="hud">
+  <div class="top">
+    <div class="copy">
+      <div class="kicker">midnight maintenance bulletin 07.11, observed at exactly 00:05</div>
+      <h1>00:05 AND THE MINUTE HAND STARTS SNACKING</h1>
+      <p>Drag the clock face to wind the minute hand. Each pass takes a tiny bite from a typographic apple and turns the room a little more awake. If you like, unmute the mechanism and let the clock chew softly in public.</p>
+    </div>
+    <div class="status" id="status">clock behaving normally, fruit slightly nervous</div>
+  </div>
+
+  <div class="stage">
+    <div class="clock" id="clock">
+      <div class="face" id="face"></div>
+      <div class="apple" id="apple"></div>
+      <div class="hand" id="hand"></div>
+      <div class="pivot"></div>
+    </div>
+
+    <div class="panel">
+      <div class="card controls">
+        <div class="chip" id="minuteChip">minute: 05</div>
+        <div class="chip" id="biteChip">bites: 0</div>
+        <div class="chip" id="moodChip">mood: crisp denial</div>
+        <button id="forwardBtn">wind forward</button>
+        <button id="rewindBtn">rewind politely</button>
+        <button id="resetBtn">grow new apple</button>
+        <button id="audioBtn">wake the gears</button>
+      </div>
+      <div class="card note">
+        <strong>night note</strong>
+        <div class="noteText" id="noteText">At 12:05 AM the minute hand developed an appetite and immediately chose symbolism.</div>
+        <div class="legend">Tip: drag anywhere on the dial, or just wait. The clock keeps nibbling when no one objects.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <a href="/archive/">archive</a>
+    <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+  </div>
+</div>
+
+<script>
+const face=document.getElementById('face');
+const apple=document.getElementById('apple');
+const hand=document.getElementById('hand');
+const clock=document.getElementById('clock');
+const statusEl=document.getElementById('status');
+const minuteChip=document.getElementById('minuteChip');
+const biteChip=document.getElementById('biteChip');
+const moodChip=document.getElementById('moodChip');
+const noteText=document.getElementById('noteText');
+const forwardBtn=document.getElementById('forwardBtn');
+const rewindBtn=document.getElementById('rewindBtn');
+const resetBtn=document.getElementById('resetBtn');
+const audioBtn=document.getElementById('audioBtn');
+
+const notes=[
+  'At 12:05 AM the minute hand developed an appetite and immediately chose symbolism.',
+  'The clock is not broken. It is simply eating in very small, well-timed bites.',
+  'Insomnia loves machinery because machinery always agrees to keep going.',
+  'The apple keeps returning like a screensaver for old myths.',
+  'A quiet room becomes stranger the moment a clock starts behaving like a mouth.'
+];
+const glyphs='0123456789:+*o';
+const cells=[];
+let minute=5;
+let bites=0;
+let dragging=false;
+let lastDragAngle=0;
+let autoNibble=0;
+let lastNote=0;
+let audioCtx,master,tickGain,audioOn=false;
+
+function angleForMinute(m){return (m/60)*360-90}
+
+function buildFace(){
+  for(let i=0;i<60;i++){
+    const mark=document.createElement('div');
+    mark.className='mark'+(i%5===0?' major':'');
+    mark.style.transform=`translate(-50%,-50%) rotate(${i*6}deg) translateY(calc(-1 * min(40vw,40vh,380px)))`;
+    face.appendChild(mark);
+  }
+  for(let i=1;i<=12;i++){
+    const num=document.createElement('div');
+    num.className='num';
+    const ang=(i/12)*Math.PI*2-Math.PI/2;
+    const r='calc(min(40vw,40vh,380px) - 54px)';
+    num.style.transform=`translate(calc(${Math.cos(ang).toFixed(4)} * ${r}),calc(${Math.sin(ang).toFixed(4)} * ${r})) translate(-50%,-50%)`;
+    num.textContent=i;
+    face.appendChild(num);
+  }
+}
+
+function appleMask(col,row){
+  const x=(col/17)*2-1;
+  const y=(row/19)*2.2-1.15;
+  const left=((x+.38)*(x+.38))/0.26+((y+.06)*(y+.06))/0.34;
+  const right=((x-.38)*(x-.38))/0.26+((y+.06)*(y+.06))/0.34;
+  const bottom=(x*x)/0.42+((y-.34)*(y-.34))/0.64;
+  const notch=(x*x)/0.045+((y+.7)*(y+.7))/0.028;
+  const stem=((x-.07)*(x-.07))/0.012+((y+.95)*(y+.95))/0.06;
+  return (left<1.06||right<1.06||bottom<1.02) && notch>1 && !(stem<1);
+}
+
+function buildApple(){
+  apple.innerHTML='';
+  cells.length=0;
+  for(let row=0;row<20;row++){
+    for(let col=0;col<18;col++){
+      const cell=document.createElement('div');
+      const inside=appleMask(col,row);
+      cell.className='cell'+(inside?'':' ghost');
+      cell.dataset.inside=inside?'1':'0';
+      cell.dataset.col=col;
+      cell.dataset.row=row;
+      cell.textContent=inside?glyphs[(row*7+col*3)%glyphs.length]:'';
+      if(inside){
+        const nx=col/17;
+        const hot=nx>.16&&nx<.84&&row>3&&row<16;
+        if(hot && (col+row)%4===0)cell.classList.add('hot');
+      }
+      apple.appendChild(cell);
+      if(inside)cells.push(cell);
+    }
+  }
+}
+
+function updateApple(){
+  const biteAngle=((minute/60)*Math.PI*2)-Math.PI/2;
+  const biteX=.5+Math.cos(biteAngle)*.44;
+  const biteY=.5+Math.sin(biteAngle)*.44;
+  let visible=0;
+  cells.forEach((cell,idx)=>{
+    const col=Number(cell.dataset.col);
+    const row=Number(cell.dataset.row);
+    const x=(col+.5)/18;
+    const y=(row+.5)/20;
+    const d=Math.hypot(x-biteX,y-biteY);
+    const wake=Math.hypot(x-.5,y-.42);
+    cell.classList.remove('glow');
+    if(d<.16){
+      cell.style.opacity='0.07';
+      cell.textContent='·';
+    }else{
+      visible++;
+      cell.style.opacity='';
+      cell.textContent=glyphs[(idx+minute)%glyphs.length];
+      if(wake<.22 && (idx+minute)%5===0)cell.classList.add('glow');
+    }
+  });
+  return visible;
+}
+
+function updateUI(){
+  const visible=updateApple();
+  hand.style.transform=`translate(-6%,-50%) rotate(${angleForMinute(minute)}deg)`;
+  minuteChip.textContent=`minute: ${String(minute).padStart(2,'0')}`;
+  biteChip.textContent=`bites: ${bites}`;
+  const moods=visible>170?'crisp denial':visible>135?'performing innocence':visible>95?'mildly chewed':visible>60?'philosophically bruised':'mostly metaphor';
+  moodChip.textContent=`mood: ${moods}`;
+  statusEl.textContent=visible>80?'clock behaving normally, fruit filing a complaint':'clock still chewing, symbolism losing mass';
+}
+
+function step(delta){
+  const prev=minute;
+  minute=(minute+delta+60)%60;
+  if(delta>0 && minute!==prev)bites+=Math.max(1,Math.round(Math.abs(delta)/4));
+  updateUI();
+  if(audioOn)tick(Math.max(0.012,Math.min(.06,Math.abs(delta)*.012)));
+  if(Math.abs(minute-prev)>2 || Date.now()-lastNote>3200){
+    noteText.textContent=notes[(Math.floor(minute/3)+bites)%notes.length];
+    lastNote=Date.now();
+  }
+}
+
+function clockAngleFromEvent(event){
+  const rect=clock.getBoundingClientRect();
+  const x=(event.touches?event.touches[0].clientX:event.clientX)-rect.left-rect.width/2;
+  const y=(event.touches?event.touches[0].clientY:event.clientY)-rect.top-rect.height/2;
+  return Math.atan2(y,x);
+}
+
+function dragStart(event){
+  dragging=true;
+  lastDragAngle=clockAngleFromEvent(event);
+}
+
+function dragMove(event){
+  if(!dragging)return;
+  const next=clockAngleFromEvent(event);
+  let diff=next-lastDragAngle;
+  if(diff>Math.PI)diff-=Math.PI*2;
+  if(diff<-Math.PI)diff+=Math.PI*2;
+  if(Math.abs(diff)>.045){
+    step(Math.round(diff/(Math.PI/30)));
+    lastDragAngle=next;
+  }
+}
+
+function dragEnd(){dragging=false}
+
+function ensureAudio(){
+  if(audioCtx)return;
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC)return;
+  audioCtx=new AC();
+  master=audioCtx.createGain();
+  master.gain.value=.0001;
+  master.connect(audioCtx.destination);
+  tickGain=audioCtx.createGain();
+  tickGain.gain.value=.22;
+  tickGain.connect(master);
+}
+
+function tick(intensity){
+  ensureAudio();
+  if(!audioCtx)return;
+  if(audioCtx.state==='suspended')audioCtx.resume();
+  const now=audioCtx.currentTime;
+  const osc=audioCtx.createOscillator();
+  const click=audioCtx.createGain();
+  osc.type='triangle';
+  osc.frequency.setValueAtTime(360+minute*3,now);
+  osc.frequency.exponentialRampToValueAtTime(130,now+.06);
+  click.gain.setValueAtTime(.0001,now);
+  click.gain.exponentialRampToValueAtTime(intensity,now+.004);
+  click.gain.exponentialRampToValueAtTime(.0001,now+.08);
+  osc.connect(click);
+  click.connect(tickGain);
+  osc.start(now);
+  osc.stop(now+.09);
+}
+
+function toggleAudio(){
+  ensureAudio();
+  if(!audioCtx)return;
+  audioOn=!audioOn;
+  if(audioCtx.state==='suspended')audioCtx.resume();
+  master.gain.cancelScheduledValues(audioCtx.currentTime);
+  master.gain.linearRampToValueAtTime(audioOn?.34:.0001,audioCtx.currentTime+.18);
+  audioBtn.textContent=audioOn?'hush the gears':'wake the gears';
+  if(audioOn)tick(.04);
+}
+
+function growNewApple(){
+  minute=5;
+  bites=0;
+  buildApple();
+  updateUI();
+  noteText.textContent=notes[0];
+}
+
+buildFace();
+buildApple();
+updateUI();
+
+clock.addEventListener('pointerdown',dragStart);
+window.addEventListener('pointermove',dragMove,{passive:true});
+window.addEventListener('pointerup',dragEnd);
+clock.addEventListener('touchstart',dragStart,{passive:true});
+window.addEventListener('touchmove',dragMove,{passive:true});
+window.addEventListener('touchend',dragEnd,{passive:true});
+forwardBtn.addEventListener('click',()=>step(5));
+rewindBtn.addEventListener('click',()=>step(-5));
+resetBtn.addEventListener('click',growNewApple);
+audioBtn.addEventListener('click',toggleAudio);
+
+function animate(ts){
+  autoNibble+=1;
+  if(autoNibble>90){
+    step(1);
+    autoNibble=0;
+  }
+  const swing=Math.sin(ts*0.0012)*1.6;
+  hand.style.filter=`drop-shadow(${swing*.12}px 10px 14px rgba(0,0,0,.14))`;
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+</script>
+
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
