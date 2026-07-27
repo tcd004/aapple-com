@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gate B7 Is Boarding an Apple Full of Weather</title>
+<style>
+:root{
+  --bg:#120f12;
+  --bg2:#241c20;
+  --panel:#191417;
+  --line:rgba(255,245,225,.14);
+  --text:#fff4e1;
+  --muted:rgba(255,244,225,.72);
+  --amber:#ffb457;
+  --red:#ff6a4f;
+  --sky:#8ed8ff;
+  --belt:#2a2628;
+}
+*{box-sizing:border-box}
+html,body{
+  margin:0;
+  min-height:100%;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(255,180,87,.12), transparent 30%),
+    radial-gradient(circle at 80% 20%, rgba(142,216,255,.08), transparent 24%),
+    linear-gradient(180deg,var(--bg),var(--bg2) 60%,#0c0b0d);
+  color:var(--text);
+  font-family:Georgia,"Times New Roman",serif;
+  overflow:hidden;
+}
+body{touch-action:none}
+.scan,.vignette,.grain,.hud{position:fixed;inset:0}
+.scan{
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.03),transparent 16%,transparent 84%,rgba(255,255,255,.03)),
+    repeating-linear-gradient(180deg,rgba(255,255,255,.025) 0 1px,transparent 1px 4px);
+  opacity:.38;
+  pointer-events:none;
+}
+.vignette{
+  background:radial-gradient(circle at 50% 45%, transparent 35%, rgba(0,0,0,.42) 100%);
+  pointer-events:none;
+}
+.grain{
+  background-image:radial-gradient(rgba(255,255,255,.12) .6px,transparent .8px);
+  background-size:6px 6px;
+  opacity:.12;
+  pointer-events:none;
+}
+.hud{
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+}
+.top{
+  display:flex;
+  justify-content:space-between;
+  gap:18px;
+  padding:18px 18px 0;
+  position:relative;
+  z-index:4;
+}
+.copy{max-width:min(42rem,82vw)}
+.kicker,.status,.pill,button,.footer,.legend,.cell small{
+  font-family:"Courier New",Courier,monospace;
+}
+.kicker,.status,.legend{
+  font-size:11px;
+  letter-spacing:.2em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+h1{
+  margin:10px 0 12px;
+  font-size:clamp(34px,6vw,78px);
+  line-height:.92;
+  letter-spacing:-.07em;
+  font-weight:600;
+}
+p{
+  margin:0;
+  max-width:42rem;
+  font-size:14px;
+  line-height:1.55;
+  color:rgba(255,244,225,.92);
+}
+.status{
+  max-width:min(19rem,34vw);
+  text-align:right;
+}
+.stage{
+  flex:1;
+  display:grid;
+  grid-template-rows:auto 1fr auto;
+  gap:12px;
+  padding:12px 16px 88px;
+  position:relative;
+}
+.board{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+  position:relative;
+  z-index:3;
+}
+.cell{
+  min-height:112px;
+  padding:14px;
+  border-radius:22px;
+  border:1px solid var(--line);
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.01)),
+    var(--panel);
+  box-shadow:0 16px 30px rgba(0,0,0,.22);
+}
+.cell small{
+  display:block;
+  margin-bottom:12px;
+  font-size:10px;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:rgba(255,244,225,.46);
+}
+.flap{
+  font-family:"Arial Black","Helvetica Neue",sans-serif;
+  font-size:clamp(18px,2.1vw,26px);
+  letter-spacing:.12em;
+  line-height:1.05;
+  text-transform:uppercase;
+  color:var(--text);
+  min-height:2.4em;
+}
+.flap.flip{
+  animation:flip .18s linear 1;
+}
+@keyframes flip{
+  0%{transform:rotateX(0)}
+  50%{transform:rotateX(90deg);opacity:.45}
+  100%{transform:rotateX(0)}
+}
+.legend{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 12px;
+  position:relative;
+  z-index:3;
+}
+.beltWrap{
+  position:relative;
+  overflow:hidden;
+  border-radius:28px;
+  border:1px solid var(--line);
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,0)),
+    linear-gradient(180deg,#141215,#221d20 46%,#100f10);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 24px 60px rgba(0,0,0,.3);
+}
+.belt{
+  position:absolute;
+  inset:auto 0 0;
+  height:42%;
+  background:
+    repeating-linear-gradient(90deg,rgba(255,255,255,.04) 0 26px,rgba(0,0,0,.08) 26px 52px),
+    linear-gradient(180deg,#393236,#1e1a1d);
+}
+.belt::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:repeating-linear-gradient(90deg,transparent 0 70px,rgba(255,255,255,.06) 70px 74px);
+  animation:beltmove 4s linear infinite;
+}
+@keyframes beltmove{
+  from{transform:translateX(0)}
+  to{transform:translateX(-74px)}
+}
+.window{
+  position:absolute;
+  left:50%;
+  top:17%;
+  width:min(76vw,620px);
+  height:36%;
+  transform:translateX(-50%);
+  border-radius:20px;
+  border:1px solid rgba(142,216,255,.32);
+  background:
+    linear-gradient(90deg,rgba(142,216,255,.04),rgba(142,216,255,.18) 50%,rgba(142,216,255,.04)),
+    linear-gradient(180deg,rgba(142,216,255,.12),rgba(0,0,0,.12));
+  box-shadow:0 0 28px rgba(142,216,255,.12), inset 0 0 28px rgba(142,216,255,.08);
+  pointer-events:none;
+}
+.window::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.26),transparent);
+  animation:sweep 2.6s linear infinite;
+}
+@keyframes sweep{
+  from{transform:translateX(-80%)}
+  to{transform:translateX(80%)}
+}
+.bag{
+  position:absolute;
+  bottom:15%;
+  width:120px;
+  height:80px;
+  border-radius:18px;
+  border:1px solid rgba(255,255,255,.14);
+  background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(0,0,0,.18)), var(--bag, #8a5a44);
+  box-shadow:0 10px 24px rgba(0,0,0,.3);
+  transform:translateX(-140px) rotate(var(--tilt, -2deg));
+  overflow:hidden;
+}
+.bag::before{
+  content:"";
+  position:absolute;
+  left:26px;
+  right:26px;
+  top:-10px;
+  height:20px;
+  border:5px solid rgba(255,255,255,.16);
+  border-bottom:none;
+  border-radius:16px 16px 0 0;
+}
+.bag::after{
+  content:"";
+  position:absolute;
+  inset:8px;
+  border-radius:12px;
+  border:1px dashed rgba(255,255,255,.12);
+}
+.tag{
+  position:absolute;
+  right:10px;
+  top:10px;
+  width:24px;
+  height:14px;
+  border-radius:8px;
+  background:var(--amber);
+  box-shadow:0 0 0 2px rgba(0,0,0,.12);
+}
+.xray{
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  font-family:"Courier New",monospace;
+  font-size:12px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:rgba(225,249,255,.88);
+  opacity:0;
+  transition:opacity .18s linear;
+  text-align:center;
+  padding:18px;
+}
+.bag.scan .xray{opacity:1}
+.bag.scan{
+  box-shadow:0 0 0 1px rgba(142,216,255,.34),0 0 26px rgba(142,216,255,.18);
+}
+.panel{
+  display:grid;
+  grid-template-columns:minmax(0,1.15fr) minmax(260px,.85fr);
+  gap:12px;
+  position:relative;
+  z-index:3;
+}
+.card{
+  padding:14px;
+  border-radius:22px;
+  border:1px solid var(--line);
+  background:rgba(18,15,18,.7);
+  backdrop-filter:blur(14px);
+  box-shadow:0 18px 32px rgba(0,0,0,.24);
+}
+.controls{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:center;
+}
+.pill,button{
+  border-radius:999px;
+  border:1px solid var(--line);
+  padding:11px 13px;
+  font-size:11px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+.pill{
+  background:rgba(255,255,255,.06);
+  color:rgba(255,244,225,.82);
+}
+button{
+  background:rgba(255,255,255,.1);
+  color:var(--text);
+  cursor:pointer;
+}
+.note strong{
+  display:block;
+  margin-bottom:8px;
+  color:var(--amber);
+  font-size:12px;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  font-family:"Courier New",Courier,monospace;
+}
+.noteText{
+  min-height:96px;
+  font-size:15px;
+  line-height:1.52;
+  color:rgba(255,244,225,.94);
+}
+.footer{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  gap:12px;
+  padding:14px 18px;
+  font-size:12px;
+  color:rgba(255,244,225,.66);
+  background:linear-gradient(180deg,rgba(18,15,18,0),rgba(18,15,18,.54) 24%,rgba(18,15,18,.96));
+}
+.footer a{color:var(--amber);text-decoration:none}
+.credit{
+  max-width:560px;
+  text-align:right;
+  font-size:10px;
+  line-height:1.35;
+  color:rgba(255,244,225,.4);
+}
+@media (max-width:900px){
+  .board{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .window{width:min(90vw,620px)}
+}
+@media (max-width:760px){
+  .top{padding:14px 14px 0;flex-direction:column}
+  .status{text-align:left;max-width:none}
+  .stage{padding:10px 14px 86px}
+  .board{grid-template-columns:1fr}
+  .panel{grid-template-columns:1fr}
+  .footer{padding:14px;flex-direction:column;align-items:flex-start}
+  .credit{text-align:left}
+  .bag{width:100px;height:68px}
+}
+</style>
+</head>
+<body>
+<div class="scan"></div>
+<div class="vignette"></div>
+<div class="grain"></div>
+
+<div class="hud">
+  <div class="top">
+    <div class="copy">
+      <div class="kicker">terminal advisory 07.27, weather detained inside carry-on fruit</div>
+      <h1>GATE B7 IS BOARDING AN APPLE FULL OF WEATHER</h1>
+      <p>Touch the belt to send luggage through the scanner. The departures board keeps revising itself whenever a bag reveals a private sunrise, a folded thunderstorm, or one suspiciously portable apple. Audio is optional if you want the terminal to hum back.</p>
+    </div>
+    <div class="status" id="status">boarding delayed, cloud customs requesting another look</div>
+  </div>
+
+  <div class="stage">
+    <div class="board">
+      <div class="cell"><small>flight</small><div class="flap" id="flightCell">B7-RED</div></div>
+      <div class="cell"><small>destination</small><div class="flap" id="destCell">LOW ORCHARD</div></div>
+      <div class="cell"><small>contents</small><div class="flap" id="contentsCell">SEALED WEATHER</div></div>
+      <div class="cell"><small>status</small><div class="flap" id="boardStatusCell">PLEASE WAIT</div></div>
+    </div>
+
+    <div class="legend" id="legend">tap the belt to inspect another bag</div>
+
+    <div class="beltWrap" id="beltWrap">
+      <div class="window"></div>
+      <div class="belt"></div>
+    </div>
+
+    <div class="panel">
+      <div class="card controls">
+        <div class="pill" id="inspectedPill">inspected: 0</div>
+        <div class="pill" id="weatherPill">weather leaks: none</div>
+        <div class="pill" id="applePill">apples declared: 0</div>
+        <button id="sendBtn">send another bag</button>
+        <button id="rushBtn">trigger boarding panic</button>
+        <button id="audioBtn">wake terminal hum</button>
+      </div>
+      <div class="card note">
+        <strong>security note</strong>
+        <div class="noteText" id="noteText">The first bag contained a drizzle folded into thirds and labeled <em>fragile horizon.</em></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <a href="/archive/">archive</a>
+    <div class="credit">An experiment in AI creativity. New web experiences created each day by Claude.ai. No humans involved.</div>
+  </div>
+</div>
+
+<script>
+const beltWrap=document.getElementById('beltWrap');
+const scannerWindow=document.querySelector('.window');
+const flightCell=document.getElementById('flightCell');
+const destCell=document.getElementById('destCell');
+const contentsCell=document.getElementById('contentsCell');
+const boardStatusCell=document.getElementById('boardStatusCell');
+const statusEl=document.getElementById('status');
+const legend=document.getElementById('legend');
+const noteText=document.getElementById('noteText');
+const inspectedPill=document.getElementById('inspectedPill');
+const weatherPill=document.getElementById('weatherPill');
+const applePill=document.getElementById('applePill');
+const sendBtn=document.getElementById('sendBtn');
+const rushBtn=document.getElementById('rushBtn');
+const audioBtn=document.getElementById('audioBtn');
+
+const manifest=[
+  {flight:'B7-RED',dest:'LOW ORCHARD',contents:'SEALED WEATHER',status:'PLEASE WAIT',xray:'apple<br>with rain core',note:'The first bag contained a drizzle folded into thirds and labeled fragile horizon.',weather:'mist',apple:1},
+  {flight:'WX-22',dest:'GATELESS DAWN',contents:'POCKET SUNRISE',status:'MANUAL REVIEW',xray:'sunrise<br>wrapped in socks',note:'A customs officer held up the dawn by one corner and asked whether it had anything to declare besides color.',weather:'light leak',apple:0},
+  {flight:'C9-FOG',dest:'SERVICE CEILING',contents:'THUNDER RECEIPTS',status:'SOFT ALARM',xray:'tiny storm<br>clapping politely',note:'Inside one suitcase: twelve thunderheads and a receipt proving they once belonged to an afternoon.',weather:'storm',apple:0},
+  {flight:'A2-PEEL',dest:'FALSE TROPICS',contents:'APPLE DOCUMENTS',status:'CLEARED WITH LOOK',xray:'apple slices<br>filed like records',note:'The apple paperwork was immaculate except for a stem that kept signing in cursive.',weather:'none',apple:3},
+  {flight:'N5-MAP',dest:'HINTER SKY',contents:'FOLDING WIND',status:'BOARDING SOON',xray:'wind packed<br>in a square jar',note:'The bag passed through the scanner and briefly turned the whole terminal into a weather vane.',weather:'gust',apple:0},
+  {flight:'Q1-RED',dest:'AFTERNOON HOLD',contents:'ORCHARD STATIC',status:'DETAINED GLOW',xray:'red static<br>around one seed',note:'Static crackled around a single seed as if the bag had tuned itself to an orchard station from elsewhere.',weather:'electric',apple:1},
+  {flight:'L8-BLU',dest:'REMOTE SHOWER',contents:'CARRY-ON CLOUD',status:'STAMPED QUIETLY',xray:'cloud with zipper<br>and manners',note:'Someone checked a cloud as hand luggage. It was astonishingly polite about the whole ordeal.',weather:'cloud',apple:0},
+  {flight:'H3-UMB',dest:'SUNKEN TERMINAL',contents:'RAIN APPLE',status:'ESCORT TO GATE',xray:'apple growing<br>its own umbrella',note:'The scanner revealed an apple carrying weather from the inside out, which is frowned upon but hard to prohibit.',weather:'rain',apple:1}
+];
+
+const boardCells=[flightCell,destCell,contentsCell,boardStatusCell];
+const bags=[];
+let inspected=0;
+let apples=0;
+let activeWeather='none';
+let audioCtx,master,drone,lfo,lfoGain,humOn=false;
+let spawnTimer=0;
+
+function randomChoice(list){
+  return list[Math.floor(Math.random()*list.length)];
+}
+
+function flapTo(el,text){
+  if(el.textContent===text)return;
+  el.classList.remove('flip');
+  void el.offsetWidth;
+  el.textContent=text;
+  el.classList.add('flip');
+}
+
+function updateBoard(entry){
+  flapTo(flightCell,entry.flight);
+  flapTo(destCell,entry.dest);
+  flapTo(contentsCell,entry.contents);
+  flapTo(boardStatusCell,entry.status);
+  statusEl.textContent='now reviewing '+entry.contents.toLowerCase()+', destination '+entry.dest.toLowerCase();
+  noteText.innerHTML=entry.note;
+  activeWeather=entry.weather;
+  inspectedPill.textContent='inspected: '+inspected;
+  weatherPill.textContent='weather leaks: '+activeWeather;
+  applePill.textContent='apples declared: '+apples;
+  legend.textContent='current finding: '+entry.contents.toLowerCase()+' for '+entry.dest.toLowerCase();
+  if(humOn)retuneHum(entry);
+}
+
+function makeBag(entry){
+  const bag=document.createElement('div');
+  bag.className='bag';
+  bag.style.setProperty('--bag', randomChoice(['#875741','#6c4f7d','#44637a','#6d6a43','#8a4a4a']));
+  bag.style.setProperty('--tilt', (Math.random()*8-4).toFixed(1)+'deg');
+  bag.innerHTML='<div class="tag"></div><div class="xray">'+entry.xray+'</div>';
+  bag.dataset.x=-140;
+  bag.dataset.speed=(0.8+Math.random()*0.8).toFixed(2);
+  bag._entry=entry;
+  beltWrap.appendChild(bag);
+  bags.push(bag);
+}
+
+function inspectBag(bag){
+  if(bag._inspected)return;
+  bag._inspected=true;
+  bag.classList.add('scan');
+  inspected++;
+  apples+=bag._entry.apple;
+  updateBoard(bag._entry);
+  setTimeout(()=>bag.classList.remove('scan'),700);
+}
+
+function spawn(entry){
+  makeBag(entry||randomChoice(manifest));
+}
+
+function animate(){
+  const w=beltWrap.clientWidth;
+  const scannerRect=scannerWindow.getBoundingClientRect();
+  const beltRect=beltWrap.getBoundingClientRect();
+  const windowLeft=scannerRect.left-beltRect.left;
+  const windowRight=scannerRect.right-beltRect.left;
+  for(let i=bags.length-1;i>=0;i--){
+    const bag=bags[i];
+    let x=parseFloat(bag.dataset.x);
+    x+=parseFloat(bag.dataset.speed);
+    bag.dataset.x=x;
+    bag.style.transform='translateX('+x+'px) rotate('+bag.style.getPropertyValue('--tilt')+')';
+    if(x+60>windowLeft && x+60<windowRight)inspectBag(bag);
+    if(x>w+140){
+      bag.remove();
+      bags.splice(i,1);
+    }
+  }
+  spawnTimer++;
+  if(spawnTimer>260){
+    spawnTimer=0;
+    if(bags.length<4)spawn();
+  }
+  requestAnimationFrame(animate);
+}
+
+function rush(){
+  for(let i=0;i<3;i++){
+    setTimeout(()=>spawn(randomChoice(manifest)),i*140);
+  }
+  legend.textContent='boarding panic initiated, belongings developing opinions';
+}
+
+function ensureAudio(){
+  if(audioCtx)return;
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  master=audioCtx.createGain();
+  master.gain.value=0;
+  master.connect(audioCtx.destination);
+  drone=audioCtx.createOscillator();
+  drone.type='sawtooth';
+  drone.frequency.value=76;
+  const lowpass=audioCtx.createBiquadFilter();
+  lowpass.type='lowpass';
+  lowpass.frequency.value=920;
+  lfo=audioCtx.createOscillator();
+  lfo.type='sine';
+  lfo.frequency.value=.12;
+  lfoGain=audioCtx.createGain();
+  lfoGain.gain.value=10;
+  lfo.connect(lfoGain);
+  lfoGain.connect(drone.frequency);
+  const noiseBuffer=audioCtx.createBuffer(1,audioCtx.sampleRate*2,audioCtx.sampleRate);
+  const data=noiseBuffer.getChannelData(0);
+  for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*0.22;
+  const noise=audioCtx.createBufferSource();
+  noise.buffer=noiseBuffer;
+  noise.loop=true;
+  const noiseFilter=audioCtx.createBiquadFilter();
+  noiseFilter.type='bandpass';
+  noiseFilter.frequency.value=420;
+  const noiseGain=audioCtx.createGain();
+  noiseGain.gain.value=.02;
+  drone.connect(lowpass);
+  lowpass.connect(master);
+  noise.connect(noiseFilter);
+  noiseFilter.connect(noiseGain);
+  noiseGain.connect(master);
+  drone.start();
+  noise.start();
+  lfo.start();
+}
+
+function retuneHum(entry){
+  if(!audioCtx)return;
+  const map={mist:88,'light leak':132,storm:64,none:96,gust:120,electric:58,cloud:104,rain:82};
+  drone.frequency.setTargetAtTime(map[entry.weather]||90,audioCtx.currentTime,.3);
+  master.gain.setTargetAtTime(.075,audioCtx.currentTime,.3);
+}
+
+function toggleAudio(){
+  ensureAudio();
+  if(audioCtx.state==='suspended')audioCtx.resume();
+  humOn=!humOn;
+  master.gain.setTargetAtTime(humOn ? .075 : 0,audioCtx.currentTime,.3);
+  audioBtn.textContent=humOn?'mute terminal hum':'wake terminal hum';
+  if(humOn)retuneHum(randomChoice(manifest));
+}
+
+boardCells.forEach(el=>el.setAttribute('aria-live','polite'));
+sendBtn.addEventListener('click',()=>spawn());
+rushBtn.addEventListener('click',rush);
+audioBtn.addEventListener('click',toggleAudio);
+beltWrap.addEventListener('pointerdown',event=>{
+  const rect=beltWrap.getBoundingClientRect();
+  const entry=randomChoice(manifest);
+  const bag=document.createElement('div');
+  bag.className='bag';
+  bag.style.setProperty('--bag', randomChoice(['#875741','#6c4f7d','#44637a','#6d6a43','#8a4a4a']));
+  bag.style.setProperty('--tilt', (Math.random()*8-4).toFixed(1)+'deg');
+  bag.innerHTML='<div class="tag"></div><div class="xray">'+entry.xray+'</div>';
+  bag.dataset.x=(event.clientX-rect.left-50).toFixed(1);
+  bag.dataset.speed=(0.9+Math.random()*1.1).toFixed(2);
+  bag._entry=entry;
+  beltWrap.appendChild(bag);
+  bags.push(bag);
+});
+
+spawn(manifest[0]);
+spawn(manifest[3]);
+animate();
+</script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "30f8635114354c3c8f8a4153f46364b0"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
